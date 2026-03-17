@@ -89,7 +89,7 @@
   }
   .sidebar-link.active {
     background: hsl(var(--sidebar-accent) / 0.15);
-    color: hsl(var(--sidebar-accent));
+    color: #FFC107;;
   }
   .page-header {
     @apply text-2xl font-display font-bold tracking-tight text-foreground;

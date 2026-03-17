@@ -11,8 +11,6 @@ import DashboardPage from "./pages/DashboardPage";
 import SchoolsPage from "./pages/SchoolsPage";
 import SchoolAdminsPage from "./pages/SchoolAdminsPage";
 import SchoolAdminDashboard from "./pages/school-admin/SchoolAdminDashboard";
-import StudentsPage from "./pages/school-admin/StudentsPage";
-import TeachersPage from "./pages/school-admin/TeachersPage";
 import SchoolModulePage from "./pages/school-admin/SchoolModulePage";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherModulePage from "./pages/teacher/TeacherModulePage";
@@ -47,8 +45,6 @@ function AppRoutes() {
       {role === "school-admin" && (
         <Route element={<SchoolAdminLayout />}>
           <Route path="/school" element={<SchoolAdminDashboard />} />
-          <Route path="/school/students" element={<StudentsPage />} />
-          <Route path="/school/staff" element={<TeachersPage />} />
           <Route path="/school/:module" element={<SchoolModulePage />} />
         </Route>
       )}

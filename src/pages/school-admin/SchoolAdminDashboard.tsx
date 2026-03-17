@@ -2,6 +2,7 @@ import { Users, BookOpen, GraduationCap, Clock } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
+
 const classData = [
   { name: "Primary (1-5)", students: 420, color: "hsl(168, 80%, 36%)" },
   { name: "Middle (6-8)", students: 310, color: "hsl(217, 91%, 60%)" },

@@ -12,7 +12,7 @@ interface AdminData {
 }
 
 const mockAdmins: AdminData[] = [
-  { id: 1, name: "John Smith", email: "john@greenwood.edu", school: "Greenwood Academy", role: "School Admin", status: "Active", lastLogin: "2024-06-15 09:30" },
+  { id: 1, name: "John Smith ", email: "john@greenwood.edu", school: "Greenwood Academy", role: "School Admin", status: "Active", lastLogin: "2024-06-15 09:30" },
   { id: 2, name: "Sarah Johnson", email: "sarah@sunrise.edu", school: "Sunrise International", role: "School Admin", status: "Active", lastLogin: "2024-06-14 14:22" },
   { id: 3, name: "Michael Brown", email: "michael@heritage.edu", school: "Heritage School", role: "School Admin", status: "Active", lastLogin: "2024-06-13 11:15" },
   { id: 4, name: "Emily Davis", email: "emily@mapleton.edu", school: "Mapleton High", role: "School Admin", status: "Disabled", lastLogin: "2024-05-20 16:45" },
