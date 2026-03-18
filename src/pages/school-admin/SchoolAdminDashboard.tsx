@@ -7,6 +7,11 @@ import {
   ResponsiveContainer,
   Legend,
   Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 
 const classData = [
@@ -16,27 +21,20 @@ const classData = [
   { name: "Senior (11-12)", students: 180, color: "hsl(280, 65%, 55%)" },
 ];
 
+// 💰 Finance Data
+const financeData = [
+  { month: "Jan", fees: 40000, expense: 25000, profit: 15000 },
+  { month: "Feb", fees: 52000, expense: 30000, profit: 22000 },
+  { month: "Mar", fees: 48000, expense: 27000, profit: 21000 },
+  { month: "Apr", fees: 60000, expense: 35000, profit: 25000 },
+  { month: "May", fees: 65000, expense: 40000, profit: 25000 },
+];
+
 const notifications = [
-  {
-    title: "🎂 Birthday: Rahul Sharma",
-    desc: "Class 6-A student",
-    time: "Today",
-  },
-  {
-    title: "📢 Staff Meeting",
-    desc: "At 3:00 PM in conference hall",
-    time: "Today",
-  },
-  {
-    title: "📝 Exam Schedule Released",
-    desc: "Check exams module",
-    time: "Yesterday",
-  },
-  {
-    title: "🎉 Annual Day",
-    desc: "Coming this weekend",
-    time: "Upcoming",
-  },
+  { title: "🎂 Birthday: Rahul Sharma", desc: "Class 6-A student", time: "Today" },
+  { title: "📢 Staff Meeting", desc: "At 3:00 PM", time: "Today" },
+  { title: "📝 Exam Schedule Released", desc: "Check exams module", time: "Yesterday" },
+  { title: "🎉 Annual Day", desc: "Coming this weekend", time: "Upcoming" },
 ];
 
 export default function SchoolAdminDashboard() {
@@ -51,13 +49,12 @@ export default function SchoolAdminDashboard() {
         <StatCard title="Avg Attendance" value="94.2%" icon={Clock} trend="1.5% improvement" trendUp color="warning" />
       </div>
 
-      {/* Main Section */}
+      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* ✅ BIG Class Distribution Chart */}
+        {/* Pie Chart */}
         <div className="lg:col-span-2 stat-card">
           <h3 className="text-base font-semibold mb-4">Class Distribution</h3>
-
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
               <Pie
@@ -78,7 +75,7 @@ export default function SchoolAdminDashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* 🔔 Notifications */}
+        {/* Notifications */}
         <div className="stat-card">
           <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
             <Bell className="w-4 h-4" />
@@ -87,21 +84,35 @@ export default function SchoolAdminDashboard() {
 
           <div className="space-y-3">
             {notifications.map((item, i) => (
-              <div
-                key={i}
-                className="p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition"
-              >
+              <div key={i} className="p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition">
                 <p className="text-sm font-medium">{item.title}</p>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {item.time}
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">{item.time}</p>
               </div>
             ))}
           </div>
         </div>
-
       </div>
+
+      {/* 💰 Finance Bar Chart */}
+      <div className="stat-card">
+        <h3 className="text-base font-semibold mb-4">Finance Overview</h3>
+
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={financeData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+
+            <Bar dataKey="fees" name="Fees Collected" fill="hsl(142, 76%, 36%)" />
+            <Bar dataKey="expense" name="Expenses" fill="hsl(0, 84%, 60%)" />
+            <Bar dataKey="profit" name="Profit" fill="hsl(217, 91%, 60%)" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
     </div>
   );
 }

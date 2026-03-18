@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import CommunicationModule from "./modules/CommunicationModule";
 import AcademicsModule from "./modules/AcademicsModule"; // ✅ added
+import AttendenceModule from "./modules/AttendenceModule"; // ✅ added
 
 const moduleNames: Record<string, string> = {
   communication: "Communication",
@@ -18,6 +19,9 @@ export default function SchoolModulePage() {
 
       case "academics": // ✅ added
         return <AcademicsModule />;
+      
+      case "attendence": // ✅ added
+        return <AttendenceModule />;
 
       default:
         return (

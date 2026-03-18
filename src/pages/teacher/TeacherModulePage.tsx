@@ -7,6 +7,7 @@ import StudentsModule from "./modules/StudentModule";
 import DigitalClassroomModule from "./modules/DigitalClassroomModule";
 import TimeTableModule from "./modules/TimeTableModule";
 import CommunicationModule from "./modules/CommunicationModule";
+import LeaveModule  from "./modules/LeaveModule"; // Adjusted to named import
 
 const moduleNames: Record<string, string> = {
   students: "My Students",
@@ -17,6 +18,7 @@ const moduleNames: Record<string, string> = {
   "digital-classroom": "Digital Classroom",
   timetable: "Time Table",
   communication: "Communication",
+  leave: "Leave Application", // ✅ added
 };
 
 export default function TeacherModulePage() {
@@ -46,6 +48,9 @@ export default function TeacherModulePage() {
       
       case "communication":
         return <CommunicationModule />;
+
+      case "leave":
+        return <LeaveModule />; // ✅ fixed
 
       default:
         return (
