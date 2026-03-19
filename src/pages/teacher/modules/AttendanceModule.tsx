@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const classStudents: Record<string, string[]> = {
   "Class A": ["Rahul", "Aarav", "Vivaan", "Krishna"],
@@ -11,6 +13,7 @@ const COLORS = ["#22c55e", "#ef4444"];
 export default function AttendanceModule() {
   const [selectedClass, setSelectedClass] = useState("");
   const [attendance, setAttendance] = useState<Record<string, string>>({});
+  const [selectedDate, setSelectedDate] = useState("");
 
   const students = selectedClass ? classStudents[selectedClass] : [];
 
@@ -37,59 +40,131 @@ export default function AttendanceModule() {
     { name: "Absent", value: absentCount },
   ];
 
+  // 📄 Generate PDF
+  const downloadPDF = () => {
+    if (!selectedClass || !selectedDate) {
+      alert("Please select class and date");
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text("Attendance Report", 14, 15);
+
+    doc.setFontSize(12);
+    doc.text(`Class: ${selectedClass}`, 14, 25);
+    doc.text(`Date: ${selectedDate}`, 14, 32);
+
+    const tableData = students.map((student) => [
+      student,
+      attendance[student] || "Not Marked",
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [["Student Name", "Status"]],
+      body: tableData,
+    });
+
+    doc.save(`Attendance_${selectedClass}_${selectedDate}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
 
-      {/* Select Class */}
+      {/* Top Controls */}
+      <div className="flex gap-4 flex-wrap items-center">
 
-      <div>
-        <label className="mr-3 font-medium">Select Class:</label>
+        {/* Class Select */}
+        <div>
+          <label className="mr-2 font-medium">Class:</label>
+          <select
+            className="border rounded px-3 py-2"
+            value={selectedClass}
+            onChange={(e) => {
+              setSelectedClass(e.target.value);
+              setAttendance({});
+            }}
+          >
+            <option value="">Choose Class</option>
+            {Object.keys(classStudents).map((cls) => (
+              <option key={cls}>{cls}</option>
+            ))}
+          </select>
+        </div>
 
-        <select
-          className="border rounded px-3 py-2"
-          value={selectedClass}
-          onChange={(e) => {
-            setSelectedClass(e.target.value);
-            setAttendance({});
-          }}
+        {/* Date Picker */}
+        <div>
+          <label className="mr-2 font-medium">Date:</label>
+          <input
+            type="date"
+            className="border rounded px-3 py-2"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
+        </div>
+
+        {/* Download Button */}
+        <button
+          onClick={downloadPDF}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
         >
-          <option value="">Choose Class</option>
-
-          {Object.keys(classStudents).map((cls) => (
-            <option key={cls}>{cls}</option>
-          ))}
-        </select>
+          Download PDF
+        </button>
       </div>
 
       {selectedClass && (
         <>
-          {/* Student Attendance Cards */}
+          {/* Pie Chart */}
+          <div className="bg-white rounded-xl shadow p-6 flex justify-center">
+            <PieChart width={350} height={300}>
+              <Pie data={chartData} outerRadius={100} dataKey="value" label>
+                {chartData.map((entry, index) => (
+                  <Cell key={index} fill={COLORS[index]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </div>
 
+          {/* Summary */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded shadow text-center">
+              <p>Total</p>
+              <h3 className="font-bold text-xl">{total}</h3>
+            </div>
+
+            <div className="bg-white p-4 rounded shadow text-center">
+              <p>Present</p>
+              <h3 className="text-green-600 text-xl">{presentCount}</h3>
+            </div>
+
+            <div className="bg-white p-4 rounded shadow text-center">
+              <p>Absent</p>
+              <h3 className="text-red-500 text-xl">{absentCount}</h3>
+            </div>
+
+            <div className="bg-white p-4 rounded shadow text-center">
+              <p>%</p>
+              <h3 className="text-xl">{percent}%</h3>
+            </div>
+          </div>
+
+          {/* Students */}
           <div className="space-y-3">
-
             {students.map((student) => (
               <div
                 key={student}
-                className="bg-white border rounded-xl p-4 flex justify-between items-center shadow-sm"
+                className="bg-white border rounded-xl p-4 flex justify-between items-center"
               >
-
-                {/* Student Info */}
-
-                <div className="flex items-center gap-3">
-
-                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
-
-                  <p className="font-medium">{student}</p>
-
-                </div>
-
-                {/* Attendance Buttons */}
+                <p className="font-medium">{student}</p>
 
                 <div className="flex gap-3">
-
                   <button
                     onClick={() => markAttendance(student, "present")}
-                    className={`px-3 py-1 rounded text-sm ${
+                    className={`px-3 py-1 rounded ${
                       attendance[student] === "present"
                         ? "bg-green-600 text-white"
                         : "bg-gray-100"
@@ -100,7 +175,7 @@ export default function AttendanceModule() {
 
                   <button
                     onClick={() => markAttendance(student, "absent")}
-                    className={`px-3 py-1 rounded text-sm ${
+                    className={`px-3 py-1 rounded ${
                       attendance[student] === "absent"
                         ? "bg-red-500 text-white"
                         : "bg-gray-100"
@@ -108,64 +183,10 @@ export default function AttendanceModule() {
                   >
                     Absent
                   </button>
-
                 </div>
-
               </div>
             ))}
-
           </div>
-
-          {/* Attendance Summary */}
-
-          <div className="grid grid-cols-4 gap-4">
-
-            <div className="stat-card p-4">
-              <p>Total Students</p>
-              <h3 className="text-xl font-bold">{total}</h3>
-            </div>
-
-            <div className="stat-card p-4">
-              <p>Present</p>
-              <h3 className="text-xl text-green-600">{presentCount}</h3>
-            </div>
-
-            <div className="stat-card p-4">
-              <p>Absent</p>
-              <h3 className="text-xl text-red-500">{absentCount}</h3>
-            </div>
-
-            <div className="stat-card p-4">
-              <p>Attendance %</p>
-              <h3 className="text-xl">{percent}%</h3>
-            </div>
-
-          </div>
-
-          {/* Pie Chart */}
-
-          <div className="stat-card p-6 flex justify-center">
-
-            <PieChart width={350} height={300}>
-
-              <Pie
-                data={chartData}
-                outerRadius={100}
-                dataKey="value"
-                label
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={index} fill={COLORS[index]} />
-                ))}
-              </Pie>
-
-              <Tooltip />
-              <Legend />
-
-            </PieChart>
-
-          </div>
-
         </>
       )}
     </div>
