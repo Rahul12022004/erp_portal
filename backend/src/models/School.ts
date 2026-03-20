@@ -12,16 +12,22 @@ const schoolSchema = new mongoose.Schema(
     },
 
     adminInfo: {
-      name: { type: String, required: true },
-      email: { type: String, required: true },
-      password: { type: String, required: true },
+      name: String,
+      email: String,
+      password: String,
       phone: String,
+      status: {
+        type: String,
+        default: "Active",
+      },
     },
 
     systemInfo: {
       schoolType: String,
       maxStudents: Number,
       subscriptionPlan: String,
+      subscriptionEndDate: String, 
+      
     },
 
     modules: [String],

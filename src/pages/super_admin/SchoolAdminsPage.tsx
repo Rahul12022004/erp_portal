@@ -1,110 +1,232 @@
-import { useState } from "react";
-import { Search, Edit, Trash2, ShieldOff } from "lucide-react";
-
-interface AdminData {
-  id: number;
-  name: string;
-  email: string;
-  school: string;
-  role: string;
-  status: "Active" | "Disabled";
-  lastLogin: string;
-}
-
-const mockAdmins: AdminData[] = [
-  { id: 1, name: "John Smith ", email: "john@greenwood.edu", school: "Greenwood Academy", role: "School Admin", status: "Active", lastLogin: "2024-06-15 09:30" },
-  { id: 2, name: "Sarah Johnson", email: "sarah@sunrise.edu", school: "Sunrise International", role: "School Admin", status: "Active", lastLogin: "2024-06-14 14:22" },
-  { id: 3, name: "Michael Brown", email: "michael@heritage.edu", school: "Heritage School", role: "School Admin", status: "Active", lastLogin: "2024-06-13 11:15" },
-  { id: 4, name: "Emily Davis", email: "emily@mapleton.edu", school: "Mapleton High", role: "School Admin", status: "Disabled", lastLogin: "2024-05-20 16:45" },
-  { id: 5, name: "Robert Wilson", email: "robert@riverside.edu", school: "Riverside Public", role: "School Admin", status: "Active", lastLogin: "2024-06-15 08:10" },
-];
+import { useState, useEffect } from "react";
+import { Search, Edit, Trash2 } from "lucide-react";
 
 export default function SchoolAdminsPage() {
   const [search, setSearch] = useState("");
+  const [schools, setSchools] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = mockAdmins.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase()) ||
-    a.email.toLowerCase().includes(search.toLowerCase()) ||
-    a.school.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    fetchSchools();
+  }, []);
+
+  const fetchSchools = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/schools");
+      const data = await res.json();
+      setSchools(data);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔥 Convert school → admin
+  const admins = schools.map((s) => ({
+    id: s._id,
+    name: s.adminInfo?.name,
+    email: s.adminInfo?.email,
+    phone: s.adminInfo?.phone,
+    school: s.schoolInfo?.name,
+    logo: s.schoolInfo?.logo,
+    status: s.adminInfo?.status || "Active",
+    role: "School Admin",
+    lastLogin: s.adminInfo?.lastLogin || "—",
+  }));
+
+  // 🔍 SEARCH
+  const filtered = admins.filter((a) =>
+    a.name?.toLowerCase().includes(search.toLowerCase()) ||
+    a.email?.toLowerCase().includes(search.toLowerCase()) ||
+    a.school?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // 🗑 DELETE
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this admin (school)?")) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/schools/${id}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) throw new Error("Delete failed");
+
+      fetchSchools();
+    } catch (error) {
+      console.error(error);
+      alert("Delete failed");
+    }
+  };
+
+  // 🔒 TOGGLE STATUS
+  const handleToggle = async (id: string) => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/schools/toggle/${id}`,
+        { method: "PUT" }
+      );
+
+      if (!res.ok) throw new Error("Toggle failed");
+
+      fetchSchools();
+    } catch (error) {
+      console.error(error);
+      alert("Toggle failed");
+    }
+  };
 
   return (
     <div className="space-y-6">
+
+      {/* HEADER */}
       <div>
-        <h1 className="page-header">School Admins</h1>
-        <p className="text-sm text-muted-foreground mt-1">{mockAdmins.length} admins registered</p>
+        <h1 className="text-xl font-bold">School Admins</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {admins.length} admins registered
+        </p>
       </div>
 
-      <div className="stat-card !p-4">
+      {/* SEARCH */}
+      <div className="bg-white p-4 rounded-xl shadow">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search admins..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-muted rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm"
           />
         </div>
       </div>
 
-      <div className="stat-card !p-0 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
-              <th className="text-left p-4 font-semibold text-muted-foreground">Admin</th>
-              <th className="text-left p-4 font-semibold text-muted-foreground hidden md:table-cell">School</th>
-              <th className="text-left p-4 font-semibold text-muted-foreground hidden lg:table-cell">Role</th>
-              <th className="text-left p-4 font-semibold text-muted-foreground">Status</th>
-              <th className="text-left p-4 font-semibold text-muted-foreground hidden lg:table-cell">Last Login</th>
-              <th className="text-right p-4 font-semibold text-muted-foreground">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((admin) => (
-              <tr key={admin.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                <td className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-primary">
-                        {admin.name.split(" ").map((n) => n[0]).join("")}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium">{admin.name}</p>
-                      <p className="text-xs text-muted-foreground">{admin.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-4 text-muted-foreground hidden md:table-cell">{admin.school}</td>
-                <td className="p-4 hidden lg:table-cell">{admin.role}</td>
-                <td className="p-4">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    admin.status === "Active"
-                      ? "bg-success/10 text-success"
-                      : "bg-destructive/10 text-destructive"
-                  }`}>
-                    {admin.status}
-                  </span>
-                </td>
-                <td className="p-4 text-muted-foreground hidden lg:table-cell">{admin.lastLogin}</td>
-                <td className="p-4">
-                  <div className="flex items-center justify-end gap-1">
-                    <button className="p-2 rounded-lg hover:bg-muted transition-colors" title="Edit">
-                      <Edit className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                    <button className="p-2 rounded-lg hover:bg-warning/10 transition-colors" title="Disable">
-                      <ShieldOff className="w-4 h-4 text-warning" />
-                    </button>
-                    <button className="p-2 rounded-lg hover:bg-destructive/10 transition-colors" title="Delete">
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </button>
-                  </div>
-                </td>
+      {/* TABLE */}
+      <div className="bg-white rounded-xl shadow overflow-x-auto">
+
+        {loading ? (
+          <p className="p-4">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+
+            {/* HEADER */}
+            <thead>
+              <tr className="border-b bg-gray-100 text-left">
+                <th className="p-4">Admin</th>
+                <th className="p-4">School</th>
+                <th className="p-4">Phone</th>
+                <th className="p-4">Role</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">Last Login</th>
+                <th className="p-4 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            {/* BODY */}
+            <tbody>
+              {filtered.map((admin) => {
+
+                const isValidLogo =
+                  admin.logo &&
+                  (admin.logo.startsWith("data:image") ||
+                    admin.logo.startsWith("http"));
+
+                const initials = admin.name
+                  ?.split(" ")
+                  .map((n: string) => n[0])
+                  .join("");
+
+                return (
+                  <tr key={admin.id} className="border-b hover:bg-gray-50">
+
+                    {/* ADMIN */}
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+
+                        {isValidLogo ? (
+                          <img
+                            src={admin.logo}
+                            className="w-9 h-9 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-xs font-semibold text-blue-600">
+                            {initials}
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="font-medium">{admin.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {admin.email}
+                          </p>
+                        </div>
+
+                      </div>
+                    </td>
+
+                    {/* SCHOOL */}
+                    <td className="p-4">{admin.school}</td>
+
+                    {/* PHONE */}
+                    <td className="p-4">{admin.phone || "-"}</td>
+
+                    {/* ROLE */}
+                    <td className="p-4">{admin.role}</td>
+
+                    {/* STATUS */}
+                    <td className="p-4">
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          admin.status === "Active"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {admin.status}
+                      </span>
+                    </td>
+
+                    {/* LAST LOGIN */}
+                    <td className="p-4 text-gray-500">
+                      {admin.lastLogin}
+                    </td>
+
+                    {/* ACTIONS */}
+                    <td className="p-4 text-right">
+                      <div className="flex justify-end gap-2">
+
+                        {/* ENABLE / DISABLE */}
+                        <button
+                          onClick={() => handleToggle(admin.id)}
+                          className={`px-2 py-1 text-xs rounded ${
+                            admin.status === "Active"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {admin.status === "Active"
+                            ? "Disable"
+                            : "Enable"}
+                        </button>
+
+                        {/* DELETE */}
+                        <Trash2
+                          onClick={() => handleDelete(admin.id)}
+                          className="w-4 h-4 cursor-pointer text-red-500"
+                        />
+
+                      </div>
+                    </td>
+
+                  </tr>
+                );
+              })}
+            </tbody>
+
+          </table>
+        )}
       </div>
     </div>
   );

@@ -3,9 +3,9 @@ import { useState } from "react";
 
 interface AddSchoolModalProps {
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-// MODULE GROUPS
 const MODULE_GROUPS: Record<string, string[]> = {
   OVERVIEW: ["Dashboard"],
   ACADEMICS: [
@@ -48,14 +48,13 @@ const MODULE_GROUPS: Record<string, string[]> = {
 
 const ALL_MODULES = Object.values(MODULE_GROUPS).flat();
 
-// PLANS
 const SUBSCRIPTION_PLANS: Record<string, string[]> = {
   Basic: ["Dashboard", "Attendance", "Communication"],
   Standard: ["Dashboard", "Attendance", "Academics", "Communication"],
   Premium: ALL_MODULES,
 };
 
-export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
+export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -81,10 +80,18 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
   const update = (key: string, value: string) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
 
+  // ✅ FIXED LOGO (BASE64)
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+
     if (file) {
-      update("logo", URL.createObjectURL(file));
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        update("logo", reader.result as string);
+      };
+
+      reader.readAsDataURL(file);
     }
   };
 
@@ -101,33 +108,10 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
     );
   };
 
-  // 🔥 CONNECTED TO BACKEND
+  // ✅ SUBMIT
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    const payload = {
-      schoolInfo: {
-        name: formData.schoolName,
-        email: formData.schoolEmail,
-        phone: formData.schoolPhone,
-        website: formData.schoolWebsite,
-        address: formData.schoolAddress,
-        logo: formData.logo,
-      },
-      adminInfo: {
-        name: formData.adminName,
-        email: formData.adminEmail,
-        password: formData.adminPassword,
-        phone: formData.adminPhone,
-      },
-      systemInfo: {
-        schoolType: formData.schoolType,
-        maxStudents: Number(formData.maxStudents),
-        subscriptionPlan: formData.subscriptionPlan,
-      },
-      modules: selectedModules,
-    };
 
     try {
       const res = await fetch("http://localhost:5000/api/schools", {
@@ -135,16 +119,33 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          schoolName: formData.schoolName,
+          schoolEmail: formData.schoolEmail,
+          schoolPhone: formData.schoolPhone,
+          schoolAddress: formData.schoolAddress,
+          schoolWebsite: formData.schoolWebsite,
+          adminName: formData.adminName,
+          adminEmail: formData.adminEmail,
+          adminPassword: formData.adminPassword,
+          adminPhone: formData.adminPhone,
+          schoolType: formData.schoolType,
+          maxStudents: formData.maxStudents,
+          subscriptionPlan: formData.subscriptionPlan,
+          logo: formData.logo, // ✅ important
+          modules: selectedModules,
+        }),
       });
 
       const data = await res.json();
 
       console.log("Saved:", data);
 
-      alert("School Created Successfully ✅");
+      alert("School Created ✅");
 
+      onSuccess?.(); // 🔥 refresh list
       onClose();
+
     } catch (error) {
       console.error(error);
       alert("Error creating school ❌");
@@ -167,7 +168,7 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
 
-          {/* Logo */}
+          {/* LOGO */}
           <div className="flex justify-center">
             <div className="relative w-28 h-28">
               <div className="w-28 h-28 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
@@ -182,7 +183,7 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
             </div>
           </div>
 
-          {/* School Info */}
+          {/* SCHOOL INFO */}
           <Section title="School Info">
             <Input label="School Name" value={formData.schoolName} onChange={(v)=>update("schoolName",v)} />
             <Input label="Email" value={formData.schoolEmail} onChange={(v)=>update("schoolEmail",v)} />
@@ -191,7 +192,7 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
             <FullInput label="Address" value={formData.schoolAddress} onChange={(v)=>update("schoolAddress",v)} />
           </Section>
 
-          {/* Admin Info */}
+          {/* ADMIN INFO */}
           <Section title="Admin Info">
             <Input label="Admin Name" value={formData.adminName} onChange={(v)=>update("adminName",v)} />
             <Input label="Admin Email" value={formData.adminEmail} onChange={(v)=>update("adminEmail",v)} />
@@ -199,24 +200,21 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
             <Input label="Phone" value={formData.adminPhone} onChange={(v)=>update("adminPhone",v)} />
           </Section>
 
-          {/* Settings */}
+          {/* SETTINGS */}
           <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label>School Type</label>
-              <select
-                value={formData.schoolType}
-                onChange={(e)=>update("schoolType",e.target.value)}
-                className="w-full border p-2 rounded"
-              >
-                <option>Public</option>
-                <option>Private</option>
-              </select>
-            </div>
+            <select
+              value={formData.schoolType}
+              onChange={(e)=>update("schoolType",e.target.value)}
+              className="border p-2 rounded"
+            >
+              <option>Public</option>
+              <option>Private</option>
+            </select>
 
             <Input label="Max Students" value={formData.maxStudents} onChange={(v)=>update("maxStudents",v)} />
           </div>
 
-          {/* Subscription */}
+          {/* SUBSCRIPTION */}
           <div>
             <h3 className="font-semibold mb-4">Subscription Plan</h3>
             <div className="grid md:grid-cols-3 gap-6">
@@ -226,34 +224,31 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
                   onClick={() => handleSubscriptionChange(plan)}
                   className={`p-6 rounded-2xl cursor-pointer ${
                     formData.subscriptionPlan === plan
-                      ? "bg-blue-600 text-white scale-105"
+                      ? "bg-blue-600 text-white"
                       : "bg-gray-900 text-white"
                   }`}
                 >
-                  <h2 className="text-xl font-bold">{plan}</h2>
-                  <button className="mt-4 w-full py-2 bg-white text-black rounded">
-                    {formData.subscriptionPlan === plan ? "Selected" : "Choose"}
-                  </button>
+                  <h2>{plan}</h2>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Modules */}
+          {/* MODULES */}
           <div>
             <h3 className="font-semibold mb-4">Modules</h3>
             {Object.entries(MODULE_GROUPS).map(([group, modules]) => (
-              <div key={group} className="mb-6">
-                <p className="text-sm font-semibold text-gray-500 mb-2">{group}</p>
-                <div className="grid grid-cols-3 gap-3">
+              <div key={group} className="mb-4">
+                <p className="text-sm text-gray-500">{group}</p>
+                <div className="grid grid-cols-3 gap-2">
                   {modules.map((mod) => (
                     <div
                       key={mod}
                       onClick={() => toggleModule(mod)}
-                      className={`p-3 text-center rounded cursor-pointer ${
+                      className={`p-2 text-center rounded ${
                         selectedModules.includes(mod)
-                          ? "bg-green-600 text-white"
-                          : "bg-gray-100"
+                          ? "bg-green-500 text-white"
+                          : "bg-gray-200"
                       }`}
                     >
                       {mod}
@@ -264,7 +259,7 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
             ))}
           </div>
 
-          {/* Buttons */}
+          {/* BUTTONS */}
           <div className="flex justify-end gap-3">
             <button type="button" onClick={onClose}>Cancel</button>
             <button
@@ -282,7 +277,7 @@ export function AddSchoolModal({ onClose }: AddSchoolModalProps) {
   );
 }
 
-// Components
+// 🔹 SMALL COMPONENTS
 function Section({ title, children }: any) {
   return (
     <div>

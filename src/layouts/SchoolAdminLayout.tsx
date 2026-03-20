@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { SchoolAdminSidebar } from "@/components/SchoolAdminSidebar";
+import { SchoolAdminSidebar } from "@/pages/school-admin/SchoolAdminSidebar";
 import { TopNavbar } from "@/components/TopNavbar";
 
 export default function SchoolAdminLayout() {

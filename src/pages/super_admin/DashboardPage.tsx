@@ -4,7 +4,6 @@ export default function DashboardPage() {
   const [schools, setSchools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 Fetch schools from backend
   useEffect(() => {
     fetchSchools();
   }, []);
@@ -21,7 +20,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Stats
   const total = schools.length;
 
   const paid = schools.filter(
@@ -35,27 +33,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
 
-      {/* 🔢 CARDS */}
+      {/* CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="stat-card p-4">
-          <h3 className="text-sm text-muted-foreground">Total Schools</h3>
-          <p className="text-2xl font-bold">{total}</p>
-        </div>
-
-        <div className="stat-card p-4">
-          <h3 className="text-sm text-muted-foreground">Paid Schools</h3>
-          <p className="text-2xl font-bold text-green-600">{paid}</p>
-        </div>
-
-        <div className="stat-card p-4">
-          <h3 className="text-sm text-muted-foreground">Unpaid Schools</h3>
-          <p className="text-2xl font-bold text-red-600">{unpaid}</p>
-        </div>
+        <Card title="Total Schools" value={total} />
+        <Card title="Paid Schools" value={paid} color="green" />
+        <Card title="Unpaid Schools" value={unpaid} color="red" />
       </div>
 
-      {/* 📋 TABLE */}
-      <div className="stat-card p-6">
-        <h3 className="text-xl font-semibold mb-6">
+      {/* TABLE */}
+      <div className="bg-white shadow rounded-xl p-6">
+        <h3 className="text-lg font-semibold mb-4">
           School Subscription Details
         </h3>
 
@@ -63,62 +50,107 @@ export default function DashboardPage() {
           <p>Loading schools...</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-separate border-spacing-y-2">
+            <table className="w-full text-sm">
+
               <thead>
-                <tr className="text-left text-muted-foreground">
-                  <th className="py-3 px-4">School</th>
-                  <th className="px-4">Admin</th>
-                  <th className="px-4">Email</th>
-                  <th className="px-4">Phone</th>
-                  <th className="px-4">Students</th>
-                  <th className="px-4">Modules</th>
-                  <th className="px-4">Plan</th>
+                <tr className="border-b text-gray-500 text-left">
+                  <th className="py-3">School</th>
+                  <th>Admin</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Students</th>
+                  <th>Modules</th>
+                  <th>Plan</th>
+                  <th>End Date</th>
                 </tr>
               </thead>
 
               <tbody>
-                {schools.map((school, index) => (
-                  <tr
-                    key={index}
-                    className="bg-muted/40 hover:bg-muted/60 rounded-lg"
-                  >
-                    <td className="py-4 px-4 font-medium text-base">
-                      {school.schoolInfo?.name}
-                    </td>
+                {schools.map((school) => {
 
-                    <td className="px-4">
-                      {school.adminInfo?.name}
-                    </td>
+                  const name = school.schoolInfo?.name || "";
+                  const logo = school.schoolInfo?.logo;
 
-                    <td className="px-4">
-                      {school.adminInfo?.email}
-                    </td>
+                  const initials = name
+                    .split(" ")
+                    .map((w: string) => w[0])
+                    .slice(0, 2)
+                    .join("");
 
-                    <td className="px-4">
-                      {school.adminInfo?.phone}
-                    </td>
+                  // 🔥 SAFE LOGO CHECK
+                  const isValidLogo =
+                    logo &&
+                    typeof logo === "string" &&
+                    (logo.startsWith("data:image") || logo.startsWith("http"));
 
-                    <td className="px-4">
-                      {school.systemInfo?.maxStudents || "-"}
-                    </td>
+                  return (
+                    <tr
+                      key={school._id}
+                      className="border-b hover:bg-gray-50 transition"
+                    >
 
-                    <td className="px-4">
-                      {school.modules?.length || 0}
-                    </td>
+                      {/* SCHOOL */}
+                      <td className="py-4">
+                        <div className="flex items-center gap-3">
 
-                    <td className="px-4">
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                        {school.systemInfo?.subscriptionPlan}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                          {isValidLogo ? (
+                            <img
+                              src={logo}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center font-semibold text-blue-600">
+                              {initials}
+                            </div>
+                          )}
+
+                          <div>
+                            <p className="font-medium">{name}</p>
+                            <p className="text-xs text-gray-500">
+                              {school.schoolInfo?.email}
+                            </p>
+                          </div>
+
+                        </div>
+                      </td>
+
+                      <td>{school.adminInfo?.name}</td>
+                      <td>{school.adminInfo?.email}</td>
+                      <td>{school.adminInfo?.phone}</td>
+                      <td>{school.systemInfo?.maxStudents || "-"}</td>
+                      <td>{school.modules?.length || 0}</td>
+
+                      <td>
+                        <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700">
+                          {school.systemInfo?.subscriptionPlan}
+                        </span>
+                      </td>
+
+                      <td>
+                        {school.systemInfo?.subscriptionEndDate || "-"}
+                      </td>
+
+                    </tr>
+                  );
+                })}
               </tbody>
 
             </table>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// 🔹 CARD COMPONENT
+function Card({ title, value, color }: any) {
+  return (
+    <div className="bg-white shadow rounded-xl p-5">
+      <p className="text-sm text-gray-500">{title}</p>
+      <h2 className={`text-2xl font-bold ${color === "green" ? "text-green-600" : color === "red" ? "text-red-600" : ""}`}>
+        {value}
+      </h2>
     </div>
   );
 }

@@ -2,27 +2,41 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db";
+
 import schoolRoutes from "./routes/schoolRoutes";
+import logRoutes from "./routes/logRoutes"; // ✅ ADD THIS
 
 dotenv.config();
 
 const app = express();
 
-// Middleware
+// ==========================
+// 🔧 MIDDLEWARE
+// ==========================
 app.use(cors());
 app.use(express.json());
 
-// Connect DB
+// ==========================
+// 🗄 DATABASE
+// ==========================
 connectDB();
 
-// Routes
+// ==========================
+// 🚀 ROUTES
+// ==========================
 app.use("/api/schools", schoolRoutes);
+app.use("/api/logs", logRoutes); // ✅ ADD THIS
 
-// Test route
+// ==========================
+// 🧪 TEST ROUTE
+// ==========================
 app.get("/", (req, res) => {
   res.send("API Running 🚀");
 });
 
+// ==========================
+// 🚀 SERVER START
+// ==========================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
