@@ -4,7 +4,24 @@ import dotenv from "dotenv";
 import connectDB from "./config/db";
 
 import schoolRoutes from "./routes/schoolRoutes";
-import logRoutes from "./routes/logRoutes"; // ✅ ADD THIS
+import logRoutes from "./routes/logRoutes";
+import dashboardRoutes from "./routes/dashboardRoutes";
+import announcementRoutes from "./routes/announcementRoutes";
+import attendanceRoutes from "./routes/attendanceRoutes";
+import assignmentRoutes from "./routes/assignmentRoutes";
+import examRoutes from "./routes/examRoutes";
+import markRoutes from "./routes/markRoutes";
+import leaveRoutes from "./routes/leaveRoutes";
+import maintenanceRoutes from "./routes/maintenanceRoutes";
+import surveyRoutes from "./routes/surveyRoutes";
+import studentRoutes from "./routes/studentRoutes";
+import staffRoutes from "./routes/staffRoutes";
+import classRoutes from "./routes/classRoutes";
+import financeRoutes from "./routes/financeRoutes";
+import transportRoutes from "./routes/transportRoutes";
+import hostelRoutes from "./routes/hostelRoutes";
+import libraryRoutes from "./routes/libraryRoutes";
+import inventoryRoutes from "./routes/inventoryRoutes";
 
 dotenv.config();
 
@@ -14,7 +31,7 @@ const app = express();
 // 🔧 MIDDLEWARE
 // ==========================
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // ==========================
 // 🗄 DATABASE
@@ -25,7 +42,24 @@ connectDB();
 // 🚀 ROUTES
 // ==========================
 app.use("/api/schools", schoolRoutes);
-app.use("/api/logs", logRoutes); // ✅ ADD THIS
+app.use("/api/logs", logRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/announcements", announcementRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/exams", examRoutes);
+app.use("/api/marks", markRoutes);
+app.use("/api/leaves", leaveRoutes);
+app.use("/api/maintenance", maintenanceRoutes);
+app.use("/api/surveys", surveyRoutes);
+app.use("/api/students", studentRoutes);
+app.use("/api/staff", staffRoutes);
+app.use("/api/classes", classRoutes);
+app.use("/api/finance", financeRoutes);
+app.use("/api/transport", transportRoutes);
+app.use("/api/hostels", hostelRoutes);
+app.use("/api/library", libraryRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 // ==========================
 // 🧪 TEST ROUTE

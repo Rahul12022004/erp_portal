@@ -21,13 +21,27 @@ const DEFAULT_TEACHER_MODULES = [
 ];
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<UserRole>("super-admin");
+  const [roleState, setRoleState] = useState<UserRole>(() => {
+    if (typeof window === "undefined") {
+      return "super-admin";
+    }
+
+    const savedRole = localStorage.getItem("role") as UserRole | null;
+    return savedRole || "super-admin";
+  });
   const [teacherPermissions, setTeacherPermissions] = useState<TeacherPermissions>({
     modules: DEFAULT_TEACHER_MODULES,
   });
 
+  const setRole = (nextRole: UserRole) => {
+    setRoleState(nextRole);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("role", nextRole);
+    }
+  };
+
   return (
-    <RoleContext.Provider value={{ role, setRole, teacherPermissions, setTeacherPermissions }}>
+    <RoleContext.Provider value={{ role: roleState, setRole, teacherPermissions, setTeacherPermissions }}>
       {children}
     </RoleContext.Provider>
   );

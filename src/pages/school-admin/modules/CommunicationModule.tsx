@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Announcement = {
-  id: number;
+  _id: string;
   title: string;
   message: string;
   author: string;
-  date: string;
+  createdAt: string;
 };
 
 export default function CommunicationModule() {
@@ -13,57 +13,109 @@ export default function CommunicationModule() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const school = JSON.parse(localStorage.getItem("school") || "{}");
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRole = currentUser?.role || "Principal";
 
-  // Change role here
-  const userRole = "Principal"; // or "Teacher"
+  const fetchAnnouncements = async () => {
+    if (!school?._id) {
+      setError("School not found. Please log in again.");
+      setAnnouncements([]);
+      setLoading(false);
+      return;
+    }
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
-    {
-      id: 1,
-      title: "School Holiday Notice",
-      message: "School will remain closed on Friday due to maintenance.",
-      author: "Principal",
-      date: "05 Mar 2026",
-    },
-    {
-      id: 2,
-      title: "Staff Meeting",
-      message: "All teachers must attend meeting at 3 PM.",
-      author: "Principal",
-      date: "04 Mar 2026",
-    },
-  ]);
+    try {
+      setLoading(true);
+      setError("");
 
-  const postAnnouncement = () => {
+      const res = await fetch(
+        `http://localhost:5000/api/announcements/${school._id}`
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to load announcements (${res.status})`);
+      }
+
+      const data = await res.json();
+      setAnnouncements(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setAnnouncements([]);
+      setError(err instanceof Error ? err.message : "Failed to load announcements");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ FETCH ANNOUNCEMENTS
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
+
+  // ✅ POST
+  const postAnnouncement = async () => {
     if (!title.trim() || !message.trim()) {
       alert("Please fill all fields");
       return;
     }
 
-    const newAnnouncement: Announcement = {
-      id: Date.now(),
-      title,
-      message,
-      author: userRole,
-      date: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-    };
+    try {
+      setError("");
+      const res = await fetch("http://localhost:5000/api/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          message,
+          author: userRole,
+          schoolId: school?._id,
+        }),
+      });
 
-    setAnnouncements([newAnnouncement, ...announcements]);
-    setTitle("");
-    setMessage("");
+      const data = await res.json();
 
-    setSuccess("✅ Announcement posted successfully!");
-    setTimeout(() => setSuccess(""), 2000);
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to post announcement");
+      }
+
+      if (data.success) {
+        setAnnouncements((current) => [data.data, ...current]);
+        setTitle("");
+        setMessage("");
+        setSuccess("Announcement posted successfully.");
+        setTimeout(() => setSuccess(""), 2000);
+      } else {
+        throw new Error(data.message || "Failed to post announcement");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error posting announcement");
+    }
   };
 
-  const deleteAnnouncement = (id: number) => {
-    setAnnouncements(announcements.filter((a) => a.id !== id));
+  // ✅ DELETE
+  const deleteAnnouncement = async (id: string) => {
+    try {
+      setError("");
+      const res = await fetch(
+        `http://localhost:5000/api/announcements/${id}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to delete announcement");
+      }
+
+      setAnnouncements((current) => current.filter((a) => a._id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete announcement");
+    }
   };
 
+  // ✅ SEARCH FILTER
   const filteredAnnouncements = announcements.filter((a) =>
     a.title.toLowerCase().includes(search.toLowerCase())
   );
@@ -71,7 +123,7 @@ export default function CommunicationModule() {
   return (
     <div className="space-y-6">
 
-      {/* CREATE ANNOUNCEMENT (Principal only) */}
+      {/* CREATE */}
       {userRole === "Principal" && (
         <div className="stat-card p-6">
           <h3 className="text-lg font-semibold mb-4">
@@ -79,9 +131,11 @@ export default function CommunicationModule() {
           </h3>
 
           <div className="space-y-4">
-
             {success && (
               <p className="text-green-600 text-sm">{success}</p>
+            )}
+            {error && (
+              <p className="text-red-600 text-sm">{error}</p>
             )}
 
             <input
@@ -106,7 +160,6 @@ export default function CommunicationModule() {
             >
               Post Announcement
             </button>
-
           </div>
         </div>
       )}
@@ -119,68 +172,63 @@ export default function CommunicationModule() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* ANNOUNCEMENTS LIST */}
+      {/* LIST */}
       <div className="stat-card p-6">
         <h3 className="text-lg font-semibold mb-4">
           Announcements
         </h3>
 
-        {filteredAnnouncements.length === 0 ? (
+        {error && !success ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : loading ? (
+          <p className="text-sm text-gray-500">Loading announcements...</p>
+        ) : filteredAnnouncements.length === 0 ? (
           <p className="text-sm text-gray-500">
             No announcements found.
           </p>
         ) : (
           <div className="space-y-4">
-
             {filteredAnnouncements.map((a, index) => (
               <div
-                key={a.id}
+                key={a._id}
                 className={`border rounded-xl p-4 ${
                   index === 0
                     ? "bg-green-50 border-green-400"
                     : "bg-gray-50"
                 }`}
               >
-
                 <div className="flex justify-between items-start">
-
                   <div>
                     <p className="font-semibold text-gray-900">
                       {a.title}
                     </p>
-
                     <p className="text-sm text-gray-600 mt-1">
                       {a.message}
                     </p>
                   </div>
 
                   <span className="text-xs text-gray-500">
-                    {a.date}
+                    {new Date(a.createdAt).toLocaleString()}
                   </span>
-
                 </div>
 
                 <p className="text-xs text-gray-500 mt-2">
                   Posted by: {a.author}
                 </p>
 
-                {/* DELETE (Principal only) */}
                 {userRole === "Principal" && (
                   <button
-                    onClick={() => deleteAnnouncement(a.id)}
+                    onClick={() => deleteAnnouncement(a._id)}
                     className="text-red-500 text-xs mt-2"
                   >
                     Delete
                   </button>
                 )}
-
               </div>
             ))}
-
           </div>
         )}
       </div>
-
     </div>
   );
 }

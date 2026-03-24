@@ -36,7 +36,10 @@ const allTeacherModules = [
 export function TeacherSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { teacherPermissions } = useRole();
+  const { teacherPermissions, setRole } = useRole();
+
+  const teacherData = JSON.parse(localStorage.getItem("teacher") || "null");
+  const teacherName = teacherData?.name || "Teacher";
 
   const visibleModules = allTeacherModules.filter(
     (m) => m.id === "dashboard" || teacherPermissions.modules.includes(m.id)
@@ -55,7 +58,7 @@ export function TeacherSidebar() {
             Teacher Portal
           </h1>
           <p className="text-xs" style={{ color: "hsl(var(--sidebar-fg))" }}>
-            Mr. John Smith
+            {teacherName}
           </p>
         </div>
       </div>
@@ -88,7 +91,16 @@ export function TeacherSidebar() {
 
       {/* Logout */}
       <div className="px-3 py-4 border-t" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-        <button className="sidebar-link w-full hover:!text-destructive">
+        <button
+          onClick={() => {
+            localStorage.removeItem("teacher");
+            localStorage.removeItem("school");
+            localStorage.removeItem("role");
+            setRole("super-admin");
+            window.location.reload();
+          }}
+          className="sidebar-link w-full hover:!text-destructive"
+        >
           <LogOut className="w-[18px] h-[18px]" />
           <span>Logout</span>
         </button>

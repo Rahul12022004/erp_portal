@@ -19,13 +19,15 @@ export function TopNavbar() {
   const { role } = useRole();
 
   const [schoolData, setSchoolData] = useState<any>(null);
+  const [teacherData, setTeacherData] = useState<any>(null);
 
   // 🔥 LOAD FROM LOCAL STORAGE
   useEffect(() => {
-    const data = localStorage.getItem("school");
-    if (data) {
-      setSchoolData(JSON.parse(data));
-    }
+    const school = localStorage.getItem("school");
+    const teacher = localStorage.getItem("teacher");
+
+    setSchoolData(school ? JSON.parse(school) : null);
+    setTeacherData(teacher ? JSON.parse(teacher) : null);
   }, [role]);
 
   // ==========================
@@ -57,14 +59,14 @@ export function TopNavbar() {
       ? schoolData?.adminInfo?.name
       : role === "super-admin"
       ? "Super Admin"
-      : "Teacher";
+      : teacherData?.name || "Teacher";
 
   const adminEmail =
     role === "school-admin"
       ? schoolData?.adminInfo?.email
       : role === "super-admin"
       ? "admin@eduadmin.com"
-      : "teacher@mail.com";
+      : teacherData?.email || "teacher@mail.com";
 
   const logo = schoolData?.schoolInfo?.logo;
 

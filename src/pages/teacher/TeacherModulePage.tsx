@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import AttendanceModule from "./modules/AttendanceModule";
 import AssignmentsModule from "./modules/AssignmentsModule";
 import ExamsModule from "./modules/ExamsModule";
+import MarksModule from "./modules/MarksModule";
 import StudentsModule from "./modules/StudentModule";
 import DigitalClassroomModule from "./modules/DigitalClassroomModule";
 import TimeTableModule from "./modules/TimeTableModule";
@@ -36,6 +37,9 @@ export default function TeacherModulePage() {
     
       case "assignments":
         return <AssignmentsModule />;
+
+      case "marks":
+        return <MarksModule />;
     
       case "exams":
         return <ExamsModule />;

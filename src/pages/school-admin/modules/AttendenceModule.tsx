@@ -1,34 +1,109 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const teachers = [
-  { name: "Mr. Sharma", subject: "Math" },
-  { name: "Ms. Gupta", subject: "Science" },
-  { name: "Mr. Verma", subject: "English" },
-  { name: "Ms. Iyer", subject: "Computer" },
-];
+type TeacherAttendance = {
+  attendanceId: string | null;
+  remarks: string;
+  staffId: string;
+  name: string;
+  position: string;
+  status: string | null;
+};
 
 const COLORS = ["#22c55e", "#ef4444"];
 
 export default function TeacherAttendanceModule() {
-  const [attendance, setAttendance] = useState<Record<string, string>>({});
-  const [selectedDate, setSelectedDate] = useState("");
+  const [teachers, setTeachers] = useState<TeacherAttendance[]>([]);
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [loading, setLoading] = useState(false);
+  const [schoolId, setSchoolId] = useState("");
 
-  const markAttendance = (teacher: string, status: string) => {
-    setAttendance({
-      ...attendance,
-      [teacher]: status,
-    });
+  useEffect(() => {
+    const school = JSON.parse(localStorage.getItem("school") || "{}");
+    setSchoolId(school?._id || "");
+  }, []);
+
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      if (!schoolId || !selectedDate) {
+        setTeachers([]);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const res = await fetch(
+          `http://localhost:5000/api/attendance/${schoolId}/${selectedDate}?position=Teacher`
+        );
+
+        if (!res.ok) {
+          throw new Error(`Failed to load attendance (${res.status})`);
+        }
+
+        const data = await res.json();
+        setTeachers(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Attendance fetch error:", error);
+        setTeachers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttendance();
+  }, [schoolId, selectedDate]);
+
+  const markAttendance = async (teacherId: string, status: "Present" | "Absent") => {
+    if (!schoolId || !selectedDate) {
+      alert("Please select date");
+      return;
+    }
+
+    try {
+      const res = await fetch("http://localhost:5000/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staffId: teacherId,
+          schoolId,
+          date: selectedDate,
+          status,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to mark attendance");
+      }
+
+      setTeachers((current) =>
+        current.map((teacher) =>
+          teacher.staffId === teacherId
+            ? {
+                ...teacher,
+                attendanceId: data.data?._id || teacher.attendanceId,
+                status,
+              }
+            : teacher
+        )
+      );
+    } catch (error) {
+      console.error("Mark attendance error:", error);
+      alert("Failed to save attendance");
+    }
   };
 
-  const presentCount = Object.values(attendance).filter(
-    (v) => v === "present"
+  const presentCount = teachers.filter(
+    (teacher) => teacher.status?.toLowerCase() === "present"
   ).length;
 
-  const absentCount = Object.values(attendance).filter(
-    (v) => v === "absent"
+  const absentCount = teachers.filter(
+    (teacher) => teacher.status?.toLowerCase() === "absent"
   ).length;
 
   const total = teachers.length;
@@ -56,8 +131,8 @@ export default function TeacherAttendanceModule() {
 
     const tableData = teachers.map((t) => [
       t.name,
-      t.subject,
-      attendance[t.name] || "Not Marked",
+      t.position,
+      t.status || "Not Marked",
     ]);
 
     autoTable(doc, {
@@ -133,41 +208,47 @@ export default function TeacherAttendanceModule() {
 
       {/* Teacher List */}
       <div className="space-y-3">
-        {teachers.map((teacher) => (
-          <div
-            key={teacher.name}
-            className="bg-white border rounded-xl p-4 flex justify-between items-center"
-          >
-            <div>
-              <p className="font-medium">{teacher.name}</p>
-              <p className="text-sm text-gray-500">{teacher.subject}</p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => markAttendance(teacher.name, "present")}
-                className={`px-3 py-1 rounded ${
-                  attendance[teacher.name] === "present"
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-100"
-                }`}
-              >
-                Present
-              </button>
-
-              <button
-                onClick={() => markAttendance(teacher.name, "absent")}
-                className={`px-3 py-1 rounded ${
-                  attendance[teacher.name] === "absent"
-                    ? "bg-red-500 text-white"
-                    : "bg-gray-100"
-                }`}
-              >
-                Absent
-              </button>
-            </div>
+        {loading ? (
+          <div className="bg-white border rounded-xl p-4 text-center text-gray-500">
+            Loading attendance...
           </div>
-        ))}
+        ) : (
+          teachers.map((teacher) => (
+            <div
+              key={teacher.staffId}
+              className="bg-white border rounded-xl p-4 flex justify-between items-center"
+            >
+              <div>
+                <p className="font-medium">{teacher.name}</p>
+                <p className="text-sm text-gray-500">{teacher.position}</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => markAttendance(teacher.staffId, "Present")}
+                  className={`px-3 py-1 rounded ${
+                    teacher.status?.toLowerCase() === "present"
+                      ? "bg-green-600 text-white"
+                      : "bg-gray-100"
+                  }`}
+                >
+                  Present
+                </button>
+
+                <button
+                  onClick={() => markAttendance(teacher.staffId, "Absent")}
+                  className={`px-3 py-1 rounded ${
+                    teacher.status?.toLowerCase() === "absent"
+                      ? "bg-red-500 text-white"
+                      : "bg-gray-100"
+                  }`}
+                >
+                  Absent
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

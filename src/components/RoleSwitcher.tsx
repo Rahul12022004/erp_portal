@@ -12,6 +12,7 @@ export function RoleSwitcher() {
   const { role, setRole } = useRole();
 
   const [showLogin, setShowLogin] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,8 +23,11 @@ export function RoleSwitcher() {
   // 🔥 HANDLE ROLE CLICK
   // ==========================
   const handleRoleClick = (r: UserRole) => {
-    if (r === "school-admin") {
+    if (r === "school-admin" || r === "teacher") {
       setSelectedRole(r);
+      setName("");
+      setEmail("");
+      setPassword("");
       setShowLogin(true);
     } else {
       setRole(r);
@@ -34,34 +38,62 @@ export function RoleSwitcher() {
   // 🔐 LOGIN API CALL
   // ==========================
   const handleLogin = async () => {
-    if (!email) return alert("Enter email");
+    if (selectedRole === "school-admin") {
+      if (!email) return alert("Enter email");
+      if (!password) return alert("Enter password");
+    }
+
+    if (selectedRole === "teacher") {
+      if (!name) return alert("Enter teacher name");
+      if (!email) return alert("Enter teacher email");
+    }
 
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `http://localhost:5000/api/schools/admin/${email}`
-      );
+      if (selectedRole === "school-admin") {
+        const res = await fetch(
+          `http://localhost:5000/api/schools/admin/${email}`
+        );
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (!res.ok) {
-        alert(data.message || "Login failed");
+        if (!res.ok) {
+          alert(data.message || "Login failed");
+          return;
+        }
+
+        if (data.adminInfo.password !== password) {
+          alert("Wrong password");
+          return;
+        }
+
+        localStorage.setItem("school", JSON.stringify(data));
+        localStorage.removeItem("teacher");
+        setRole("school-admin");
+        setShowLogin(false);
         return;
       }
 
-      // 🔥 CHECK PASSWORD
-      if (data.adminInfo.password !== password) {
-        alert("Wrong password");
-        return;
+      if (selectedRole === "teacher") {
+        const res = await fetch("http://localhost:5000/api/staff/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.message || "Teacher login failed");
+          return;
+        }
+
+        localStorage.setItem("teacher", JSON.stringify(data.teacher));
+        localStorage.setItem("school", JSON.stringify(data.school));
+        setRole("teacher");
+        setShowLogin(false);
       }
-
-      // ✅ SAVE DATA
-      localStorage.setItem("school", JSON.stringify(data));
-      localStorage.setItem("role", "school-admin");
-
-      setRole("school-admin");
-      setShowLogin(false);
 
     } catch (err) {
       console.error(err);
@@ -97,24 +129,36 @@ export function RoleSwitcher() {
           <div className="bg-white rounded-xl p-6 w-[350px] space-y-4">
 
             <h2 className="text-lg font-semibold text-center">
-              School Admin Login
+              {selectedRole === "teacher" ? "Teacher Login" : "School Admin Login"}
             </h2>
+
+            {selectedRole === "teacher" && (
+              <input
+                type="text"
+                placeholder="Teacher Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full border p-2 rounded"
+              />
+            )}
 
             <input
               type="email"
-              placeholder="Admin Email"
+              placeholder={selectedRole === "teacher" ? "Teacher Email" : "Admin Email"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border p-2 rounded"
             />
 
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border p-2 rounded"
-            />
+            {selectedRole === "school-admin" && (
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border p-2 rounded"
+              />
+            )}
 
             <div className="flex justify-between gap-2">
               <button

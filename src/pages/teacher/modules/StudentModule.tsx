@@ -1,87 +1,220 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const classStudents: Record<string, any[]> = {
-  "Class A": [
-    { id: 1, name: "Rahul Patel", roll: 1, email: "rahul@mail.com" },
-    { id: 2, name: "Aarav Shah", roll: 2, email: "aarav@mail.com" },
-    { id: 3, name: "Vivaan Mehta", roll: 3, email: "vivaan@mail.com" },
-  ],
+type Student = {
+  _id: string;
+  name: string;
+  email: string;
+  class: string;
+  rollNumber: string;
+  phone?: string;
+  gender?: string;
+};
 
-  "Class B": [
-    { id: 4, name: "Riya Patel", roll: 1, email: "riya@mail.com" },
-    { id: 5, name: "Ananya Shah", roll: 2, email: "ananya@mail.com" },
-    { id: 6, name: "Diya Mehta", roll: 3, email: "diya@mail.com" },
-  ],
+type SchoolClass = {
+  _id: string;
+  name: string;
+  section?: string;
+  stream?: string;
+  academicYear?: string;
+  classTeacher?:
+    | string
+    | {
+        _id: string;
+        name: string;
+      };
 };
 
 export default function StudentsModule() {
-  const [selectedClass, setSelectedClass] = useState("");
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedClass, setSelectedClass] = useState("All");
 
-  const students = selectedClass ? classStudents[selectedClass] : [];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const school = JSON.parse(localStorage.getItem("school") || "null");
+        const teacher = JSON.parse(localStorage.getItem("teacher") || "null");
+
+        if (!school?._id || !teacher?._id) {
+          throw new Error("Teacher session not found. Please log in again.");
+        }
+
+        const [studentsRes, classesRes] = await Promise.all([
+          fetch(`http://localhost:5000/api/students/${school._id}`),
+          fetch(`http://localhost:5000/api/classes/${school._id}`),
+        ]);
+
+        if (!studentsRes.ok) {
+          throw new Error(`Failed to load students (${studentsRes.status})`);
+        }
+
+        if (!classesRes.ok) {
+          throw new Error(`Failed to load classes (${classesRes.status})`);
+        }
+
+        const [studentsData, classesData] = await Promise.all([
+          studentsRes.json(),
+          classesRes.json(),
+        ]);
+
+        const allClasses = Array.isArray(classesData) ? classesData : [];
+        const teacherClasses = allClasses.filter((classItem: SchoolClass) => {
+          if (!classItem.classTeacher) {
+            return false;
+          }
+
+          if (typeof classItem.classTeacher === "string") {
+            return classItem.classTeacher === teacher._id;
+          }
+
+          return classItem.classTeacher._id === teacher._id;
+        });
+
+        setStudents(Array.isArray(studentsData) ? studentsData : []);
+        setClasses(teacherClasses);
+      } catch (err) {
+        console.error("Teacher students fetch error:", err);
+        setStudents([]);
+        setClasses([]);
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch class students"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const sortedClasses = [...classes].sort((a, b) => a.name.localeCompare(b.name));
+
+  const groupedStudents = sortedClasses.reduce((acc, schoolClass) => {
+    acc[schoolClass.name] = students
+      .filter((student) => student.class === schoolClass.name)
+      .sort((a, b) => a.rollNumber.localeCompare(b.rollNumber));
+    return acc;
+  }, {} as Record<string, Student[]>);
+
+  const filteredClasses = Object.keys(groupedStudents).filter(
+    (className) => selectedClass === "All" || className === selectedClass
+  );
+
+  const filteredStudents = filteredClasses.reduce((acc, className) => {
+    const classStudents = groupedStudents[className].filter((student) => {
+      const query = search.toLowerCase();
+      return (
+        student.name.toLowerCase().includes(query) ||
+        student.rollNumber.toLowerCase().includes(query) ||
+        student.email.toLowerCase().includes(query)
+      );
+    });
+
+    acc[className] = classStudents;
+    return acc;
+  }, {} as Record<string, Student[]>);
 
   return (
     <div className="space-y-6">
-
-      {/* Select Class */}
-
-      <div>
-        <label className="mr-3 font-medium">Select Class:</label>
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <input
+            placeholder="Search students..."
+            className="border p-2 w-full rounded"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
         <select
-          className="border rounded px-3 py-2"
+          className="border p-2 rounded"
           value={selectedClass}
           onChange={(e) => setSelectedClass(e.target.value)}
         >
-          <option value="">Choose Class</option>
-
-          {Object.keys(classStudents).map((cls) => (
-            <option key={cls}>{cls}</option>
+          <option value="All">All Classes</option>
+          {sortedClasses.map((schoolClass) => (
+            <option key={schoolClass._id} value={schoolClass.name}>
+              {schoolClass.name}
+            </option>
           ))}
         </select>
       </div>
 
-      {/* Student Cards */}
+      {loading ? (
+        <p className="text-center text-gray-500">Loading students...</p>
+      ) : error ? (
+        <p className="text-center text-red-600">{error}</p>
+      ) : sortedClasses.length === 0 ? (
+        <p className="text-center text-gray-500">
+          No classes are assigned to this teacher yet.
+        </p>
+      ) : Object.keys(filteredStudents).length === 0 ? (
+        <p className="text-center text-gray-500">
+          No students found for the selected filters.
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {Object.entries(filteredStudents).map(([className, classStudents]) => {
+            const classInfo = sortedClasses.find(
+              (schoolClass) => schoolClass.name === className
+            );
 
-      {selectedClass && (
-        <div className="space-y-3">
-
-          {students.map((student) => (
-            <div
-              key={student.id}
-              className="bg-white border rounded-xl p-4 flex justify-between items-center shadow-sm"
-            >
-              
-              {/* Left side */}
-
-              <div className="flex items-start gap-3">
-
-                {/* Green Dot */}
-                <div className="w-2.5 h-2.5 bg-green-500 rounded-full mt-2"></div>
-
-                <div>
-                  <p className="font-medium text-gray-900">
-                    {student.name}
-                  </p>
-
-                  <p className="text-sm text-gray-500">
-                    {student.email}
-                  </p>
+            return (
+              <div key={className} className="stat-card p-6">
+                <div className="mb-4 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold text-blue-600">
+                      {className} ({classStudents.length} students)
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {classInfo?.section ? `Section ${classInfo.section}` : "Section not set"}
+                      {classInfo?.stream ? ` • ${classInfo.stream}` : ""}
+                      {classInfo?.academicYear ? ` • ${classInfo.academicYear}` : ""}
+                    </p>
+                  </div>
                 </div>
 
+                {classStudents.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No students are attached to this class yet.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2">Roll No</th>
+                          <th className="text-left p-2">Name</th>
+                          <th className="text-left p-2">Email</th>
+                          <th className="text-left p-2">Phone</th>
+                          <th className="text-left p-2">Gender</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {classStudents.map((student) => (
+                          <tr key={student._id} className="border-b hover:bg-gray-50">
+                            <td className="p-2">{student.rollNumber}</td>
+                            <td className="p-2 font-medium">{student.name}</td>
+                            <td className="p-2">{student.email}</td>
+                            <td className="p-2">{student.phone || "-"}</td>
+                            <td className="p-2">{student.gender || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-
-              {/* Right side */}
-
-              <div className="text-sm text-gray-500">
-                Roll No: {student.roll}
-              </div>
-
-            </div>
-          ))}
-
+            );
+          })}
         </div>
       )}
-
     </div>
   );
 }
