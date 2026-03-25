@@ -2,6 +2,7 @@ import express from "express";
 import School from "../models/School";
 import Staff from "../models/Staff";
 import { createLog } from "../utils/createLog";
+import { sendTeacherCredentialsEmail } from "../utils/sendEmail";
 
 const router = express.Router();
 
@@ -44,6 +45,31 @@ router.post("/login", async (req, res) => {
 });
 
 // ==========================
+// ✅ TEACHER SESSION CHECK
+// ==========================
+router.get("/session/:schoolId/:teacherId", async (req, res) => {
+  try {
+    const { schoolId, teacherId } = req.params;
+
+    const teacher = await Staff.findOne({
+      _id: teacherId,
+      schoolId,
+      position: /^Teacher$/i,
+      status: "Active",
+    }).select("_id");
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher session invalid" });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("TEACHER SESSION CHECK ERROR:", error);
+    return res.status(500).json({ message: "Failed to validate teacher session" });
+  }
+});
+
+// ==========================
 // 👥 GET STAFF FOR A SCHOOL
 // ==========================
 router.get("/:schoolId", async (req, res) => {
@@ -63,7 +89,7 @@ router.get("/:schoolId", async (req, res) => {
 // ==========================
 router.post("/", async (req, res) => {
   try {
-    const { name, email, phone, position, department, qualification, address, dateOfBirth, gender, joinDate, status, schoolId } = req.body;
+    const { name, email, phone, position, department, qualification, address, dateOfBirth, gender, joinDate, status, ossId, workHistoryDoc, offerLetterDoc, identityDoc, schoolId } = req.body;
 
     if (!name || !email || !phone || !position || !schoolId) {
       return res.status(400).json({ message: "Required fields: name, email, phone, position, schoolId" });
@@ -81,6 +107,10 @@ router.post("/", async (req, res) => {
       gender,
       joinDate,
       status,
+      ossId,
+      workHistoryDoc,
+      offerLetterDoc,
+      identityDoc,
       schoolId,
     });
 
@@ -89,6 +119,18 @@ router.post("/", async (req, res) => {
       message: `Staff created: ${name} (${position})`,
       schoolId,
     });
+
+    // 📧 Send email credentials if creating a teacher
+    if (position === "Teacher" || position.toLowerCase() === "teacher") {
+      try {
+        const school = await School.findById(schoolId);
+        const schoolName = (school && "name" in school && school.name) ? String(school.name) : "Our School";
+        await sendTeacherCredentialsEmail(name, email, schoolName);
+      } catch (emailError) {
+        console.error("Email sending error:", emailError);
+        // Continue even if email fails - don't block staff creation
+      }
+    }
 
     res.json({ success: true, data: staff });
   } catch (error) {

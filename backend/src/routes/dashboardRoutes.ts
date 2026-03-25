@@ -91,6 +91,7 @@ router.get("/teacher/:schoolId/:teacherId", async (req, res) => {
 router.get("/:schoolId", async (req, res) => {
   try {
     const schoolId = req.params.schoolId;
+
     const school = await School.findById(schoolId);
     if (!school) return res.status(404).json({ message: "School not found" });
 

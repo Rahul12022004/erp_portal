@@ -1,239 +1,4 @@
-<<<<<<< HEAD
-import { useState } from "react";
-
-/* -------------------- THEME -------------------- */
-const theme = {
-  primary: "bg-[#1f9d84]",
-  hover: "hover:bg-[#17806d]",
-  light: "bg-[#e6f4f1]",
-};
-
-/* -------------------- TYPES -------------------- */
-type Answer = {
-  question: string;
-  answer: string;
-};
-
-type Student = {
-  id: number;
-  name: string;
-  admissionNo: string;
-  className: string;
-  answers: Answer[];
-};
-
-type Survey = {
-  id: number;
-  title: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-  students: Student[];
-};
-
-/* -------------------- MAIN -------------------- */
-export default function SurveyModule() {
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedSurvey, setSelectedSurvey] = useState<number | null>(null);
-  const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
-
-  const surveys: Survey[] = [
-    {
-      id: 1,
-      title: "School Academic",
-      startDate: "25/06/2024",
-      endDate: "27/06/2024",
-      status: "Complete",
-      students: [
-        {
-          id: 1,
-          name: "Girish",
-          admissionNo: "1259",
-          className: "4",
-          answers: [
-            { question: "Facilities?", answer: "Good labs" },
-            { question: "Faculty?", answer: "Supportive" },
-          ],
-        },
-      ],
-    },
-  ];
-
-  return (
-    <div className="space-y-6">
-      
-
-      {/* CREATE BUTTON */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className={`${theme.primary} ${theme.hover} text-white px-4 py-2 rounded-lg transition`}
-        >
-          {showCreate ? "Close" : "Create Survey"}
-        </button>
-      </div>
-
-      {/* CREATE FORM */}
-      {showCreate && (
-        <div className="bg-white p-4 rounded-xl shadow space-y-4">
-          <h3 className="font-medium">Create Survey</h3>
-
-          <div className="grid grid-cols-4 gap-4">
-            <input className="border p-2 rounded" placeholder="Title" />
-            <select className="border p-2 rounded">
-              <option>Select Survey For</option>
-            </select>
-            <input type="date" className="border p-2 rounded" />
-            <input type="date" className="border p-2 rounded" />
-          </div>
-
-          <button
-            className={`${theme.primary} ${theme.hover} text-white px-4 py-2 rounded-lg`}
-          >
-            Submit
-          </button>
-        </div>
-      )}
-
-      {/* TABLE */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-3 text-left">Survey</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Status</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {surveys.map((survey) => (
-              <>
-                <tr key={survey.id} className="border-t">
-                  <td className="p-3">{survey.title}</td>
-                  <td>{survey.startDate}</td>
-                  <td>{survey.endDate}</td>
-
-                  <td>
-                    <span className={`${theme.light} text-[#1f9d84] px-2 py-1 rounded text-xs`}>
-                      {survey.status}
-                    </span>
-                  </td>
-
-                  <td>
-                    <button
-                      onClick={() =>
-                        setSelectedSurvey(
-                          selectedSurvey === survey.id ? null : survey.id
-                        )
-                      }
-                      className={`${theme.primary} ${theme.hover} text-white px-3 py-1 rounded`}
-                    >
-                      View Result
-                    </button>
-                  </td>
-                </tr>
-
-                {/* EXPANDED */}
-                {selectedSurvey === survey.id && (
-                  <tr>
-                    <td colSpan={5} className="p-4 bg-gray-50">
-                      <SurveyResult
-                        survey={survey}
-                        selectedStudent={selectedStudent}
-                        setSelectedStudent={setSelectedStudent}
-                      />
-                    </td>
-                  </tr>
-                )}
-              </>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-/* -------------------- RESULT -------------------- */
-function SurveyResult({
-  survey,
-  selectedStudent,
-  setSelectedStudent,
-}: any) {
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold">{survey.title}</h3>
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-3">Admission</th>
-              <th>Name</th>
-              <th>Class</th>
-              <th>View</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {survey.students.map((student: Student) => (
-              <>
-                <tr key={student.id} className="border-t">
-                  <td className="p-3">{student.admissionNo}</td>
-                  <td>{student.name}</td>
-                  <td>{student.className}</td>
-
-                  <td>
-                    <button
-                      onClick={() =>
-                        setSelectedStudent(
-                          selectedStudent === student.id
-                            ? null
-                            : student.id
-                        )
-                      }
-                      className={`${theme.primary} ${theme.hover} text-white px-3 py-1 rounded`}
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-
-                {/* ANSWERS */}
-                {selectedStudent === student.id && (
-                  <tr>
-                    <td colSpan={4} className="p-4 bg-gray-50">
-                      <div className="space-y-3">
-                        {student.answers.map((ans: Answer, i: number) => (
-                          <div
-                            key={i}
-                            className="bg-white border rounded-lg p-3"
-                          >
-                            <p className="font-medium">
-                              {i + 1}. {ans.question}
-                            </p>
-                            <p className="text-gray-600 text-sm mt-1">
-                              {ans.answer}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-=======
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { BarChart3, Trash2 } from "lucide-react";
 
 type Survey = {
@@ -266,9 +31,9 @@ export default function SurveyModule() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    recipientType: "Student",
+    recipientType: "Student" as Survey["recipientType"],
     questions: [{ prompt: "", type: "Text", options: ["", ""] }] as QuestionForm[],
-    status: "Active",
+    status: "Active" as Survey["status"],
   });
 
   useEffect(() => {
@@ -317,7 +82,7 @@ export default function SurveyModule() {
     setShowForm(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const school = JSON.parse(localStorage.getItem("school") || "null");
@@ -369,10 +134,7 @@ export default function SurveyModule() {
     }));
   };
 
-  const updateQuestionType = (
-    index: number,
-    value: QuestionForm["type"]
-  ) => {
+  const updateQuestionType = (index: number, value: QuestionForm["type"]) => {
     setFormData((current) => ({
       ...current,
       questions: current.questions.map((question, questionIndex) =>
@@ -422,10 +184,7 @@ export default function SurveyModule() {
   const addQuestion = () => {
     setFormData((current) => ({
       ...current,
-      questions: [
-        ...current.questions,
-        { prompt: "", type: "Text", options: ["", ""] },
-      ],
+      questions: [...current.questions, { prompt: "", type: "Text", options: ["", ""] }],
     }));
   };
 
@@ -449,7 +208,9 @@ export default function SurveyModule() {
               options:
                 question.options.length <= 2
                   ? question.options
-                  : question.options.filter((_, currentOptionIndex) => currentOptionIndex !== optionIndex),
+                  : question.options.filter(
+                      (_, currentOptionIndex) => currentOptionIndex !== optionIndex
+                    ),
             }
           : question
       ),
@@ -506,10 +267,10 @@ export default function SurveyModule() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <button
           onClick={() => setShowForm((current) => !current)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
         >
           {showForm ? "Close Form" : "Create Survey"}
         </button>
@@ -517,13 +278,13 @@ export default function SurveyModule() {
 
       {showForm && (
         <div className="stat-card p-6">
-          <h3 className="text-lg font-semibold mb-4">Create Survey</h3>
+          <h3 className="mb-4 text-lg font-semibold">Create Survey</h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
               type="text"
               placeholder="Survey Title"
-              className="border rounded p-2 w-full"
+              className="w-full rounded border p-2"
               value={formData.title}
               onChange={(e) =>
                 setFormData((current) => ({ ...current, title: e.target.value }))
@@ -533,7 +294,7 @@ export default function SurveyModule() {
 
             <textarea
               placeholder="Survey description or question"
-              className="border rounded p-2 w-full"
+              className="w-full rounded border p-2"
               rows={4}
               value={formData.description}
               onChange={(e) =>
@@ -545,9 +306,9 @@ export default function SurveyModule() {
               required
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <select
-                className="border rounded p-2 w-full"
+                className="w-full rounded border p-2"
                 value={formData.recipientType}
                 onChange={(e) =>
                   setFormData((current) => ({
@@ -561,7 +322,7 @@ export default function SurveyModule() {
               </select>
 
               <select
-                className="border rounded p-2 w-full"
+                className="w-full rounded border p-2"
                 value={formData.status}
                 onChange={(e) =>
                   setFormData((current) => ({
@@ -581,7 +342,7 @@ export default function SurveyModule() {
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="text-blue-600 hover:text-blue-800 text-sm"
+                  className="text-sm text-blue-600 hover:text-blue-800"
                 >
                   Add Question
                 </button>
@@ -593,12 +354,12 @@ export default function SurveyModule() {
                     <input
                       type="text"
                       placeholder={`Question ${index + 1}`}
-                      className="border rounded p-2 w-full"
+                      className="w-full rounded border p-2"
                       value={question.prompt}
                       onChange={(e) => updateQuestionPrompt(index, e.target.value)}
                     />
                     <select
-                      className="border rounded p-2 w-44"
+                      className="w-44 rounded border p-2"
                       value={question.type}
                       onChange={(e) =>
                         updateQuestionType(index, e.target.value as QuestionForm["type"])
@@ -610,7 +371,7 @@ export default function SurveyModule() {
                     <button
                       type="button"
                       onClick={() => removeQuestion(index)}
-                      className="px-3 py-2 rounded bg-red-100 text-red-700 disabled:opacity-50"
+                      className="rounded bg-red-100 px-3 py-2 text-red-700 disabled:opacity-50"
                       disabled={formData.questions.length === 1}
                     >
                       Remove
@@ -624,7 +385,7 @@ export default function SurveyModule() {
                         <button
                           type="button"
                           onClick={() => addOption(index)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
+                          className="text-sm text-blue-600 hover:text-blue-800"
                         >
                           Add Option
                         </button>
@@ -635,7 +396,7 @@ export default function SurveyModule() {
                           <input
                             type="text"
                             placeholder={`Option ${optionIndex + 1}`}
-                            className="border rounded p-2 w-full"
+                            className="w-full rounded border p-2"
                             value={option}
                             onChange={(e) =>
                               updateOption(index, optionIndex, e.target.value)
@@ -644,7 +405,7 @@ export default function SurveyModule() {
                           <button
                             type="button"
                             onClick={() => removeOption(index, optionIndex)}
-                            className="px-3 py-2 rounded bg-red-100 text-red-700 disabled:opacity-50"
+                            className="rounded bg-red-100 px-3 py-2 text-red-700 disabled:opacity-50"
                             disabled={question.options.length <= 2}
                           >
                             Remove
@@ -660,7 +421,7 @@ export default function SurveyModule() {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
                 disabled={saving}
               >
                 {saving ? "Saving..." : "Save Survey"}
@@ -668,7 +429,7 @@ export default function SurveyModule() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+                className="rounded bg-gray-500 px-4 py-2 text-white hover:bg-gray-600"
               >
                 Cancel
               </button>
@@ -684,9 +445,9 @@ export default function SurveyModule() {
       ) : surveys.length === 0 ? (
         <p className="text-center text-gray-500">No surveys created yet.</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {surveys.map((survey) => (
-            <div key={survey._id} className="stat-card p-5 space-y-4">
+            <div key={survey._id} className="stat-card space-y-4 p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold">{survey.title}</h3>
@@ -699,7 +460,7 @@ export default function SurveyModule() {
                   className="text-red-600 hover:text-red-800"
                   title="Delete survey"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
 
@@ -719,8 +480,8 @@ export default function SurveyModule() {
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     Responses
                   </p>
-                  <p className="mt-1 font-medium inline-flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" />
+                  <p className="mt-1 inline-flex items-center gap-2 font-medium">
+                    <BarChart3 className="h-4 w-4" />
                     {survey.responseCount}
                   </p>
                 </div>
@@ -733,13 +494,11 @@ export default function SurveyModule() {
                 <div className="mt-2 space-y-1">
                   {survey.questions.length > 0 ? (
                     survey.questions.map((question, index) => (
-                      <div key={index} className="text-sm space-y-1">
+                      <div key={index} className="space-y-1 text-sm">
                         <p>
                           {index + 1}. {question.prompt}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          Type: {question.type}
-                        </p>
+                        <p className="text-xs text-muted-foreground">Type: {question.type}</p>
                         {question.type === "Multiple Choice" && question.options.length > 0 && (
                           <p className="text-xs text-muted-foreground">
                             Options: {question.options.join(", ")}
@@ -755,7 +514,7 @@ export default function SurveyModule() {
 
               <div className="flex items-center justify-between">
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${
                     survey.status === "Active"
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-200 text-gray-700"
@@ -771,7 +530,7 @@ export default function SurveyModule() {
                       survey.status === "Active" ? "Closed" : "Active"
                     )
                   }
-                  className="text-blue-600 hover:text-blue-800 text-sm"
+                  className="text-sm text-blue-600 hover:text-blue-800"
                 >
                   Mark as {survey.status === "Active" ? "Closed" : "Active"}
                 </button>
@@ -783,4 +542,3 @@ export default function SurveyModule() {
     </div>
   );
 }
->>>>>>> 0bc2111 (Added academics module changes)

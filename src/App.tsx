@@ -15,6 +15,7 @@ import SchoolsPage from "./pages/super_admin/SchoolsPage";
 import SchoolAdminsPage from "./pages/super_admin/SchoolAdminsPage";
 import SubscriptionsPage from "./pages/super_admin/Subscription";
 import LogsPage from "./pages/super_admin/LogsPage";
+import UserChangePage from "./pages/super_admin/UserChangePage";
 
 // ✅ FIXED IMPORT (make sure file name matches)
 import SettingsPage from "./pages/super_admin/SettingsPage";
@@ -50,6 +51,7 @@ function AppRoutes() {
           <Route path="/settings" element={<SettingsPage />} />
 
           <Route path="/logs" element={<LogsPage />} />
+          <Route path="/user-change" element={<UserChangePage />} />
           <Route path="/security" element={<div>Security Coming Soon</div>} />
 
         </Route>

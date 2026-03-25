@@ -21,6 +21,9 @@ type SchoolClass = {
   academicYear?: string;
 };
 
+const getClassLabel = (schoolClass: Pick<SchoolClass, "name" | "section">) =>
+  schoolClass.section ? `${schoolClass.name} - ${schoolClass.section}` : schoolClass.name;
+
 export default function StudentModule() {
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -174,14 +177,15 @@ export default function StudentModule() {
   const sortedClasses = [...classes].sort((a, b) => a.name.localeCompare(b.name));
 
   const groupedStudents = sortedClasses.reduce((acc, schoolClass) => {
-    acc[schoolClass.name] = students
-      .filter((student) => student.class === schoolClass.name)
+    const classLabel = getClassLabel(schoolClass);
+    acc[classLabel] = students
+      .filter((student) => student.class === classLabel)
       .sort((a, b) => a.rollNumber.localeCompare(b.rollNumber));
     return acc;
   }, {} as Record<string, Student[]>);
 
   const orphanStudents = students
-    .filter((student) => !sortedClasses.some((schoolClass) => schoolClass.name === student.class))
+    .filter((student) => !sortedClasses.some((schoolClass) => getClassLabel(schoolClass) === student.class))
     .sort((a, b) => a.class.localeCompare(b.class) || a.rollNumber.localeCompare(b.rollNumber));
 
   if (orphanStudents.length > 0) {
@@ -283,9 +287,8 @@ export default function StudentModule() {
               >
                 <option value="">Select Class</option>
                 {sortedClasses.map((schoolClass) => (
-                  <option key={schoolClass._id} value={schoolClass.name}>
-                    {schoolClass.name}
-                    {schoolClass.section ? ` - ${schoolClass.section}` : ""}
+                  <option key={schoolClass._id} value={getClassLabel(schoolClass)}>
+                    {getClassLabel(schoolClass)}
                   </option>
                 ))}
               </select>

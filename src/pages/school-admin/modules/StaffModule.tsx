@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, X, ExternalLink } from "lucide-react";
 
 type Staff = {
   _id: string;
@@ -14,6 +14,10 @@ type Staff = {
   gender?: string;
   joinDate?: string;
   status: "Active" | "Inactive" | "On Leave";
+  ossId?: string;
+  workHistoryDoc?: string;
+  offerLetterDoc?: string;
+  identityDoc?: string;
 };
 
 export default function StaffModule() {
@@ -25,6 +29,7 @@ export default function StaffModule() {
   const [staffType, setStaffType] = useState<"teachers" | "staff">("teachers"); // ✅ Added
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [viewDocStaff, setViewDocStaff] = useState<Staff | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -39,6 +44,10 @@ export default function StaffModule() {
     gender: "",
     joinDate: "",
     status: "Active",
+    ossId: "",
+    workHistoryDoc: "",
+    offerLetterDoc: "",
+    identityDoc: "",
   });
 
   useEffect(() => {
@@ -100,6 +109,12 @@ export default function StaffModule() {
       if (res.ok) {
         await fetchStaff();
         resetForm();
+        // Show success message
+        if (staffType === "teachers" && !editingStaff) {
+          alert(`✓ Teacher created successfully!\nLogin credentials have been sent to ${formData.email}`);
+        } else {
+          alert("Staff member saved successfully!");
+        }
       } else {
         const data = await res.json().catch(() => null);
         alert(data?.message || "Failed to save staff");
@@ -143,10 +158,26 @@ export default function StaffModule() {
       gender: "",
       joinDate: "",
       status: "Active",
+      ossId: "",
+      workHistoryDoc: "",
+      offerLetterDoc: "",
+      identityDoc: "",
     });
     setShowAddForm(false);
     setEditingStaff(null);
   };
+
+  const handleFileUpload = (field: "workHistoryDoc" | "offerLetterDoc" | "identityDoc") =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = typeof reader.result === "string" ? reader.result : "";
+        setFormData((prev) => ({ ...prev, [field]: base64 }));
+      };
+      reader.readAsDataURL(file);
+    };
 
   const startEdit = (staff: Staff) => {
     setFormData({
@@ -161,6 +192,10 @@ export default function StaffModule() {
       gender: staff.gender || "",
       joinDate: staff.joinDate || "",
       status: staff.status,
+      ossId: staff.ossId || "",
+      workHistoryDoc: staff.workHistoryDoc || "",
+      offerLetterDoc: staff.offerLetterDoc || "",
+      identityDoc: staff.identityDoc || "",
     });
     setEditingStaff(staff);
     setShowAddForm(true);
@@ -311,13 +346,22 @@ export default function StaffModule() {
                 required
               />
               {staffType === "teachers" ? (
-                <input
-                  type="text"
-                  placeholder="Department (e.g., Science, Math)"
-                  className="border rounded p-2"
-                  value={formData.department}
-                  onChange={(e) => setFormData({...formData, department: e.target.value})}
-                />
+                <>
+                  <input
+                    type="text"
+                    placeholder="Department (e.g., Science, Math)"
+                    className="border rounded p-2"
+                    value={formData.department}
+                    onChange={(e) => setFormData({...formData, department: e.target.value})}
+                  />
+                  <input
+                    type="text"
+                    placeholder="CBSE OSS ID"
+                    className="border rounded p-2"
+                    value={formData.ossId}
+                    onChange={(e) => setFormData({...formData, ossId: e.target.value})}
+                  />
+                </>
               ) : (
                 <input
                   type="text"
@@ -377,6 +421,85 @@ export default function StaffModule() {
               onChange={(e) => setFormData({...formData, address: e.target.value})}
             />
 
+            {/* Documents Section */}
+            <div className="rounded-lg border p-4 space-y-4">
+              <p className="font-medium text-sm">Documents</p>
+
+              {/* Work History — both teacher & staff */}
+              <div className="space-y-1">
+                <label className="text-sm text-gray-600">Past Working History Document (PDF / Image)</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="border rounded p-2 w-full text-sm"
+                  onChange={handleFileUpload("workHistoryDoc")}
+                />
+                {formData.workHistoryDoc && (
+                  <div className="flex items-center gap-2 rounded bg-green-50 px-3 py-1.5 text-sm text-green-700">
+                    <FileText className="h-4 w-4" />
+                    <span className="flex-1">Work history document uploaded</span>
+                    <button
+                      type="button"
+                      onClick={() => setFormData((p) => ({ ...p, workHistoryDoc: "" }))}
+                      className="text-red-500 hover:text-red-700 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Offer Letter — teachers only */}
+              {staffType === "teachers" && (
+                <div className="space-y-1">
+                  <label className="text-sm text-gray-600">Previous School Offer Letter (PDF / Image)</label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="border rounded p-2 w-full text-sm"
+                    onChange={handleFileUpload("offerLetterDoc")}
+                  />
+                  {formData.offerLetterDoc && (
+                    <div className="flex items-center gap-2 rounded bg-blue-50 px-3 py-1.5 text-sm text-blue-700">
+                      <FileText className="h-4 w-4" />
+                      <span className="flex-1">Offer letter uploaded</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormData((p) => ({ ...p, offerLetterDoc: "" }))}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Identity Proof — both teacher & staff */}
+              <div className="space-y-1">
+                <label className="text-sm text-gray-600">Aadhaar Card / Identity Proof (PDF / Image)</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="border rounded p-2 w-full text-sm"
+                  onChange={handleFileUpload("identityDoc")}
+                />
+                {formData.identityDoc && (
+                  <div className="flex items-center gap-2 rounded bg-orange-50 px-3 py-1.5 text-sm text-orange-700">
+                    <FileText className="h-4 w-4" />
+                    <span className="flex-1">Identity proof uploaded</span>
+                    <button
+                      type="button"
+                      onClick={() => setFormData((p) => ({ ...p, identityDoc: "" }))}
+                      className="text-red-500 hover:text-red-700 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -415,9 +538,13 @@ export default function StaffModule() {
                   ) : (
                     <th className="text-left p-2">Position</th>
                   )}
+                  {staffType === "teachers" && (
+                    <th className="text-left p-2">OSS ID</th>
+                  )}
                   <th className="text-left p-2">Email</th>
                   <th className="text-left p-2">Phone</th>
                   <th className="text-left p-2">Status</th>
+                  <th className="text-left p-2">Docs</th>
                   <th className="text-left p-2">Actions</th>
                 </tr>
               </thead>
@@ -428,12 +555,29 @@ export default function StaffModule() {
                     <td className="p-2">
                       {staffType === "teachers" ? (staff.department || "-") : staff.position}
                     </td>
+                    {staffType === "teachers" && (
+                      <td className="p-2 text-xs text-gray-600">{staff.ossId || "-"}</td>
+                    )}
                     <td className="p-2">{staff.email}</td>
                     <td className="p-2">{staff.phone}</td>
                     <td className="p-2">
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(staff.status)}`}>
                         {staff.status}
                       </span>
+                    </td>
+                    <td className="p-2">
+                      {(staff.workHistoryDoc || staff.offerLetterDoc || staff.identityDoc) ? (
+                        <button
+                          onClick={() => setViewDocStaff(staff)}
+                          className="flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-100"
+                          title="View documents"
+                        >
+                          <FileText className="w-3 h-3" />
+                          View
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="p-2">
                       <div className="flex gap-2">
@@ -494,6 +638,76 @@ export default function StaffModule() {
         </div>
       )}
 
+      {/* Document Viewer Modal */}
+      {viewDocStaff && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setViewDocStaff(null)}
+        >
+          <div
+            className="relative w-full max-w-3xl rounded-xl bg-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <p className="font-semibold">{viewDocStaff.name} — Documents</p>
+              <button
+                onClick={() => setViewDocStaff(null)}
+                className="rounded p-1 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[80vh] overflow-y-auto divide-y">
+              {viewDocStaff.workHistoryDoc && (
+                <DocViewer
+                  label="Past Working History"
+                  data={viewDocStaff.workHistoryDoc}
+                  fileName="work-history"
+                />
+              )}
+              {viewDocStaff.offerLetterDoc && (
+                <DocViewer
+                  label="Previous School Offer Letter"
+                  data={viewDocStaff.offerLetterDoc}
+                  fileName="offer-letter"
+                />
+              )}
+              {viewDocStaff.identityDoc && (
+                <DocViewer
+                  label="Aadhaar / Identity Proof"
+                  data={viewDocStaff.identityDoc}
+                  fileName="identity-proof"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocViewer({ label, data, fileName }: { label: string; data: string; fileName: string }) {
+  const isPdf = data.startsWith("data:application/pdf");
+  return (
+    <div className="p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="font-medium text-sm">{label}</p>
+        <a
+          href={data}
+          download={fileName}
+          className="flex items-center gap-1 rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Download
+        </a>
+      </div>
+      {isPdf ? (
+        <iframe src={data} className="h-[60vh] w-full rounded border-0" title={label} />
+      ) : (
+        <img src={data} alt={label} className="w-full rounded object-contain max-h-[60vh]" />
+      )}
     </div>
   );
 }

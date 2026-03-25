@@ -11,6 +11,10 @@ type Announcement = {
 export default function CommunicationModule() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiDescription, setAiDescription] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -101,6 +105,44 @@ export default function CommunicationModule() {
     }
   };
 
+  const createWithAi = async () => {
+    if (!aiTopic.trim()) {
+      setError("Please enter a topic for AI draft generation.");
+      return;
+    }
+
+    try {
+      setAiLoading(true);
+      setError("");
+
+      const res = await fetch("http://localhost:5000/api/announcements/ai-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: aiTopic.trim(),
+          description: aiDescription.trim(),
+          author: teacherName,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.message || "Failed to generate AI announcement");
+      }
+
+      setTitle(data.data?.title || "");
+      setMessage(data.data?.message || "");
+      setAiOpen(false);
+      setSuccess("AI draft generated. Review and post.");
+      setTimeout(() => setSuccess(""), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate AI draft");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const deleteAnnouncement = async (id: string) => {
     try {
       setError("");
@@ -160,6 +202,54 @@ export default function CommunicationModule() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
+
+          <div className="relative flex justify-end">
+            <button
+              type="button"
+              aria-label="Open AI draft popup"
+              onClick={() => setAiOpen((prev) => !prev)}
+              className="w-8 h-8 rounded-full border border-blue-300 text-blue-700 text-xs font-semibold hover:bg-blue-50"
+            >
+              AI
+            </button>
+
+            {aiOpen && (
+              <div className="absolute right-0 top-10 z-10 w-72 rounded-lg border bg-white shadow-lg p-3 space-y-2">
+                <p className="text-sm font-medium text-gray-700">Create with AI</p>
+                <input
+                  type="text"
+                  placeholder="Topic"
+                  className="border rounded p-2 w-full"
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                />
+                <textarea
+                  placeholder="Description"
+                  rows={3}
+                  className="border rounded p-2 w-full"
+                  value={aiDescription}
+                  onChange={(e) => setAiDescription(e.target.value)}
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAiOpen(false)}
+                    className="px-3 py-1 rounded border text-sm"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={createWithAi}
+                    disabled={aiLoading || saving}
+                    className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:opacity-60"
+                  >
+                    {aiLoading ? "Generating..." : "Generate"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={postAnnouncement}

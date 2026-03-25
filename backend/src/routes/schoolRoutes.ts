@@ -1,5 +1,6 @@
 import express from "express";
 import School from "../models/School";
+import Staff from "../models/Staff";
 import { createLog } from "../utils/createLog";
 
 const router = express.Router();
@@ -291,6 +292,110 @@ router.put("/renew/:id", async (req, res) => {
   } catch (error) {
     console.error("RENEW ERROR:", error);
     res.status(500).json({ message: "Renew failed" });
+  }
+});
+
+// ==========================
+// 🧪 SEED DUMMY SCHOOL + TEACHERS
+// ==========================
+router.post("/seed-dummy", async (req, res) => {
+  try {
+    const stamp = Date.now().toString().slice(-6);
+
+    const school = await School.create({
+      schoolInfo: {
+        name: `Demo Public School ${stamp}`,
+        email: `demo.school.${stamp}@example.com`,
+        phone: "+91-9000000001",
+        website: "https://demo-school.example.com",
+        address: "MG Road, Bengaluru",
+        logo: "",
+      },
+      adminInfo: {
+        name: "Demo Admin",
+        email: `admin.${stamp}@example.com`,
+        password: "admin123",
+        phone: "+91-9000000002",
+        status: "Active",
+      },
+      systemInfo: {
+        schoolType: "CBSE",
+        maxStudents: 1200,
+        subscriptionPlan: "Standard",
+        subscriptionEndDate: getEndDate("Standard"),
+      },
+      modules: [
+        "dashboard",
+        "students",
+        "attendance",
+        "staff",
+        "exams",
+        "communication",
+      ],
+    });
+
+    const teachers = await Staff.insertMany([
+      {
+        name: "Aarav Sharma",
+        email: `aarav.${stamp}@example.com`,
+        phone: "+91-9000001001",
+        position: "Teacher",
+        department: "Mathematics",
+        qualification: "M.Sc, B.Ed",
+        address: "BTM Layout, Bengaluru",
+        dateOfBirth: "1990-05-12",
+        gender: "Male",
+        joinDate: "2022-06-15",
+        status: "Active",
+        schoolId: school._id,
+      },
+      {
+        name: "Diya Verma",
+        email: `diya.${stamp}@example.com`,
+        phone: "+91-9000001002",
+        position: "Teacher",
+        department: "Science",
+        qualification: "M.Sc Physics, B.Ed",
+        address: "Indiranagar, Bengaluru",
+        dateOfBirth: "1992-11-03",
+        gender: "Female",
+        joinDate: "2021-07-01",
+        status: "Active",
+        schoolId: school._id,
+      },
+      {
+        name: "Rohan Patel",
+        email: `rohan.${stamp}@example.com`,
+        phone: "+91-9000001003",
+        position: "Teacher",
+        department: "English",
+        qualification: "M.A English, B.Ed",
+        address: "Whitefield, Bengaluru",
+        dateOfBirth: "1988-02-22",
+        gender: "Male",
+        joinDate: "2020-06-10",
+        status: "Active",
+        schoolId: school._id,
+      },
+    ]);
+
+    await createLog({
+      action: "SEED_DUMMY_DATA",
+      message: `Seeded dummy school and ${teachers.length} teachers`,
+      schoolId: school._id,
+    });
+
+    return res.json({
+      success: true,
+      message: "Dummy school and teacher data created",
+      data: {
+        school,
+        teachers,
+      },
+    });
+  } catch (error) {
+    console.error("SEED DUMMY ERROR:", error);
+    return res.status(500).json({ message: "Failed to seed dummy data" });
   }
 });
 

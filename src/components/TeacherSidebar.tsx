@@ -42,7 +42,7 @@ export function TeacherSidebar() {
   const teacherName = teacherData?.name || "Teacher";
 
   const visibleModules = allTeacherModules.filter(
-    (m) => m.id === "dashboard" || teacherPermissions.modules.includes(m.id)
+    (m) => teacherPermissions.modules.includes(m.id)
   );
 
   const sidebarContent = (

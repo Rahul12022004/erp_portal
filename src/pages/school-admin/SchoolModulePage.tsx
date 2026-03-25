@@ -1,45 +1,51 @@
 import { useParams } from "react-router-dom";
-import CommunicationModule from "./modules/CommunicationModule";
-import AcademicsModule from "./modules/AcademicsModule"; // ✅ added
-import AttendanceModule from "./modules/AttendenceModule";
-<<<<<<< HEAD
-import ApprovalsModule from "./modules/ApprovalsModule";
-import MaintenanceModule from "./modules/MaintenanceModule";
-import SurveyModule from "./modules/SurveyModule";
-import DownloadsModule from "./modules/DownloadsModule.tsx"
-=======
-import StudentModule from "./modules/StudentModule";
-import StaffModule from "./modules/StaffModule";
-import DigitalClassroomModule from "./modules/DigitalClassroomModule";
-import FinanceModule from "./modules/FinanceModule";
+import AcademicsModule from "./modules/AcademicsModule";
 import AdmissionsModule from "./modules/AdmissionsModule";
-import TransportModule from "./modules/TransportModule";
-import HostelModule from "./modules/HostelModule";
-import LibraryModule from "./modules/LibraryModule";
-import InventoryModule from "./modules/InventoryModule";
 import ApprovalsModule from "./modules/ApprovalsModule";
+import AttendanceModule from "./modules/AttendenceModule";
+import ClassModule from "./modules/ClassModule";
+import CommunicationModule from "./modules/CommunicationModule";
+import DownloadsModule from "./modules/DownloadsModule";
+import ExamsModule from "./modules/ExamsModule";
+import FinanceModule from "./modules/FinanceModule";
+import HostelModule from "./modules/HostelModule";
+import HRModule from "./modules/HRModule";
+import InventoryModule from "./modules/InventoryModule";
+import LibraryModule from "./modules/LibraryModule";
 import MaintenanceModule from "./modules/MaintenanceModule";
-import SurveyModule from "./modules/SurveyModule";
+import StaffModule from "./modules/StaffModule";
+import StudentModule from "./modules/StudentModule";
 import SupportModule from "./modules/SupportModule";
->>>>>>> 0bc2111 (Added academics module changes)
+import SurveyModule from "./modules/SurveyModule";
+import TransportModule from "./modules/TransportModule";
+import SportsModule from "./modules/SportsModule";
+import HouseModule from "./modules/HouseModule";
+import SocialMediaModule from "./modules/SocialMediaModule";
 
 const moduleNames: Record<string, string> = {
   communication: "Communication",
-  academics: "Academics", // ✅ added
+  academics: "Academics",
   attendance: "Attendance",
+  classes: "Classes",
   students: "Students",
   staff: "Staff",
-  "digital-classroom": "Digital Classroom",
+  exams: "Exams",
+  "digital-classroom": "Classes",
   finance: "Finance",
   admissions: "Admissions",
+  hr: "HR",
   transport: "Transport",
   hostel: "Hostel",
   library: "Library",
   inventory: "Inventory",
   approvals: "Approvals",
   maintenance: "Maintenance",
+  discipline: "House",
   survey: "Survey",
+  downloads: "Downloads",
   support: "Support",
+  sports: "Sports",
+  "social-media": "Social Media",
 };
 
 export default function SchoolModulePage() {
@@ -50,70 +56,54 @@ export default function SchoolModulePage() {
     switch (module) {
       case "communication":
         return <CommunicationModule />;
-
-      case "academics": // ✅ added
+      case "academics":
         return <AcademicsModule />;
-      
       case "attendance":
         return <AttendanceModule />;
-      
-      case "approvals":
-        return <ApprovalsModule />;
-      
-      case "maintenance":
-        return <MaintenanceModule />;
-      
-      case "survey":
-        return <SurveyModule />;
-      
-      case "downloads":
-        return <DownloadsModule />;
-
+      case "classes":
+        return <ClassModule />;
       case "students":
         return <StudentModule />;
-
       case "staff":
         return <StaffModule />;
-
+      case "exams":
+        return <ExamsModule />;
       case "digital-classroom":
-        return <DigitalClassroomModule />;
-
+        return <ClassModule />;
       case "finance":
         return <FinanceModule />;
-
       case "admissions":
         return <AdmissionsModule />;
-
+      case "hr":
+        return <HRModule />;
       case "transport":
         return <TransportModule />;
-
       case "hostel":
         return <HostelModule />;
-
       case "library":
         return <LibraryModule />;
-
       case "inventory":
         return <InventoryModule />;
-
       case "approvals":
         return <ApprovalsModule />;
-
       case "maintenance":
         return <MaintenanceModule />;
-
+      case "discipline":
+        return <HouseModule />;
       case "survey":
         return <SurveyModule />;
-
+      case "downloads":
+        return <DownloadsModule />;
+      case "sports":
+        return <SportsModule />;
+      case "social-media":
+        return <SocialMediaModule />;
       case "support":
         return <SupportModule />;
-
       default:
         return (
-          <div className="stat-card flex items-center justify-center h-64">
-            <p className="text-lg text-muted-foreground">
-              {title} — Coming Soon
-            </p>
+          <div className="stat-card flex h-64 items-center justify-center">
+            <p className="text-lg text-muted-foreground">{title} - Coming Soon</p>
           </div>
         );
     }
@@ -123,9 +113,7 @@ export default function SchoolModulePage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold">{title}</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage {title.toLowerCase()}
-        </p>
+        <p className="text-sm text-muted-foreground">Manage {title.toLowerCase()}</p>
       </div>
 
       {renderModule()}

@@ -1,20 +1,62 @@
-import { useEffect, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { FileSpreadsheet, IdCard, Printer, UserPlus, X } from "lucide-react";
+import * as XLSX from "xlsx";
 
 type Student = {
   _id: string;
+  formNumber?: string;
+  admissionNumber?: string;
   name: string;
   email: string;
   class: string;
+  classSection?: string;
+  academicYear?: string;
   rollNumber: string;
   phone?: string;
   address?: string;
   dateOfBirth?: string;
+  bloodGroup?: string;
   gender?: string;
+  photo?: string;
   createdAt?: string;
 };
 
 type AdmissionForm = {
+  formNumber: string;
+  formDate: string;
+  admissionNumber: string;
+  name: string;
+  email: string;
+  class: string;
+  classSection: string;
+  academicYear: string;
+  rollNumber: string;
+  phone: string;
+  aadharNumber: string;
+  placeOfBirth: string;
+  state: string;
+  nationality: string;
+  religion: string;
+  address: string;
+  pinCode: string;
+  dateOfBirth: string;
+  gender: string;
+  caste: string;
+  motherTongue: string;
+  bloodGroup: string;
+  identificationMarks: string;
+  previousAcademicRecord: string;
+  achievements: string;
+  generalBehaviour: string;
+  medicalHistory: string;
+  languagePreferences: string;
+  hasParentConsent: boolean;
+  needsTransport: boolean;
+  busConsent: boolean;
+  photo: string;
+};
+
+type ParsedAdmissionRow = {
   name: string;
   email: string;
   class: string;
@@ -26,26 +68,125 @@ type AdmissionForm = {
 };
 
 const emptyForm: AdmissionForm = {
+  formNumber: "",
+  formDate: "",
+  admissionNumber: "",
   name: "",
   email: "",
   class: "",
+  classSection: "",
+  academicYear: "",
   rollNumber: "",
   phone: "",
+  aadharNumber: "",
+  placeOfBirth: "",
+  state: "",
+  nationality: "Indian",
+  religion: "",
   address: "",
+  pinCode: "",
   dateOfBirth: "",
   gender: "",
+  caste: "",
+  motherTongue: "",
+  bloodGroup: "",
+  identificationMarks: "",
+  previousAcademicRecord: "",
+  achievements: "",
+  generalBehaviour: "",
+  medicalHistory: "",
+  languagePreferences: "",
+  hasParentConsent: false,
+  needsTransport: false,
+  busConsent: false,
+  photo: "",
 };
+
+const getRowValue = (row: Record<string, unknown>, keys: string[]): string => {
+  for (const [key, value] of Object.entries(row)) {
+    const normalized = key.trim().toLowerCase();
+    if (keys.includes(normalized)) {
+      return String(value ?? "").trim();
+    }
+  }
+  return "";
+};
+
+const normalizeDate = (value: string): string => {
+  if (!value) return "";
+  const trimmed = value.trim();
+
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const parsed = XLSX.SSF.parse_date_code(Number(trimmed));
+    if (parsed) {
+      const month = String(parsed.m).padStart(2, "0");
+      const day = String(parsed.d).padStart(2, "0");
+      return `${parsed.y}-${month}-${day}`;
+    }
+  }
+
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    return trimmed;
+  }
+  return date.toISOString().slice(0, 10);
+};
+
+const parseAdmissionRows = (rows: Record<string, unknown>[]): ParsedAdmissionRow[] => {
+  return rows
+    .map((row) => ({
+      name: getRowValue(row, ["name", "full name", "student name"]),
+      email: getRowValue(row, ["email", "email address"]),
+      class: getRowValue(row, ["class", "classname", "class name"]),
+      rollNumber: getRowValue(row, ["roll number", "rollnumber", "roll no", "rollno"]),
+      phone: getRowValue(row, ["phone", "mobile", "phone number", "contact"]),
+      address: getRowValue(row, ["address", "student address"]),
+      dateOfBirth: normalizeDate(getRowValue(row, ["date of birth", "dob", "birth date"])),
+      gender: getRowValue(row, ["gender", "sex"]),
+    }))
+    .filter((row) => row.name && row.email && row.class && row.rollNumber);
+};
+
+const resizeImage = (file: File, maxPx: number): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onload = (evt) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Invalid image"));
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("Canvas unsupported")); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = evt.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 
 export default function AdmissionsModule() {
   const [formData, setFormData] = useState<AdmissionForm>(emptyForm);
   const [recentAdmissions, setRecentAdmissions] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [excelSaving, setExcelSaving] = useState(false);
+  const [excelFileName, setExcelFileName] = useState("");
+  const [excelAdmissions, setExcelAdmissions] = useState<ParsedAdmissionRow[]>([]);
+  const [excelTotalRows, setExcelTotalRows] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [idCardStudent, setIdCardStudent] = useState<Student | null>(null);
+  // ref kept for potential future use
+  const _idCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchAdmissions();
+    void fetchAdmissions();
   }, []);
 
   const fetchAdmissions = async () => {
@@ -66,28 +207,27 @@ export default function AdmissionsModule() {
       }
 
       const data = await res.json();
-      const students = Array.isArray(data) ? data : [];
-
-      setRecentAdmissions(
-        [...students]
-          .sort((a, b) => {
-            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return bTime - aTime;
-          })
-          .slice(0, 10)
-      );
+      setRecentAdmissions(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Admissions fetch error:", err);
+      console.error("Fetch admissions error:", err);
       setRecentAdmissions([]);
-      setError(err instanceof Error ? err.message : "Failed to load admissions");
+      setError(err instanceof Error ? err.message : "Failed to fetch admissions");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!formData.hasParentConsent) {
+      setError("Parent consent form is required.");
+      return;
+    }
+    if (!formData.needsTransport && !formData.busConsent) {
+      setError("Parent consent for not taking school bus is required.");
+      return;
+    }
 
     try {
       setSaving(true);
@@ -100,30 +240,234 @@ export default function AdmissionsModule() {
         return;
       }
 
+      const payload = {
+        formNumber: formData.formNumber,
+        formDate: formData.formDate,
+        admissionNumber: formData.admissionNumber,
+        name: formData.name,
+        email: formData.email,
+        class: formData.class,
+        classSection: formData.classSection,
+        academicYear: formData.academicYear,
+        rollNumber: formData.rollNumber,
+        phone: formData.phone,
+        aadharNumber: formData.aadharNumber,
+        placeOfBirth: formData.placeOfBirth,
+        state: formData.state,
+        nationality: formData.nationality,
+        religion: formData.religion,
+        address: formData.address,
+        pinCode: formData.pinCode,
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender,
+        caste: formData.caste,
+        motherTongue: formData.motherTongue,
+        bloodGroup: formData.bloodGroup,
+        identificationMarks: formData.identificationMarks,
+        previousAcademicRecord: formData.previousAcademicRecord,
+        achievements: formData.achievements,
+        generalBehaviour: formData.generalBehaviour,
+        medicalHistory: formData.medicalHistory,
+        languagePreferences: formData.languagePreferences
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+        hasParentConsent: formData.hasParentConsent,
+        needsTransport: formData.needsTransport,
+        busConsent: formData.busConsent,
+        photo: formData.photo || undefined,
+        schoolId: school._id,
+      };
+
       const res = await fetch("http://localhost:5000/api/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          schoolId: school._id,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => null);
-
       if (!res.ok) {
-        throw new Error(data?.message || "Failed to create admission");
+        throw new Error(data?.message || "Failed to admit student");
       }
 
-      setFormData(emptyForm);
       setSuccess("Student admitted successfully.");
+      setFormData(emptyForm);
+      setPhotoPreview("");
       await fetchAdmissions();
     } catch (err) {
-      console.error("Admissions save error:", err);
-      setError(err instanceof Error ? err.message : "Failed to create admission");
+      console.error("Admission save error:", err);
+      setError(err instanceof Error ? err.message : "Failed to admit student");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleExcelFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setExcelSaving(true);
+      setError("");
+      setSuccess("");
+      setExcelFileName(file.name);
+      setExcelAdmissions([]);
+      setExcelTotalRows(0);
+
+      const fileBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(fileBuffer, { type: "array", cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) {
+        setError("Excel file is empty.");
+        return;
+      }
+
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+        defval: "",
+      });
+
+      if (rows.length === 0) {
+        setError("No rows found in the uploaded file.");
+        return;
+      }
+
+      const admissions = parseAdmissionRows(rows);
+      setExcelTotalRows(rows.length);
+
+      if (admissions.length === 0) {
+        setError("No valid rows found. Required columns: name, email, class, rollNumber.");
+        return;
+      }
+
+      setExcelAdmissions(admissions);
+      setSuccess(`Excel preview ready. ${admissions.length} valid student row(s) found.`);
+    } catch (err) {
+      console.error("Excel preview error:", err);
+      setError(err instanceof Error ? err.message : "Failed to read Excel file");
+    } finally {
+      e.target.value = "";
+      setExcelSaving(false);
+    }
+  };
+
+  const handleExcelEnroll = async () => {
+    if (excelAdmissions.length === 0) {
+      setError("Please upload an Excel file and preview student rows first.");
+      return;
+    }
+
+    try {
+      setExcelSaving(true);
+      setError("");
+      setSuccess("");
+
+      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      if (!school?._id) {
+        setError("School not found. Please log in again.");
+        return;
+      }
+
+      const requests = excelAdmissions.map((student) =>
+        fetch("http://localhost:5000/api/students", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...student, schoolId: school._id }),
+        })
+      );
+
+      const results = await Promise.allSettled(requests);
+      const failedMessages: string[] = [];
+      let successCount = 0;
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          if (result.value.ok) {
+            successCount += 1;
+          } else {
+            const responseData = await result.value.json().catch(() => null);
+            failedMessages.push(responseData?.message || "Failed to create one student");
+          }
+        } else {
+          failedMessages.push("Network error while creating one student");
+        }
+      }
+
+      const failedCount = excelAdmissions.length - successCount;
+      if (failedCount === 0) {
+        setSuccess(`Excel admission completed. ${successCount} students enrolled.`);
+        setExcelAdmissions([]);
+        setExcelFileName("");
+        setExcelTotalRows(0);
+      } else {
+        const details = failedMessages.slice(0, 3).join(" | ");
+        setError(
+          `Excel admission finished with issues. Success: ${successCount}, Failed: ${failedCount}. ${details}`
+        );
+      }
+
+      await fetchAdmissions();
+    } catch (err) {
+      console.error("Excel admission error:", err);
+      setError(err instanceof Error ? err.message : "Failed to process Excel admissions");
+    } finally {
+      setExcelSaving(false);
+    }
+  };
+
+  const handlePhotoSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await resizeImage(file, 250);
+      setPhotoPreview(dataUrl);
+      setFormData((prev) => ({ ...prev, photo: dataUrl }));
+    } catch {
+      setError("Failed to process photo. Please try a different image.");
+    }
+    e.target.value = "";
+  };
+
+  const printIdCard = () => {
+    if (!idCardStudent) return;
+    const sch = JSON.parse(localStorage.getItem("school") ?? "{}") as { name?: string };
+    const schoolName = sch?.name ?? "School";
+    const photoHtml = idCardStudent.photo
+      ? `<img src="${idCardStudent.photo}" style="width:80px;height:100px;object-fit:cover;border-radius:6px;" />`
+      : `<div style="width:80px;height:100px;background:#e5e7eb;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:36px;">&#128100;</div>`;
+    const win = window.open("", "_blank", "width=540,height=440");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>ID Card - ${idCardStudent.name}</title>
+<style>
+  body{margin:20px;font-family:Arial,sans-serif;}
+  .card{width:340px;border:2px solid #1d4ed8;border-radius:12px;overflow:hidden;}
+  .hd{background:#1d4ed8;color:white;text-align:center;padding:8px 12px;}
+  .hd h2{margin:0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;}
+  .hd p{margin:2px 0 0;font-size:11px;opacity:.85;}
+  .bd{display:flex;padding:12px;gap:12px;background:#fff;align-items:flex-start;}
+  .info .name{font-size:14px;font-weight:700;margin:0 0 5px;}
+  .info p{margin:2px 0;font-size:11px;color:#374151;}
+  .ft{background:#eff6ff;border-top:1px solid #bfdbfe;text-align:center;padding:5px;}
+  .ft p{margin:0;font-size:10px;color:#6b7280;}
+</style></head><body>
+<div class="card">
+  <div class="hd"><h2>Student Identity Card</h2><p>${schoolName}</p></div>
+  <div class="bd">
+    <div>${photoHtml}</div>
+    <div class="info">
+      <p class="name">${idCardStudent.name}</p>
+      <p>Class: ${idCardStudent.class}${idCardStudent.classSection ? " " + idCardStudent.classSection : ""}</p>
+      <p>Roll No: ${idCardStudent.rollNumber}</p>
+      <p>Admission No: ${idCardStudent.admissionNumber ?? "-"}</p>
+      <p>Date of Birth: ${idCardStudent.dateOfBirth ?? "-"}</p>
+      <p>Blood Group: ${idCardStudent.bloodGroup ?? "-"}</p>
+    </div>
+  </div>
+  <div class="ft"><p>If found, please return to the school office</p></div>
+</div>
+<script>window.onload=function(){window.print();};<\/script>
+</body></html>`);
+    win.document.close();
   };
 
   return (
@@ -139,6 +483,26 @@ export default function AdmissionsModule() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Form Number"
+              className="border rounded p-2"
+              value={formData.formNumber}
+              onChange={(e) => setFormData({ ...formData, formNumber: e.target.value })}
+            />
+            <input
+              type="date"
+              className="border rounded p-2"
+              value={formData.formDate}
+              onChange={(e) => setFormData({ ...formData, formDate: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Admission Number"
+              className="border rounded p-2"
+              value={formData.admissionNumber}
+              onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
+            />
             <input
               type="text"
               placeholder="Full Name"
@@ -165,6 +529,20 @@ export default function AdmissionsModule() {
             />
             <input
               type="text"
+              placeholder="Section"
+              className="border rounded p-2"
+              value={formData.classSection}
+              onChange={(e) => setFormData({ ...formData, classSection: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Academic Year (e.g. 2026-2027)"
+              className="border rounded p-2"
+              value={formData.academicYear}
+              onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
+            />
+            <input
+              type="text"
               placeholder="Roll Number"
               className="border rounded p-2"
               value={formData.rollNumber}
@@ -177,6 +555,13 @@ export default function AdmissionsModule() {
               className="border rounded p-2"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Aadhar Number"
+              className="border rounded p-2"
+              value={formData.aadharNumber}
+              onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value })}
             />
             <select
               className="border rounded p-2"
@@ -194,15 +579,184 @@ export default function AdmissionsModule() {
               value={formData.dateOfBirth}
               onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
             />
+            <input
+              type="text"
+              placeholder="Place of Birth"
+              className="border rounded p-2"
+              value={formData.placeOfBirth}
+              onChange={(e) => setFormData({ ...formData, placeOfBirth: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="State"
+              className="border rounded p-2"
+              value={formData.state}
+              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Nationality"
+              className="border rounded p-2"
+              value={formData.nationality}
+              onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Religion"
+              className="border rounded p-2"
+              value={formData.religion}
+              onChange={(e) => setFormData({ ...formData, religion: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Caste"
+              className="border rounded p-2"
+              value={formData.caste}
+              onChange={(e) => setFormData({ ...formData, caste: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Pin Code"
+              className="border rounded p-2"
+              value={formData.pinCode}
+              onChange={(e) => setFormData({ ...formData, pinCode: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Mother Tongue"
+              className="border rounded p-2"
+              value={formData.motherTongue}
+              onChange={(e) => setFormData({ ...formData, motherTongue: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Blood Group"
+              className="border rounded p-2"
+              value={formData.bloodGroup}
+              onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+            />
+          </div>
+
+          {/* Student Photo */}
+          <div className="border rounded p-3 bg-gray-50">
+            <p className="text-sm font-medium mb-2">Student Photo</p>
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-24 bg-gray-200 rounded flex items-center justify-center overflow-hidden flex-shrink-0 border">
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-3xl text-gray-400">&#128100;</span>
+                )}
+              </div>
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => void handlePhotoSelect(e)}
+                  className="block text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {photoPreview && (
+                  <button
+                    type="button"
+                    className="mt-2 text-xs text-red-500 hover:underline"
+                    onClick={() => { setPhotoPreview(""); setFormData((p) => ({ ...p, photo: "" })); }}
+                  >
+                    Remove photo
+                  </button>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">JPEG / PNG — auto-resized to 250px</p>
+              </div>
+            </div>
           </div>
 
           <textarea
-            placeholder="Address"
+            placeholder="Residential Address"
             className="border rounded p-2 w-full"
             rows={3}
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
+
+          <textarea
+            placeholder="Identification Marks"
+            className="border rounded p-2 w-full"
+            rows={2}
+            value={formData.identificationMarks}
+            onChange={(e) => setFormData({ ...formData, identificationMarks: e.target.value })}
+          />
+
+          <textarea
+            placeholder="Previous Academic Record"
+            className="border rounded p-2 w-full"
+            rows={2}
+            value={formData.previousAcademicRecord}
+            onChange={(e) => setFormData({ ...formData, previousAcademicRecord: e.target.value })}
+          />
+
+          <textarea
+            placeholder="Achievements"
+            className="border rounded p-2 w-full"
+            rows={2}
+            value={formData.achievements}
+            onChange={(e) => setFormData({ ...formData, achievements: e.target.value })}
+          />
+
+          <textarea
+            placeholder="General Behaviour"
+            className="border rounded p-2 w-full"
+            rows={2}
+            value={formData.generalBehaviour}
+            onChange={(e) => setFormData({ ...formData, generalBehaviour: e.target.value })}
+          />
+
+          <textarea
+            placeholder="Medical History"
+            className="border rounded p-2 w-full"
+            rows={2}
+            value={formData.medicalHistory}
+            onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })}
+          />
+
+          <input
+            type="text"
+            placeholder="Language Preferences (comma separated)"
+            className="border rounded p-2 w-full"
+            value={formData.languagePreferences}
+            onChange={(e) => setFormData({ ...formData, languagePreferences: e.target.value })}
+          />
+
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.hasParentConsent}
+                onChange={(e) => setFormData({ ...formData, hasParentConsent: e.target.checked })}
+                required
+              />
+              Parent Consent Form Signed
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.needsTransport}
+                onChange={(e) =>
+                  setFormData({ ...formData, needsTransport: e.target.checked, busConsent: false })
+                }
+              />
+              School Bus Facility Required
+            </label>
+            {!formData.needsTransport && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.busConsent}
+                  onChange={(e) => setFormData({ ...formData, busConsent: e.target.checked })}
+                  required
+                />
+                Parent Consent for Not Taking School Bus
+              </label>
+            )}
+          </div>
 
           <button
             type="submit"
@@ -212,6 +766,77 @@ export default function AdmissionsModule() {
             {saving ? "Saving..." : "Add Admission"}
           </button>
         </form>
+      </div>
+
+      <div className="stat-card p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Excel Admission Import</h3>
+        </div>
+
+        <p className="mb-3 text-xs text-muted-foreground">
+          Upload .xlsx or .xls with columns: name, email, class, rollNumber (required). Optional:
+          phone, address, dateOfBirth, gender.
+        </p>
+
+        <input
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={handleExcelFileSelect}
+          disabled={excelSaving}
+          className="mb-4 block w-full rounded border bg-white p-2 text-sm"
+        />
+
+        {excelFileName && (
+          <p className="mb-3 text-sm text-muted-foreground">
+            File: {excelFileName} | Preview rows: {excelAdmissions.length}
+            {excelTotalRows > excelAdmissions.length
+              ? ` (${excelTotalRows - excelAdmissions.length} skipped due to missing required fields)`
+              : ""}
+          </p>
+        )}
+
+        {excelAdmissions.length > 0 && (
+          <div className="space-y-3">
+            <div className="overflow-x-auto rounded border">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr className="border-b">
+                    <th className="p-2 text-left">Name</th>
+                    <th className="p-2 text-left">Class</th>
+                    <th className="p-2 text-left">Roll No</th>
+                    <th className="p-2 text-left">Email</th>
+                    <th className="p-2 text-left">Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {excelAdmissions.slice(0, 10).map((student, index) => (
+                    <tr key={`${student.email}-${student.rollNumber}-${index}`} className="border-b">
+                      <td className="p-2 font-medium">{student.name}</td>
+                      <td className="p-2">{student.class}</td>
+                      <td className="p-2">{student.rollNumber}</td>
+                      <td className="p-2">{student.email}</td>
+                      <td className="p-2">{student.phone || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {excelAdmissions.length > 10 && (
+              <p className="text-xs text-muted-foreground">Showing first 10 rows in preview.</p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void handleExcelEnroll()}
+              disabled={excelSaving}
+              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {excelSaving ? "Enrolling..." : "Enroll Students from Excel"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="stat-card p-6">
@@ -231,6 +856,7 @@ export default function AdmissionsModule() {
                   <th className="text-left p-2">Roll No</th>
                   <th className="text-left p-2">Email</th>
                   <th className="text-left p-2">Phone</th>
+                  <th className="text-left p-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -241,6 +867,16 @@ export default function AdmissionsModule() {
                     <td className="p-2">{student.rollNumber}</td>
                     <td className="p-2">{student.email}</td>
                     <td className="p-2">{student.phone || "-"}</td>
+                    <td className="p-2">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        onClick={() => setIdCardStudent(student)}
+                      >
+                        <IdCard className="w-3.5 h-3.5" />
+                        ID Card
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -248,6 +884,75 @@ export default function AdmissionsModule() {
           </div>
         )}
       </div>
+
+      {/* ID Card Modal */}
+      {idCardStudent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setIdCardStudent(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-lg">Student ID Card</h3>
+              <button
+                type="button"
+                onClick={() => setIdCardStudent(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="border-2 border-blue-700 rounded-xl overflow-hidden">
+              <div className="bg-blue-700 text-white text-center py-2 px-3">
+                <p className="text-xs font-bold tracking-widest uppercase">Student Identity Card</p>
+                <p className="text-xs opacity-80">
+                  {(JSON.parse(localStorage.getItem("school") ?? "{}") as { name?: string }).name ?? "School"}
+                </p>
+              </div>
+              <div className="flex p-3 gap-3 bg-white items-start">
+                <div className="w-20 h-24 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden border">
+                  {idCardStudent.photo ? (
+                    <img src={idCardStudent.photo} alt={idCardStudent.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-4xl text-gray-400">&#128100;</span>
+                  )}
+                </div>
+                <div className="flex-1 text-xs space-y-1">
+                  <p className="font-bold text-sm">{idCardStudent.name}</p>
+                  <p>Class: {idCardStudent.class}{idCardStudent.classSection ? ` ${idCardStudent.classSection}` : ""}</p>
+                  <p>Roll No: {idCardStudent.rollNumber}</p>
+                  <p>Admission No: {idCardStudent.admissionNumber ?? "-"}</p>
+                  <p>Date of Birth: {idCardStudent.dateOfBirth ?? "-"}</p>
+                  <p>Blood Group: {idCardStudent.bloodGroup ?? "-"}</p>
+                </div>
+              </div>
+              <div className="bg-blue-50 border-t px-3 py-1.5 text-center">
+                <p className="text-xs text-gray-500">If found, please return to the school office</p>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                onClick={printIdCard}
+              >
+                <Printer className="w-4 h-4" />
+                Print ID Card
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 rounded border text-sm hover:bg-gray-50"
+                onClick={() => setIdCardStudent(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

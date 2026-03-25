@@ -5,9 +5,13 @@ const transportSchema = new mongoose.Schema(
     busNumber: { type: String, required: true },
     routeName: { type: String, required: true },
     driverName: { type: String, required: true },
+    driverPhone: { type: String, required: true },
+    driverLicenseNumber: { type: String, required: true },
+    driverLicensePhoto: String,
     conductorName: { type: String, required: true },
-    pickupTime: String,
-    dropTime: String,
+    conductorPhone: String,
+    conductorInfo: String,
+    routeStops: [{ type: String }],
     assignedStudents: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Student" }
     ],

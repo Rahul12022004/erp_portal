@@ -29,16 +29,29 @@ router.post("/", async (req, res) => {
       busNumber,
       routeName,
       driverName,
+      driverPhone,
+      driverLicenseNumber,
+      driverLicensePhoto,
       conductorName,
-      pickupTime,
-      dropTime,
+      conductorPhone,
+      conductorInfo,
+      routeStops,
       assignedStudents,
       schoolId,
     } = req.body;
 
-    if (!busNumber || !routeName || !driverName || !conductorName || !schoolId) {
+    if (
+      !busNumber ||
+      !routeName ||
+      !driverName ||
+      !driverPhone ||
+      !driverLicenseNumber ||
+      !conductorName ||
+      !schoolId
+    ) {
       return res.status(400).json({
-        message: "Required fields: busNumber, routeName, driverName, conductorName, schoolId",
+        message:
+          "Required fields: busNumber, routeName, driverName, driverPhone, driverLicenseNumber, conductorName, schoolId",
       });
     }
 
@@ -46,9 +59,13 @@ router.post("/", async (req, res) => {
       busNumber,
       routeName,
       driverName,
+      driverPhone,
+      driverLicenseNumber,
+      driverLicensePhoto,
       conductorName,
-      pickupTime,
-      dropTime,
+      conductorPhone,
+      conductorInfo,
+      routeStops: Array.isArray(routeStops) ? routeStops : [],
       assignedStudents: Array.isArray(assignedStudents) ? assignedStudents : [],
       schoolId,
     });

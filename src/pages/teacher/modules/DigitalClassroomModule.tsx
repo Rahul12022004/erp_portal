@@ -40,6 +40,9 @@ type ClassDetails = {
   studentCount: number;
 };
 
+const getClassLabel = (classItem: Pick<ClassItem, "name" | "section">) =>
+  classItem.section ? `${classItem.name} - ${classItem.section}` : classItem.name;
+
 export default function DigitalClassroomModule() {
   const [classList, setClassList] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -551,8 +554,8 @@ export default function DigitalClassroomModule() {
                 </div>
               )}
 
-              <button
-                onClick={() => toggleClassDetails(cls._id, cls.name)}
+                <button
+                onClick={() => toggleClassDetails(cls._id, getClassLabel(cls))}
                 className="w-full border-t pt-3 flex items-center justify-between text-blue-600 hover:text-blue-800 text-sm font-medium"
               >
                 <span>

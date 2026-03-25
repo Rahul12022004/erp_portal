@@ -2,6 +2,7 @@ import express from "express";
 import Finance from "../models/Finance";
 import Student from "../models/Student";
 import { createLog } from "../utils/createLog";
+import { buildAnnualFeeComponents, getCurrentDueDateForClass, getFeeStructureGroupForClass } from "../utils/feeStructure";
 
 const router = express.Router();
 
@@ -29,34 +30,104 @@ router.get("/:schoolId", async (req, res) => {
 // ==========================
 // ➕ CREATE STUDENT
 // ==========================
+
 router.post("/", async (req, res) => {
   try {
-    const { name, email, class: studentClass, rollNumber, phone, address, dateOfBirth, gender, schoolId } = req.body;
+    const {
+      formNumber,
+      formDate,
+      admissionNumber,
+      name,
+      email,
+      class: studentClass,
+      classSection,
+      academicYear,
+      rollNumber,
+      phone,
+      dateOfBirth,
+      aadharNumber,
+      placeOfBirth,
+      state,
+      nationality,
+      religion,
+      gender,
+      caste,
+      address,
+      pinCode,
+      motherTongue,
+      bloodGroup,
+      identificationMarks,
+      previousAcademicRecord,
+      achievements,
+      generalBehaviour,
+      medicalHistory,
+      languagePreferences,
+      schoolId,
+      hasParentConsent,
+      needsTransport,
+      busConsent,
+      photo,
+    } = req.body;
 
     if (!name || !email || !studentClass || !rollNumber || !schoolId) {
       return res.status(400).json({ message: "Required fields: name, email, class, rollNumber, schoolId" });
     }
 
-    const student = await Student.create({
+    const studentPayload: Record<string, unknown> = {
+      formNumber,
+      formDate,
+      admissionNumber,
       name,
       email,
       class: studentClass,
+      classSection,
+      academicYear,
       rollNumber,
       phone,
       address,
+      pinCode,
       dateOfBirth,
+      aadharNumber,
+      placeOfBirth,
+      state,
+      nationality,
+      religion,
       gender,
+      caste,
+      motherTongue,
+      bloodGroup,
+      identificationMarks,
+      previousAcademicRecord,
+      achievements,
+      generalBehaviour,
+      medicalHistory,
+      languagePreferences: Array.isArray(languagePreferences)
+        ? languagePreferences
+        : String(languagePreferences || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean),
       schoolId,
-    });
+      hasParentConsent: !!hasParentConsent,
+      needsTransport: !!needsTransport,
+      busConsent: !!busConsent,
+      ...(photo ? { photo } : {}),
+    };
+
+    const student = await Student.create(studentPayload as any);
+    const studentId = (student as any)._id;
+
+    const feeGroup = getFeeStructureGroupForClass(String(studentClass));
 
     await Finance.create({
       type: "student_fee",
-      studentId: student._id,
-      amount: 10000,
+      studentId,
+      amount: feeGroup.annualFee,
       paidAmount: 0,
-      dueDate: getDefaultFeeDueDate(),
+      dueDate: getCurrentDueDateForClass(String(studentClass), 0) || getDefaultFeeDueDate(),
       status: "pending",
       description: `Default fee record for ${name}`,
+      feeComponents: buildAnnualFeeComponents(String(studentClass)),
       schoolId,
     });
 
@@ -69,7 +140,8 @@ router.post("/", async (req, res) => {
     res.json({ success: true, data: student });
   } catch (error) {
     console.error("CREATE STUDENT ERROR:", error);
-    res.status(500).json({ message: "Failed to create student" });
+    const message = error instanceof Error ? error.message : "Failed to create student";
+    res.status(500).json({ message });
   }
 });
 

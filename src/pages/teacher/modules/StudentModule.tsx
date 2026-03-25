@@ -24,6 +24,9 @@ type SchoolClass = {
       };
 };
 
+const getClassLabel = (schoolClass: Pick<SchoolClass, "name" | "section">) =>
+  schoolClass.section ? `${schoolClass.name} - ${schoolClass.section}` : schoolClass.name;
+
 export default function StudentsModule() {
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -96,8 +99,9 @@ export default function StudentsModule() {
   const sortedClasses = [...classes].sort((a, b) => a.name.localeCompare(b.name));
 
   const groupedStudents = sortedClasses.reduce((acc, schoolClass) => {
-    acc[schoolClass.name] = students
-      .filter((student) => student.class === schoolClass.name)
+    const classLabel = getClassLabel(schoolClass);
+    acc[classLabel] = students
+      .filter((student) => student.class === classLabel)
       .sort((a, b) => a.rollNumber.localeCompare(b.rollNumber));
     return acc;
   }, {} as Record<string, Student[]>);
@@ -139,8 +143,8 @@ export default function StudentsModule() {
         >
           <option value="All">All Classes</option>
           {sortedClasses.map((schoolClass) => (
-            <option key={schoolClass._id} value={schoolClass.name}>
-              {schoolClass.name}
+            <option key={schoolClass._id} value={getClassLabel(schoolClass)}>
+              {getClassLabel(schoolClass)}
             </option>
           ))}
         </select>
@@ -162,7 +166,7 @@ export default function StudentsModule() {
         <div className="space-y-6">
           {Object.entries(filteredStudents).map(([className, classStudents]) => {
             const classInfo = sortedClasses.find(
-              (schoolClass) => schoolClass.name === className
+              (schoolClass) => getClassLabel(schoolClass) === className
             );
 
             return (

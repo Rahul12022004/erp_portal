@@ -1,5 +1,25 @@
 import mongoose from "mongoose";
 
+const feeComponentSchema = new mongoose.Schema(
+  {
+    label: { type: String, required: true },
+    amount: { type: Number, required: true },
+  },
+  { _id: false }
+);
+
+const paymentHistorySchema = new mongoose.Schema(
+  {
+    receiptNumber: { type: String, required: true },
+    transactionId: { type: String, required: true },
+    paymentDate: { type: String, required: true },
+    amountPaid: { type: Number, required: true },
+    sentToEmail: { type: Boolean, default: false },
+    createdAt: { type: String, default: () => new Date().toISOString() },
+  },
+  { _id: false }
+);
+
 const financeSchema = new mongoose.Schema(
   {
     type: {
@@ -31,6 +51,8 @@ const financeSchema = new mongoose.Schema(
     },
     description: String,
     academicYear: String,
+    feeComponents: { type: [feeComponentSchema], default: [] },
+    paymentHistory: { type: [paymentHistorySchema], default: [] },
     // For other expenses/income
     category: String, // e.g., "Maintenance", "Equipment", "Events", "Miscellaneous"
     transactionType: {

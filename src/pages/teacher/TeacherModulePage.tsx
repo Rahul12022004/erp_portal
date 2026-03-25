@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { useRole } from "@/contexts/RoleContext";
 
 import AttendanceModule from "./modules/AttendanceModule";
 import AssignmentsModule from "./modules/AssignmentsModule";
@@ -23,8 +24,10 @@ const moduleNames: Record<string, string> = {
 };
 
 export default function TeacherModulePage() {
+  const { teacherPermissions } = useRole();
   const { module } = useParams();
   const title = moduleNames[module || ""] || module || "Module";
+  const isAllowedModule = !module || teacherPermissions.modules.includes(module);
 
   const renderModule = () => {
     switch (module) {
@@ -74,7 +77,15 @@ export default function TeacherModulePage() {
         <p className="text-sm text-muted-foreground">{title} management</p>
       </div>
 
-      {renderModule()}
+      {isAllowedModule ? (
+        renderModule()
+      ) : (
+        <div className="stat-card flex h-64 items-center justify-center">
+          <p className="text-lg text-muted-foreground">
+            Access denied. This module is not assigned to your role.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,87 +1,3 @@
-<<<<<<< HEAD
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-
-export default function ApprovalsModule() {
-  const [requests, setRequests] = useState([]);
-
-  return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Approvals</h1>
-
-      {/* Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {["Total", "Pending", "Approved", "Rejected", "Cancel"].map((item) => (
-            <div key={item} className="p-4 bg-muted rounded-xl text-center">
-              <p className="text-sm text-muted-foreground">{item}</p>
-              <p className="text-xl font-bold">0</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Create Request */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Create Request</CardTitle>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-5 gap-4">
-          <Select>
-            <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">Stationary</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select>
-            <SelectTrigger><SelectValue placeholder="Requester" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">Admin</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Input placeholder="Amount" />
-          <Input placeholder="Description" />
-
-          <Button
-            onClick={() => setRequests([...requests, { id: Date.now() }])}
-          >
-            Submit
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Requests List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Requests</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {requests.length === 0 ? (
-            <p className="text-center text-muted-foreground">No requests yet</p>
-          ) : (
-            <div className="space-y-2">
-              {requests.map((r, i) => (
-                <div key={r.id} className="flex justify-between items-center p-3 border rounded-lg">
-                  <span>Request #{i + 1}</span>
-                  <span className="text-sm text-yellow-500">Pending</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-=======
 import { useEffect, useState } from "react";
 import { Check, FileText, X } from "lucide-react";
 
@@ -190,7 +106,7 @@ export default function ApprovalsModule() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="stat-card p-4 text-center">
           <p className="text-sm text-muted-foreground">Pending</p>
           <h3 className="text-2xl font-semibold text-yellow-600">{pendingCount}</h3>
@@ -206,7 +122,7 @@ export default function ApprovalsModule() {
       </div>
 
       <div className="stat-card p-6">
-        <h3 className="text-lg font-semibold mb-4">Teacher Leave Approvals</h3>
+        <h3 className="mb-4 text-lg font-semibold">Teacher Leave Approvals</h3>
 
         {loading ? (
           <p className="text-sm text-gray-500">Loading leave requests...</p>
@@ -219,24 +135,24 @@ export default function ApprovalsModule() {
             {leaves.map((leave) => (
               <div
                 key={leave._id}
-                className="rounded-xl border border-border bg-muted/20 p-5 space-y-4"
+                className="space-y-4 rounded-xl border border-border bg-muted/20 p-5"
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
                     <p className="text-lg font-semibold">{leave.title}</p>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {leave.description}
                     </p>
                   </div>
 
                   <span
-                    className={`w-fit px-2 py-1 rounded-full text-xs ${statusClasses[leave.status]}`}
+                    className={`w-fit rounded-full px-2 py-1 text-xs ${statusClasses[leave.status]}`}
                   >
                     {leave.status}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                   <div>
                     <p className="text-muted-foreground">Teacher</p>
                     <p className="font-medium">{leave.teacherId?.name || "Unknown Teacher"}</p>
@@ -261,9 +177,9 @@ export default function ApprovalsModule() {
                         href={leave.fileData}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
                       >
-                        <FileText className="w-4 h-4" />
+                        <FileText className="h-4 w-4" />
                         {leave.fileName || "View Attachment"}
                       </a>
                     ) : (
@@ -277,7 +193,7 @@ export default function ApprovalsModule() {
                       className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-60"
                       disabled={updatingId === leave._id || leave.status === "Approved"}
                     >
-                      <Check className="w-4 h-4" />
+                      <Check className="h-4 w-4" />
                       Approve
                     </button>
                     <button
@@ -285,7 +201,7 @@ export default function ApprovalsModule() {
                       className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
                       disabled={updatingId === leave._id || leave.status === "Rejected"}
                     >
-                      <X className="w-4 h-4" />
+                      <X className="h-4 w-4" />
                       Reject
                     </button>
                   </div>
@@ -298,4 +214,3 @@ export default function ApprovalsModule() {
     </div>
   );
 }
->>>>>>> 0bc2111 (Added academics module changes)

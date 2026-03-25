@@ -1,6 +1,5 @@
 import { Bell, Search } from "lucide-react";
 import { useLocation } from "react-router-dom";
-import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { useRole } from "@/contexts/RoleContext";
 import { useEffect, useState } from "react";
 
@@ -23,11 +22,26 @@ export function TopNavbar() {
 
   // 🔥 LOAD FROM LOCAL STORAGE
   useEffect(() => {
-    const school = localStorage.getItem("school");
-    const teacher = localStorage.getItem("teacher");
+    const loadSessionData = () => {
+      const school = localStorage.getItem("school");
+      const teacher = localStorage.getItem("teacher");
 
-    setSchoolData(school ? JSON.parse(school) : null);
-    setTeacherData(teacher ? JSON.parse(teacher) : null);
+      setSchoolData(school ? JSON.parse(school) : null);
+      setTeacherData(teacher ? JSON.parse(teacher) : null);
+    };
+
+    loadSessionData();
+
+    const onStorage = () => loadSessionData();
+    const onSessionUpdate = () => loadSessionData();
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("school-session-updated", onSessionUpdate);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("school-session-updated", onSessionUpdate);
+    };
   }, [role]);
 
   // ==========================
@@ -92,8 +106,6 @@ export function TopNavbar() {
 
       {/* RIGHT SIDE */}
       <div className="flex items-center gap-3">
-
-        <RoleSwitcher />
 
         <button className="p-2 rounded-lg hover:bg-muted">
           <Search className="w-[18px] h-[18px]" />

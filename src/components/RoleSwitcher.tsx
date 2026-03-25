@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRole, UserRole } from "@/contexts/RoleContext";
+import { useRole, UserRole, DEFAULT_TEACHER_MODULES } from "@/contexts/RoleContext";
 import { Shield, School, GraduationCap } from "lucide-react";
 
 const roles: { value: UserRole; label: string; icon: any }[] = [
@@ -9,7 +9,7 @@ const roles: { value: UserRole; label: string; icon: any }[] = [
 ];
 
 export function RoleSwitcher() {
-  const { role, setRole } = useRole();
+  const { role, setRole, setTeacherPermissions } = useRole();
 
   const [showLogin, setShowLogin] = useState(false);
   const [name, setName] = useState("");
@@ -70,6 +70,7 @@ export function RoleSwitcher() {
 
         localStorage.setItem("school", JSON.stringify(data));
         localStorage.removeItem("teacher");
+        window.dispatchEvent(new Event("school-session-updated"));
         setRole("school-admin");
         setShowLogin(false);
         return;
@@ -91,6 +92,8 @@ export function RoleSwitcher() {
 
         localStorage.setItem("teacher", JSON.stringify(data.teacher));
         localStorage.setItem("school", JSON.stringify(data.school));
+        setTeacherPermissions({ modules: DEFAULT_TEACHER_MODULES });
+        window.dispatchEvent(new Event("school-session-updated"));
         setRole("teacher");
         setShowLogin(false);
       }

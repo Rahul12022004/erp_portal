@@ -4,16 +4,18 @@ import {
   Monitor, FileText, DollarSign, UserPlus, Briefcase, Download, Building,
   Library, HeadphonesIcon, Bus, Package, ShoppingCart, UtensilsCrossed,
   CheckSquare, ScrollText, Shield, Wrench, Settings,
-  Trophy, Video, BarChart3, Store, Clock, LogOut, GraduationCap, Menu, X,
+  Trophy, Video, BarChart3, Store, Clock, LogOut, GraduationCap, Menu, X, Share2,
+  type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 // 🔥 ICON MAP (same as before)
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, LucideIcon> = {
   Dashboard: LayoutDashboard,
   Communication: MessageSquare,
   Academics: BookOpen,
   Attendance: ClipboardCheck,
+  Classes: Monitor,
   Students: Users,
   Staff: UserCog,
   "Digital Classroom": Monitor,
@@ -31,6 +33,7 @@ const iconMap: Record<string, any> = {
   Bookstore: Store,
   "Virtual Classes": Video,
   Sports: Trophy,
+  House: Shield,
   Approvals: CheckSquare,
   Maintenance: Wrench,
   Discipline: Shield,
@@ -39,29 +42,69 @@ const iconMap: Record<string, any> = {
   Support: HeadphonesIcon,
   Logs: ScrollText,
   Settings: Settings,
+  "Social Media": Share2,
 };
 
 // 🔥 SAME GROUP STRUCTURE (NO UI CHANGE)
 const menuGroups = [
   { label: "Overview", items: ["Dashboard"] },
-  { label: "Academics", items: ["Communication", "Academics", "Attendance", "Students", "Staff", "Digital Classroom", "Exams", "Time Table"] },
-  { label: "Administration", items: ["Finance", "Admissions", "HR", "Transport", "Hostel", "Library", "Inventory"] },
-  { label: "Services", items: ["Store", "Cafeteria", "Bookstore", "Virtual Classes", "Sports"] },
-  { label: "Management", items: ["Approvals", "Maintenance", "Discipline", "Survey", "Downloads", "Support", "Logs", "Settings"] },
+  { label: "Academics", items: ["Communication", "Academics", "Attendance", "Classes", "Students", "Staff", "Exams", "Time Table"] },
+  { label: "Administration", items: ["Finance", "Admissions", "HR", "Transport", "Hostel", "Library", "Inventory", "Social Media"] },
+  { label: "Services", items: ["Sports", "House"] },
+  { label: "Management", items: ["Approvals", "Maintenance", "Survey", "Downloads", "Support", "Logs", "Settings"] },
 ];
+
+type SchoolSidebarData = {
+  modules?: string[];
+  schoolInfo?: {
+    name?: string;
+    logo?: string;
+  };
+};
 
 export function SchoolAdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [schoolData, setSchoolData] = useState<any>(null);
+  const [schoolData, setSchoolData] = useState<SchoolSidebarData | null>(null);
   const location = useLocation();
 
   // 🔥 LOAD DATA
   useEffect(() => {
-    const data = localStorage.getItem("school");
-    if (data) setSchoolData(JSON.parse(data));
+    const loadSchoolData = () => {
+      const data = localStorage.getItem("school");
+      setSchoolData(data ? JSON.parse(data) : null);
+    };
+
+    loadSchoolData();
+
+    const onStorage = () => loadSchoolData();
+    const onSessionUpdate = () => loadSchoolData();
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("school-session-updated", onSessionUpdate);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("school-session-updated", onSessionUpdate);
+    };
   }, []);
 
   const modules = schoolData?.modules || [];
+
+  const normalizeModuleName = (value: string) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+  const normalizedModules = new Set(modules.map((moduleName) => normalizeModuleName(moduleName)));
+
+  const hasModule = (moduleName: string) => normalizedModules.has(normalizeModuleName(moduleName));
+
+  const hasModuleAccess = (item: string) =>
+    item === "Social Media" ||
+    hasModule(item) ||
+    (item === "House" && hasModule("Discipline")) ||
+    (item === "Classes" && hasModule("Digital Classroom")) ||
+    (item === "Digital Classroom" && hasModule("Classes"));
 
   const schoolName = schoolData?.schoolInfo?.name || "School";
   const logo = schoolData?.schoolInfo?.logo;
@@ -100,7 +143,7 @@ export function SchoolAdminSidebar() {
 
           // ✅ FILTER ONLY ENABLED MODULES
           const filteredItems = group.items.filter((item) =>
-            modules.includes(item)
+            hasModuleAccess(item)
           );
 
           if (filteredItems.length === 0) return null;
@@ -119,7 +162,19 @@ export function SchoolAdminSidebar() {
                   const path =
                     item === "Dashboard"
                       ? "/school"
+                      : item === "House"
+                      ? "/school/discipline"
+                      : item === "Classes"
+                      ? "/school/classes"
                       : `/school/${item.toLowerCase().replace(/\s/g, "-")}`;
+
+                  const isActive =
+                    path === "/school"
+                      ? location.pathname === "/school"
+                      : item === "Classes"
+                      ? location.pathname.startsWith("/school/classes") ||
+                        location.pathname.startsWith("/school/digital-classroom")
+                      : location.pathname.startsWith(path);
 
                   return (
                     <NavLink
@@ -127,13 +182,7 @@ export function SchoolAdminSidebar() {
                       to={path}
                       end={path === "/school"}
                       onClick={() => setMobileOpen(false)}
-                      className={`sidebar-link ${
-                        (path === "/school"
-                          ? location.pathname === "/school"
-                          : location.pathname.startsWith(path))
-                          ? "active"
-                          : ""
-                      }`}
+                      className={`sidebar-link ${isActive ? "active" : ""}`}
                     >
                       <Icon className="w-[18px] h-[18px]" />
                       <span className="text-[13px]">{item}</span>

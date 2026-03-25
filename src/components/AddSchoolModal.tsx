@@ -1,9 +1,10 @@
 import { X, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 
 interface AddSchoolModalProps {
   onClose: () => void;
   onSuccess?: () => void;
+  editData?: SchoolRecord | null;
 }
 
 const MODULE_GROUPS: Record<string, string[]> = {
@@ -12,9 +13,9 @@ const MODULE_GROUPS: Record<string, string[]> = {
     "Communication",
     "Academics",
     "Attendance",
+    "Classes",
     "Students",
     "Staff",
-    "Digital Classroom",
     "Exams",
     "Time Table",
   ],
@@ -26,6 +27,7 @@ const MODULE_GROUPS: Record<string, string[]> = {
     "Hostel",
     "Library",
     "Inventory",
+    "Social Media",
   ],
   SERVICES: [
     "Store",
@@ -54,34 +56,126 @@ const SUBSCRIPTION_PLANS: Record<string, string[]> = {
   Premium: ALL_MODULES,
 };
 
-export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
-  const [loading, setLoading] = useState(false);
+const normalizeModuleLabel = (module: string) =>
+  module === "Digital Classroom" ? "Classes" : module;
 
-  const [formData, setFormData] = useState({
-    schoolName: "",
-    schoolEmail: "",
-    schoolPhone: "",
-    schoolAddress: "",
-    schoolWebsite: "",
-    adminName: "",
-    adminEmail: "",
+type SchoolFormData = {
+  schoolName: string;
+  schoolEmail: string;
+  schoolPhone: string;
+  schoolAddress: string;
+  schoolWebsite: string;
+  adminName: string;
+  adminEmail: string;
+  adminPassword: string;
+  adminPhone: string;
+  schoolType: string;
+  maxStudents: string;
+  subscriptionPlan: string;
+  logo: string;
+};
+
+type SubscriptionPlan = keyof typeof SUBSCRIPTION_PLANS;
+
+type SchoolRecord = {
+  _id: string;
+  schoolInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    website?: string;
+    logo?: string;
+  };
+  adminInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  systemInfo?: {
+    schoolType?: string;
+    maxStudents?: number | string;
+    subscriptionPlan?: string;
+  };
+  modules?: string[];
+};
+
+type SectionProps = {
+  title: string;
+  children: ReactNode;
+};
+
+type InputProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+};
+
+const DEFAULT_FORM_DATA: SchoolFormData = {
+  schoolName: "",
+  schoolEmail: "",
+  schoolPhone: "",
+  schoolAddress: "",
+  schoolWebsite: "",
+  adminName: "",
+  adminEmail: "",
+  adminPassword: "",
+  adminPhone: "",
+  schoolType: "Private",
+  maxStudents: "",
+  subscriptionPlan: "Basic",
+  logo: "",
+};
+
+const getInitialFormData = (editData?: SchoolRecord | null): SchoolFormData => {
+  if (!editData) {
+    return DEFAULT_FORM_DATA;
+  }
+
+  return {
+    schoolName: editData.schoolInfo?.name || "",
+    schoolEmail: editData.schoolInfo?.email || "",
+    schoolPhone: editData.schoolInfo?.phone || "",
+    schoolAddress: editData.schoolInfo?.address || "",
+    schoolWebsite: editData.schoolInfo?.website || "",
+    adminName: editData.adminInfo?.name || "",
+    adminEmail: editData.adminInfo?.email || "",
     adminPassword: "",
-    adminPhone: "",
-    schoolType: "Private",
-    maxStudents: "",
-    subscriptionPlan: "Basic",
-    logo: "",
-  });
+    adminPhone: editData.adminInfo?.phone || "",
+    schoolType: editData.systemInfo?.schoolType || "Private",
+    maxStudents: String(editData.systemInfo?.maxStudents ?? ""),
+    subscriptionPlan:
+      (editData.systemInfo?.subscriptionPlan as SubscriptionPlan | undefined) || "Basic",
+    logo: editData.schoolInfo?.logo || "",
+  };
+};
 
-  const [selectedModules, setSelectedModules] = useState<string[]>(
-    SUBSCRIPTION_PLANS["Basic"]
+const getInitialModules = (editData?: SchoolRecord | null) => {
+  if (editData?.modules?.length) {
+    return [...new Set(editData.modules.map(normalizeModuleLabel))];
+  }
+
+  const plan =
+    (editData?.systemInfo?.subscriptionPlan as SubscriptionPlan | undefined) || "Basic";
+  return SUBSCRIPTION_PLANS[plan];
+};
+
+export function AddSchoolModal({ onClose, onSuccess, editData }: AddSchoolModalProps) {
+  const [loading, setLoading] = useState(false);
+  const isEditMode = Boolean(editData?._id);
+
+  const [formData, setFormData] = useState<SchoolFormData>(() => getInitialFormData(editData));
+
+  const [selectedModules, setSelectedModules] = useState<string[]>(() =>
+    getInitialModules(editData)
   );
 
-  const update = (key: string, value: string) =>
+  const update = <K extends keyof SchoolFormData>(key: K, value: SchoolFormData[K]) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
 
   // ✅ FIXED LOGO (BASE64)
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
 
     if (file) {
@@ -95,7 +189,7 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
     }
   };
 
-  const handleSubscriptionChange = (plan: string) => {
+  const handleSubscriptionChange = (plan: SubscriptionPlan) => {
     update("subscriptionPlan", plan);
     setSelectedModules(SUBSCRIPTION_PLANS[plan]);
   };
@@ -109,13 +203,17 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
   };
 
   // ✅ SUBMIT
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/schools", {
-        method: "POST",
+      const endpoint = isEditMode
+        ? `http://localhost:5000/api/schools/${editData?._id}`
+        : "http://localhost:5000/api/schools";
+
+      const res = await fetch(endpoint, {
+        method: isEditMode ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -139,16 +237,20 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
 
       const data = await res.json();
 
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.message || data?.error || "Failed to save school");
+      }
+
       console.log("Saved:", data);
 
-      alert("School Created ✅");
+      alert(isEditMode ? "School Updated ✅" : "School Created ✅");
 
       onSuccess?.(); // 🔥 refresh list
       onClose();
 
     } catch (error) {
       console.error(error);
-      alert("Error creating school ❌");
+      alert(isEditMode ? "Error updating school ❌" : "Error creating school ❌");
     } finally {
       setLoading(false);
     }
@@ -162,7 +264,9 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
 
         {/* Header */}
         <div className="sticky top-0 bg-white flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-bold">Add New School</h2>
+          <h2 className="text-xl font-bold">
+            {isEditMode ? "Edit School" : "Add New School"}
+          </h2>
           <button onClick={onClose}><X /></button>
         </div>
 
@@ -173,7 +277,11 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
             <div className="relative w-28 h-28">
               <div className="w-28 h-28 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
                 {formData.logo ? (
-                  <img src={formData.logo} className="w-full h-full object-cover"/>
+                  <img
+                    src={formData.logo}
+                    alt="School logo preview"
+                    className="w-full h-full object-cover"
+                  />
                 ) : "Logo"}
               </div>
               <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer">
@@ -196,7 +304,12 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
           <Section title="Admin Info">
             <Input label="Admin Name" value={formData.adminName} onChange={(v)=>update("adminName",v)} />
             <Input label="Admin Email" value={formData.adminEmail} onChange={(v)=>update("adminEmail",v)} />
-            <Input label="Password" type="password" value={formData.adminPassword} onChange={(v)=>update("adminPassword",v)} />
+            <Input
+              label={isEditMode ? "Password (leave blank to keep current)" : "Password"}
+              type="password"
+              value={formData.adminPassword}
+              onChange={(v)=>update("adminPassword",v)}
+            />
             <Input label="Phone" value={formData.adminPhone} onChange={(v)=>update("adminPhone",v)} />
           </Section>
 
@@ -218,7 +331,7 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
           <div>
             <h3 className="font-semibold mb-4">Subscription Plan</h3>
             <div className="grid md:grid-cols-3 gap-6">
-              {["Basic","Standard","Premium"].map((plan) => (
+              {(["Basic", "Standard", "Premium"] as SubscriptionPlan[]).map((plan) => (
                 <div
                   key={plan}
                   onClick={() => handleSubscriptionChange(plan)}
@@ -267,7 +380,7 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
               disabled={loading}
               className="bg-blue-600 text-white px-5 py-2 rounded"
             >
-              {loading ? "Creating..." : "Create School"}
+              {loading ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Update School" : "Create School")}
             </button>
           </div>
 
@@ -278,7 +391,7 @@ export function AddSchoolModal({ onClose, onSuccess }: AddSchoolModalProps) {
 }
 
 // 🔹 SMALL COMPONENTS
-function Section({ title, children }: any) {
+function Section({ title, children }: SectionProps) {
   return (
     <div>
       <h3 className="font-semibold mb-3">{title}</h3>
@@ -287,7 +400,7 @@ function Section({ title, children }: any) {
   );
 }
 
-function Input({ label, value, onChange, type="text" }: any) {
+function Input({ label, value, onChange, type = "text" }: InputProps) {
   return (
     <div>
       <label className="text-sm">{label}</label>
@@ -301,7 +414,7 @@ function Input({ label, value, onChange, type="text" }: any) {
   );
 }
 
-function FullInput({ label, value, onChange }: any) {
+function FullInput({ label, value, onChange }: InputProps) {
   return (
     <div className="col-span-2">
       <label className="text-sm">{label}</label>

@@ -1,133 +1,4 @@
-<<<<<<< HEAD
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-export default function MaintenanceModule() {
-  return (
-    <Card className="rounded-2xl shadow-sm">
-      <CardHeader>
-        <CardTitle>Maintenance</CardTitle>
-      </CardHeader>
-
-      <CardContent className="space-y-8">
-
-        {/* FILTER SECTION */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Select>
-            <SelectTrigger>
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="electrical">Electrical</SelectItem>
-              <SelectItem value="plumbing">Plumbing</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select>
-            <SelectTrigger>
-              <SelectValue placeholder="Assigned To" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tech1">Technician 1</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select>
-            <SelectTrigger>
-              <SelectValue placeholder="Block" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="block1">Block 1</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button>Search</Button>
-        </div>
-
-        {/* TICKETS TABLE */}
-        <div className="border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="p-3 text-left">Ref</th>
-                <th className="p-3 text-left">Category</th>
-                <th className="p-3 text-left">User</th>
-                <th className="p-3 text-left">Assign Supervisor</th>
-                <th className="p-3 text-left">Assign Technician</th>
-                <th className="p-3 text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-t">
-                <td className="p-3">1001</td>
-                <td className="p-3">Electrical</td>
-                <td className="p-3">Admin</td>
-
-                <td className="p-3">
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Supervisor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sup1">Supervisor 1</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </td>
-
-                <td className="p-3">
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Technician" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tech1">Technician 1</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </td>
-
-                <td className="p-3">Pending</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* ADD SUPERVISOR */}
-        <div className="border rounded-xl p-4 space-y-4">
-          <h3 className="font-semibold">Add Supervisor</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input placeholder="Supervisor Name" />
-            <Input placeholder="Mobile Number" />
-            <Input placeholder="Password" type="password" />
-          </div>
-          <Button>Add Supervisor</Button>
-        </div>
-
-        {/* ADD TECHNICIAN */}
-        <div className="border rounded-xl p-4 space-y-4">
-          <h3 className="font-semibold">Add Technician</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input placeholder="Technician Name" />
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="electrical">Electrical</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input placeholder="Mobile Number" />
-          </div>
-          <Button>Add Technician</Button>
-        </div>
-
-      </CardContent>
-    </Card>
-  );
-}
-=======
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { MapPin, Trash2, UserRound, Wrench } from "lucide-react";
 
 type MaintenanceRecord = {
@@ -202,7 +73,7 @@ export default function MaintenanceModule() {
     setShowForm(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const school = JSON.parse(localStorage.getItem("school") || "null");
@@ -265,10 +136,10 @@ export default function MaintenanceModule() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <button
           onClick={() => setShowForm((current) => !current)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
         >
           {showForm ? "Close Form" : "Add Maintenance"}
         </button>
@@ -276,14 +147,14 @@ export default function MaintenanceModule() {
 
       {showForm && (
         <div className="stat-card p-6">
-          <h3 className="text-lg font-semibold mb-4">Add Maintenance Record</h3>
+          <h3 className="mb-4 text-lg font-semibold">Add Maintenance Record</h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <input
                 type="text"
                 placeholder="Complaint / Maintenance Title"
-                className="border rounded p-2"
+                className="rounded border p-2"
                 value={formData.title}
                 onChange={(e) =>
                   setFormData((current) => ({ ...current, title: e.target.value }))
@@ -293,7 +164,7 @@ export default function MaintenanceModule() {
               <input
                 type="text"
                 placeholder="Location"
-                className="border rounded p-2"
+                className="rounded border p-2"
                 value={formData.location}
                 onChange={(e) =>
                   setFormData((current) => ({ ...current, location: e.target.value }))
@@ -303,7 +174,7 @@ export default function MaintenanceModule() {
               <input
                 type="text"
                 placeholder="Raised By"
-                className="border rounded p-2"
+                className="rounded border p-2"
                 value={formData.raisedBy}
                 onChange={(e) =>
                   setFormData((current) => ({ ...current, raisedBy: e.target.value }))
@@ -313,7 +184,7 @@ export default function MaintenanceModule() {
               <input
                 type="text"
                 placeholder="Technician Name"
-                className="border rounded p-2"
+                className="rounded border p-2"
                 value={formData.technician}
                 onChange={(e) =>
                   setFormData((current) => ({ ...current, technician: e.target.value }))
@@ -322,7 +193,7 @@ export default function MaintenanceModule() {
               />
               <input
                 type="date"
-                className="border rounded p-2"
+                className="rounded border p-2"
                 value={formData.maintenanceDate}
                 onChange={(e) =>
                   setFormData((current) => ({
@@ -336,7 +207,7 @@ export default function MaintenanceModule() {
 
             <textarea
               placeholder="What maintenance was done?"
-              className="border rounded p-2 w-full"
+              className="w-full rounded border p-2"
               rows={4}
               value={formData.workDone}
               onChange={(e) =>
@@ -348,7 +219,7 @@ export default function MaintenanceModule() {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
                 disabled={saving}
               >
                 {saving ? "Saving..." : "Save Record"}
@@ -356,7 +227,7 @@ export default function MaintenanceModule() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+                className="rounded bg-gray-500 px-4 py-2 text-white hover:bg-gray-600"
               >
                 Cancel
               </button>
@@ -372,27 +243,25 @@ export default function MaintenanceModule() {
       ) : records.length === 0 ? (
         <p className="text-center text-gray-500">No maintenance records yet.</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {records.map((record) => (
-            <div key={record._id} className="stat-card p-5 space-y-4">
+            <div key={record._id} className="stat-card space-y-4 p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold">{record.title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {record.maintenanceDate}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{record.maintenanceDate}</p>
                 </div>
                 <button
                   onClick={() => handleDelete(record._id)}
                   className="text-red-600 hover:text-red-800"
                   title="Delete maintenance record"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="w-4 h-4" />
+                <MapPin className="h-4 w-4" />
                 <span>{record.location}</span>
               </div>
 
@@ -403,13 +272,13 @@ export default function MaintenanceModule() {
                 <p className="mt-1 text-sm">{record.workDone}</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-lg bg-muted/30 p-3">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     Raised By
                   </p>
-                  <p className="mt-1 text-sm font-medium inline-flex items-center gap-2">
-                    <UserRound className="w-4 h-4" />
+                  <p className="mt-1 inline-flex items-center gap-2 text-sm font-medium">
+                    <UserRound className="h-4 w-4" />
                     {record.raisedBy}
                   </p>
                 </div>
@@ -418,8 +287,8 @@ export default function MaintenanceModule() {
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     Technician
                   </p>
-                  <p className="mt-1 text-sm font-medium inline-flex items-center gap-2">
-                    <Wrench className="w-4 h-4" />
+                  <p className="mt-1 inline-flex items-center gap-2 text-sm font-medium">
+                    <Wrench className="h-4 w-4" />
                     {record.technician}
                   </p>
                 </div>
@@ -431,4 +300,3 @@ export default function MaintenanceModule() {
     </div>
   );
 }
->>>>>>> 0bc2111 (Added academics module changes)

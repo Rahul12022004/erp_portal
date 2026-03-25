@@ -2,12 +2,37 @@ import { useState, useEffect } from "react";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import { AddSchoolModal } from "@/components/AddSchoolModal";
 
+type SchoolData = {
+  _id: string;
+  schoolInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+    address?: string;
+    logo?: string;
+  };
+  adminInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    status?: string;
+  };
+  systemInfo?: {
+    subscriptionPlan?: string;
+    subscriptionEndDate?: string;
+    maxStudents?: number | string;
+    schoolType?: string;
+  };
+  modules?: string[];
+};
+
 export default function SchoolsPage() {
   const [showModal, setShowModal] = useState(false);
-  const [editData, setEditData] = useState<any>(null);
-  const [viewData, setViewData] = useState<any>(null);
+  const [editData, setEditData] = useState<SchoolData | null>(null);
+  const [viewData, setViewData] = useState<SchoolData | null>(null);
   const [search, setSearch] = useState("");
-  const [schools, setSchools] = useState<any[]>([]);
+  const [schools, setSchools] = useState<SchoolData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,7 +78,7 @@ export default function SchoolsPage() {
   };
 
   // ✏️ EDIT
-  const handleEdit = (school: any) => {
+  const handleEdit = (school: SchoolData) => {
     setEditData(school);
     setShowModal(true);
   };

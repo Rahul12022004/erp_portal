@@ -1,39 +1,101 @@
-import { useEffect, useState } from "react";
-import { CalendarDays, Clock3, FileText, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import { type EventClickArg, type EventContentArg, type EventInput } from "@fullcalendar/core";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Empty,
+  Input,
+  Modal,
+  Space,
+  Tag,
+  Tooltip,
+  Typography,
+  Upload,
+  message,
+} from "antd";
+import {
+  CalendarOutlined,
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  CommentOutlined,
+  FileTextOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
+
+const { Paragraph, Text, Title } = Typography;
+const { TextArea } = Input;
+
+type TeacherUpload = {
+  _id: string;
+  teacherId?: string | { _id: string; name?: string };
+  teacherName: string;
+  documentName?: string;
+  documentData?: string;
+  comment?: string;
+  uploadedAt?: string;
+};
 
 type Exam = {
   _id: string;
   title: string;
   examType: string;
   className: string;
+  subject: string;
   examDate: string;
   startTime: string;
   endTime: string;
-  documentName?: string;
-  documentData?: string;
+  instructions?: string;
+  uploadStatus?: "uploaded" | "pending";
+  teacherUpload?: TeacherUpload | null;
 };
 
-type SchoolClass = {
-  _id: string;
-  name: string;
-  classTeacher?:
-    | string
-    | {
-        _id: string;
-        name: string;
-      };
+const examTypeColors: Record<string, { background: string; border: string; text: string }> = {
+  "Unit Test": { background: "#dbeafe", border: "#3b82f6", text: "#1d4ed8" },
+  "Weekly Test": { background: "#e0f2fe", border: "#0ea5e9", text: "#0369a1" },
+  "Monthly Test": { background: "#dcfce7", border: "#22c55e", text: "#15803d" },
+  "Quarterly Exam": { background: "#fef3c7", border: "#f59e0b", text: "#b45309" },
+  "Half Yearly": { background: "#ede9fe", border: "#8b5cf6", text: "#6d28d9" },
+  "Pre Board": { background: "#ffe4e6", border: "#f43f5e", text: "#be123c" },
+  "Final Exam": { background: "#fee2e2", border: "#ef4444", text: "#b91c1c" },
+  "Practical Exam": { background: "#f3e8ff", border: "#a855f7", text: "#7e22ce" },
 };
 
-const examTypes = [
-  "Unit Test",
-  "Weekly Test",
-  "Monthly Test",
-  "Quarterly Exam",
-  "Half Yearly",
-  "Pre Board",
-  "Final Exam",
-  "Practical Exam",
-];
+const defaultExamColor = { background: "#f3f4f6", border: "#6b7280", text: "#374151" };
+
+const toEventDateTime = (examDate: string, time: string) => `${examDate}T${time}:00`;
+
+const toLocalDate = () => {
+  const value = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+};
+
+const normalizeTime = (time?: string, fallback = "09:00") => {
+  const source = String(time || fallback).trim();
+  const match = source.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return fallback;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return fallback;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
+const normalizeDate = (value?: string) => {
+  const date = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date;
+  }
+  return toLocalDate();
+};
 
 const readFileAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -44,20 +106,16 @@ const readFileAsDataUrl = (file: File) =>
   });
 
 export default function ExamsModule() {
-  const [title, setTitle] = useState("");
-  const [examType, setExamType] = useState("");
-  const [className, setClassName] = useState("");
-  const [examDate, setExamDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [document, setDocument] = useState<File | null>(null);
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [schoolId, setSchoolId] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [uploadingExamId, setUploadingExamId] = useState("");
   const [error, setError] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({});
+  const [comments, setComments] = useState<Record<string, string>>({});
+  const [activeExam, setActiveExam] = useState<Exam | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     const school = JSON.parse(localStorage.getItem("school") || "null");
@@ -68,7 +126,7 @@ export default function ExamsModule() {
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchExams = async () => {
       if (!schoolId || !teacherId) {
         setLoading(false);
         return;
@@ -78,43 +136,25 @@ export default function ExamsModule() {
         setLoading(true);
         setError("");
 
-        const [classesRes, examsRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/classes/${schoolId}`),
-          fetch(`http://localhost:5000/api/exams/${schoolId}/${teacherId}`),
-        ]);
-
-        if (!classesRes.ok) {
-          throw new Error(`Failed to load classes (${classesRes.status})`);
+        const res = await fetch(`http://localhost:5000/api/exams/teacher/${schoolId}/${teacherId}`);
+        if (!res.ok) {
+          throw new Error(`Failed to load exams (${res.status})`);
         }
 
-        if (!examsRes.ok) {
-          throw new Error(`Failed to load exams (${examsRes.status})`);
-        }
-
-        const [classesData, examsData] = await Promise.all([
-          classesRes.json(),
-          examsRes.json(),
-        ]);
-
-        const teacherClasses = (Array.isArray(classesData) ? classesData : []).filter(
-          (classItem: SchoolClass) => {
-            if (!classItem.classTeacher) {
-              return false;
+        const data = await res.json();
+        const nextExams = Array.isArray(data) ? data : [];
+        setExams(nextExams);
+        setComments((current) => {
+          const next = { ...current };
+          nextExams.forEach((exam: Exam) => {
+            if (next[exam._id] === undefined) {
+              next[exam._id] = exam.teacherUpload?.comment || "";
             }
-
-            if (typeof classItem.classTeacher === "string") {
-              return classItem.classTeacher === teacherId;
-            }
-
-            return classItem.classTeacher._id === teacherId;
-          }
-        );
-
-        setClasses(teacherClasses);
-        setExams(Array.isArray(examsData) ? examsData : []);
+          });
+          return next;
+        });
       } catch (err) {
-        console.error("Exam module fetch error:", err);
-        setClasses([]);
+        console.error("Teacher exams fetch error:", err);
         setExams([]);
         setError(err instanceof Error ? err.message : "Failed to load exams");
       } finally {
@@ -122,269 +162,300 @@ export default function ExamsModule() {
       }
     };
 
-    fetchData();
+    void fetchExams();
   }, [schoolId, teacherId]);
 
-  const resetForm = () => {
-    setTitle("");
-    setExamType("");
-    setClassName("");
-    setExamDate("");
-    setStartTime("");
-    setEndTime("");
-    setDocument(null);
+  const calendarEvents = useMemo<EventInput[]>(
+    () =>
+      exams.map((exam) => {
+        const safeExamDate = normalizeDate(exam.examDate);
+        const safeStartTime = normalizeTime(exam.startTime, "09:00");
+        let safeEndTime = normalizeTime(exam.endTime, "10:00");
+
+        if (safeEndTime <= safeStartTime) {
+          const [hours, minutes] = safeStartTime.split(":").map(Number);
+          const nextHour = Math.min((hours || 0) + 1, 23);
+          safeEndTime = `${String(nextHour).padStart(2, "0")}:${String(minutes || 0).padStart(2, "0")}`;
+        }
+
+        const color = examTypeColors[exam.examType] || defaultExamColor;
+        return {
+          id: exam._id,
+          title: exam.title,
+          start: toEventDateTime(safeExamDate, safeStartTime),
+          end: toEventDateTime(safeExamDate, safeEndTime),
+          backgroundColor: color.background,
+          borderColor: color.border,
+          textColor: color.text,
+          extendedProps: {
+            exam,
+            uploadStatus: exam.uploadStatus || "pending",
+          },
+        };
+      }),
+    [exams]
+  );
+
+  const openExamModal = (exam: Exam) => {
+    setActiveExam(exam);
+    setComments((current) => ({
+      ...current,
+      [exam._id]: current[exam._id] ?? exam.teacherUpload?.comment ?? "",
+    }));
+    setModalOpen(true);
   };
 
-  const addExam = async () => {
-    if (
-      !title.trim() ||
-      !examType ||
-      !className ||
-      !examDate ||
-      !startTime ||
-      !endTime ||
-      !schoolId ||
-      !teacherId
-    ) {
-      alert("Please fill exam title, type, class, date, start time and end time");
-      return;
-    }
+  const handleEventClick = (arg: EventClickArg) => {
+    const exam = arg.event.extendedProps.exam as Exam;
+    openExamModal(exam);
+  };
 
-    if (endTime <= startTime) {
-      alert("End time must be after start time");
+  const handleUpload = async () => {
+    if (!activeExam) return;
+
+    const examId = activeExam._id;
+    const file = selectedFiles[examId];
+    if (!file) {
+      void message.error("Please select a paper before uploading.");
       return;
     }
 
     try {
-      setSaving(true);
+      setUploadingExamId(examId);
+      const documentData = await readFileAsDataUrl(file);
 
-      const documentData = document ? await readFileAsDataUrl(document) : "";
-
-      const res = await fetch("http://localhost:5000/api/exams", {
+      const res = await fetch(`http://localhost:5000/api/exams/${examId}/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title.trim(),
-          examType,
-          className,
-          examDate,
-          startTime,
-          endTime,
-          documentName: document?.name || "",
-          documentData,
           teacherId,
           schoolId,
+          documentName: file.name,
+          documentData,
+          comment: comments[examId] || "",
         }),
       });
 
       const data = await res.json().catch(() => null);
-
       if (!res.ok || !data?.success) {
-        throw new Error(data?.message || "Failed to schedule exam");
+        throw new Error(data?.message || "Failed to upload exam paper");
       }
 
-      setExams((current) => {
-        const next = [data.data, ...current];
-        return next.sort(
-          (a, b) =>
-            a.examDate.localeCompare(b.examDate) ||
-            a.startTime.localeCompare(b.startTime)
-        );
-      });
-      resetForm();
+      const updatedExam = data.data as Exam & { uploads?: TeacherUpload[] };
+      const teacherUpload = Array.isArray(updatedExam.uploads)
+        ? updatedExam.uploads.find((upload) => {
+            const uploadTeacherId =
+              upload.teacherId && typeof upload.teacherId === "object"
+                ? String(upload.teacherId._id)
+                : String(upload.teacherId || "");
+            return uploadTeacherId === teacherId;
+          }) || null
+        : null;
+
+      const nextExam = {
+        ...activeExam,
+        teacherUpload,
+        uploadStatus: teacherUpload?.documentData ? "uploaded" : "pending",
+      } as Exam;
+
+      setExams((current) =>
+        current.map((exam) => (exam._id === examId ? nextExam : exam))
+      );
+      setActiveExam(nextExam);
+      setSelectedFiles((current) => ({ ...current, [examId]: null }));
+      void message.success("Paper uploaded successfully.");
     } catch (err) {
-      console.error("Create exam error:", err);
-      alert(err instanceof Error ? err.message : "Failed to schedule exam");
+      console.error("Teacher upload error:", err);
+      void message.error(err instanceof Error ? err.message : "Failed to upload paper");
     } finally {
-      setSaving(false);
+      setUploadingExamId("");
     }
   };
 
-  const deleteExam = async (examId: string) => {
-    if (!confirm("Are you sure you want to delete this exam?")) {
-      return;
-    }
+  const renderEventContent = (arg: EventContentArg) => {
+    const exam = arg.event.extendedProps.exam as Exam;
+    const uploaded = arg.event.extendedProps.uploadStatus === "uploaded";
 
-    try {
-      const res = await fetch(`http://localhost:5000/api/exams/${examId}`, {
-        method: "DELETE",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.message || "Failed to delete exam");
-      }
-
-      setExams((current) => current.filter((exam) => exam._id !== examId));
-    } catch (err) {
-      console.error("Delete exam error:", err);
-      alert(err instanceof Error ? err.message : "Failed to delete exam");
-    }
+    return (
+      <Tooltip
+        title={
+          <div className="space-y-1">
+            <div>{exam.title}</div>
+            <div>{exam.subject}</div>
+            <div>{exam.className}</div>
+            <div>{`${exam.startTime} - ${exam.endTime}`}</div>
+            <div>{uploaded ? "Paper uploaded" : "Paper pending"}</div>
+          </div>
+        }
+      >
+        <div className="px-1 py-0.5 overflow-hidden">
+          <div className="flex items-center justify-between gap-1">
+            <span className="truncate text-[11px] font-semibold">{arg.timeText}</span>
+            {uploaded ? (
+              <CheckCircleFilled style={{ color: "#16a34a", fontSize: 12 }} />
+            ) : (
+              <Badge color="#f59e0b" />
+            )}
+          </div>
+          <div className="truncate text-[12px] font-semibold">{exam.title}</div>
+          <div className="truncate text-[11px] opacity-80">{exam.subject}</div>
+        </div>
+      </Tooltip>
+    );
   };
 
   return (
     <div className="space-y-6">
-      <div className="stat-card p-6 space-y-4">
-        <h3 className="text-lg font-semibold">Schedule Exam</h3>
+      <Card>
+        <Space direction="vertical" size={4}>
+          <Title level={4} style={{ margin: 0 }}>
+            Exams Calendar
+          </Title>
+          <Text type="secondary">
+            View your exam timetable in a calendar and upload question papers directly from each exam event.
+          </Text>
+        </Space>
+      </Card>
 
-        <input
-          type="text"
-          placeholder="Exam Name"
-          className="border p-2 rounded w-full"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+      {error ? <Alert type="error" message={error} showIcon /> : null}
 
-        <select
-          className="border p-2 rounded w-full"
-          value={examType}
-          onChange={(e) => setExamType(e.target.value)}
-        >
-          <option value="">Select Exam Type</option>
-          {examTypes.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="border p-2 rounded w-full"
-          value={className}
-          onChange={(e) => setClassName(e.target.value)}
-          disabled={loading || classes.length === 0}
-        >
-          <option value="">Select Class</option>
-          {classes.map((cls) => (
-            <option key={cls._id} value={cls.name}>
-              {cls.name}
-            </option>
-          ))}
-        </select>
-
-        <input
-          type="date"
-          className="border p-2 rounded w-full"
-          value={examDate}
-          onChange={(e) => setExamDate(e.target.value)}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            type="time"
-            className="border p-2 rounded w-full"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
+      {loading ? (
+        <Card loading />
+      ) : exams.length === 0 ? (
+        <Card>
+          <Empty description="No exams are available for your assigned classes yet." />
+        </Card>
+      ) : (
+        <Card bodyStyle={{ padding: 16 }}>
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek,timeGridDay",
+            }}
+            height="auto"
+            events={calendarEvents}
+            eventClick={handleEventClick}
+            eventContent={renderEventContent}
+            allDaySlot={false}
+            slotMinTime="06:00:00"
+            slotMaxTime="21:00:00"
+            nowIndicator
           />
-          <input
-            type="time"
-            className="border p-2 rounded w-full"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-          />
-        </div>
+        </Card>
+      )}
 
-        <label className="flex items-center justify-center w-full border-2 border-dashed rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition">
-          <span className="text-sm text-gray-600">
-            {document ? document.name : "Click to upload exam document"}
-          </span>
-          <input
-            type="file"
-            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-            className="hidden"
-            onChange={(e) => setDocument(e.target.files?.[0] || null)}
-          />
-        </label>
+      <Modal
+        title={activeExam ? `${activeExam.title} - Upload Paper` : "Upload Paper"}
+        open={modalOpen}
+        onCancel={() => {
+          setModalOpen(false);
+          setActiveExam(null);
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        {activeExam ? (
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Space wrap>
+              <Tag>{activeExam.className}</Tag>
+              <Tag color="blue">{activeExam.examType}</Tag>
+              <Tag color="purple">{activeExam.subject}</Tag>
+              <Tag icon={<CalendarOutlined />}>{activeExam.examDate}</Tag>
+              <Tag icon={<ClockCircleOutlined />}>{`${activeExam.startTime} - ${activeExam.endTime}`}</Tag>
+              <Tag color={activeExam.uploadStatus === "uploaded" ? "green" : "orange"}>
+                {activeExam.uploadStatus === "uploaded" ? "Paper Uploaded" : "Paper Pending"}
+              </Tag>
+            </Space>
 
-        <button
-          onClick={addExam}
-          className="bg-green-600 text-white px-4 py-2 rounded"
-          disabled={saving || loading || classes.length === 0}
-        >
-          {saving ? "Saving..." : "Schedule Exam"}
-        </button>
+            <div>
+              <Text strong>Instructions</Text>
+              <Paragraph type="secondary" style={{ marginBottom: 0, marginTop: 8 }}>
+                {activeExam.instructions || "No additional instructions."}
+              </Paragraph>
+            </div>
 
-        {classes.length === 0 && !loading && (
-          <p className="text-sm text-amber-600">
-            No classes are assigned to this teacher yet.
-          </p>
-        )}
-      </div>
-
-      <div className="stat-card p-6">
-        <h3 className="text-lg font-semibold mb-4">Scheduled Exams</h3>
-
-        {loading ? (
-          <p className="text-gray-500">Loading exams...</p>
-        ) : error ? (
-          <p className="text-red-600">{error}</p>
-        ) : exams.length === 0 ? (
-          <p className="text-gray-500">No exams scheduled yet.</p>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {exams.map((exam) => (
-              <div key={exam._id} className="rounded-xl border border-border bg-muted/20 p-5 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-lg">{exam.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {exam.examType} • {exam.className}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => deleteExam(exam._id)}
-                    className="text-red-600 hover:text-red-800"
-                    title="Delete exam"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CalendarDays className="w-4 h-4" />
-                    <span>{exam.examDate}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock3 className="w-4 h-4" />
-                    <span>
-                      {exam.startTime} - {exam.endTime}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-background/70 border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Exam Type
-                  </p>
-                  <p className="font-medium mt-1">{exam.examType}</p>
-                </div>
-
-                <div className="rounded-lg bg-background/70 border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Document
-                  </p>
-                  {exam.documentData ? (
-                    <a
-                      href={exam.documentData}
+            <div>
+              <Text strong>Current Upload</Text>
+              <div style={{ marginTop: 8 }}>
+                {activeExam.teacherUpload?.documentData ? (
+                  <Space direction="vertical" size={4}>
+                    <Button
+                      type="link"
+                      icon={<FileTextOutlined />}
+                      href={activeExam.teacherUpload.documentData}
                       target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 inline-flex items-center gap-2 text-blue-600 hover:underline"
+                      style={{ paddingInline: 0 }}
                     >
-                      <FileText className="w-4 h-4" />
-                      {exam.documentName || "View Document"}
-                    </a>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">No document uploaded</p>
-                  )}
-                </div>
+                      {activeExam.teacherUpload.documentName || "View Uploaded Paper"}
+                    </Button>
+                    {activeExam.teacherUpload.comment ? (
+                      <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                        {activeExam.teacherUpload.comment}
+                      </Paragraph>
+                    ) : null}
+                  </Space>
+                ) : (
+                  <Text type="secondary">No paper uploaded yet.</Text>
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+
+            <Upload
+              beforeUpload={(file) => {
+                setSelectedFiles((current) => ({ ...current, [activeExam._id]: file }));
+                return false;
+              }}
+              maxCount={1}
+              onRemove={() => {
+                setSelectedFiles((current) => ({ ...current, [activeExam._id]: null }));
+              }}
+              fileList={selectedFiles[activeExam._id] ? [selectedFiles[activeExam._id] as never] : []}
+            >
+              <Button icon={<UploadOutlined />}>Choose Paper</Button>
+            </Upload>
+
+            <div>
+              <Text strong>
+                <CommentOutlined /> Comment
+              </Text>
+              <TextArea
+                rows={4}
+                placeholder="Add note for the school admin about this uploaded paper"
+                value={comments[activeExam._id] || ""}
+                onChange={(event) =>
+                  setComments((current) => ({
+                    ...current,
+                    [activeExam._id]: event.target.value,
+                  }))
+                }
+                style={{ marginTop: 8 }}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={() => {
+                  setModalOpen(false);
+                  setActiveExam(null);
+                }}
+              >
+                Close
+              </Button>
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                loading={uploadingExamId === activeExam._id}
+                onClick={() => void handleUpload()}
+              >
+                {activeExam.teacherUpload ? "Update Paper" : "Upload Paper"}
+              </Button>
+            </div>
+          </Space>
+        ) : null}
+      </Modal>
     </div>
   );
 }

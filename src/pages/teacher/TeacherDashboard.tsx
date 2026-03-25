@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bell,
   BookOpen,
@@ -9,6 +10,19 @@ import {
 } from "lucide-react";
 
 import { StatCard } from "@/components/StatCard";
+import { useRole } from "@/contexts/RoleContext";
+
+const MODULE_PATHS: Record<string, string> = {
+  students: "/teacher/students",
+  attendance: "/teacher/attendance",
+  assignments: "/teacher/assignments",
+  marks: "/teacher/marks",
+  exams: "/teacher/exams",
+  leave: "/teacher/leave",
+  "digital-classroom": "/teacher/digital-classroom",
+  timetable: "/teacher/timetable",
+  communication: "/teacher/communication",
+};
 
 type TeacherDashboardStats = {
   assignedClasses: number;
@@ -45,12 +59,22 @@ const defaultStats: TeacherDashboardStats = {
 };
 
 export default function TeacherDashboard() {
+  const { teacherPermissions } = useRole();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<TeacherDashboardStats>(defaultStats);
   const [classes, setClasses] = useState<TeacherClassItem[]>([]);
   const [digitalClasses, setDigitalClasses] = useState<TeacherClassItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Redirect if dashboard is not an assigned module
+  useEffect(() => {
+    if (!teacherPermissions.modules.includes("dashboard")) {
+      const firstModule = teacherPermissions.modules.find((m) => MODULE_PATHS[m]);
+      navigate(firstModule ? MODULE_PATHS[firstModule] : "/teacher/students", { replace: true });
+    }
+  }, [teacherPermissions.modules, navigate]);
 
   useEffect(() => {
     const fetchDashboard = async () => {

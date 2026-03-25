@@ -149,7 +149,7 @@ export default function SupportModule() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
             <div className="stat-card p-5 space-y-4">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-blue-600" />
@@ -252,6 +252,51 @@ export default function SupportModule() {
                     ? school.modules.join(", ")
                     : "No modules assigned"}
                 </p>
+              </div>
+            </div>
+
+            <div className="stat-card p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <BadgeHelp className="w-5 h-5 text-rose-600" />
+                <h3 className="text-lg font-semibold">Software Support</h3>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <p className="font-medium">Nexavise Consulting Pvt. Ltd.</p>
+                <p className="flex items-start gap-2">
+                  <Mail className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                  <span>helpdesk@nexavise.in</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <Phone className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                  <span>+91 98765 43210</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <Globe className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                  <a
+                    href="https://www.nexavise.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 hover:underline break-all"
+                  >
+                    www.nexavise.com
+                  </a>
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <a
+                  href="mailto:helpdesk@nexavise.in"
+                  className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Contact Us
+                </a>
+                <a
+                  href="tel:+919876543210"
+                  className="inline-flex items-center justify-center rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+                >
+                  Get Support
+                </a>
               </div>
             </div>
           </div>

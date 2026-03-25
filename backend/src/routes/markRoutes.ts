@@ -1,5 +1,6 @@
 import express from "express";
 
+import Class from "../models/Class";
 import Exam from "../models/Exam";
 import Mark from "../models/Mark";
 import Staff from "../models/Staff";
@@ -7,6 +8,14 @@ import Student from "../models/Student";
 import { createLog } from "../utils/createLog";
 
 const router = express.Router();
+
+const buildClassLabel = (name: string, section?: string | null) =>
+  section ? `${name} - ${section}` : name;
+
+const getTeacherClassLabels = async (schoolId: string, teacherId: string) => {
+  const classes = await Class.find({ schoolId, classTeacher: teacherId }).select("name section");
+  return classes.map((classDoc) => buildClassLabel(classDoc.name, classDoc.section));
+};
 
 const isExamCompleted = (examDate: string, endTime: string) => {
   const now = new Date();
@@ -33,7 +42,13 @@ router.get("/:schoolId/:teacherId", async (req, res) => {
   try {
     const { schoolId, teacherId } = req.params;
 
-    const exams = await Exam.find({ schoolId, teacherId }).sort({
+    const classLabels = await getTeacherClassLabels(schoolId, teacherId);
+
+    if (classLabels.length === 0) {
+      return res.json([]);
+    }
+
+    const exams = await Exam.find({ schoolId, className: { $in: classLabels } }).sort({
       examDate: -1,
       startTime: -1,
     });
@@ -56,10 +71,15 @@ router.get("/:schoolId/:teacherId/:examId", async (req, res) => {
   try {
     const { schoolId, teacherId, examId } = req.params;
 
-    const exam = await Exam.findOne({ _id: examId, schoolId, teacherId });
+    const exam = await Exam.findOne({ _id: examId, schoolId });
 
     if (!exam) {
       return res.status(404).json({ message: "Exam not found" });
+    }
+
+    const classLabels = await getTeacherClassLabels(schoolId, teacherId);
+    if (!classLabels.includes(exam.className)) {
+      return res.status(403).json({ message: "You are not assigned to this class" });
     }
 
     const [students, marks] = await Promise.all([
@@ -112,10 +132,15 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const exam = await Exam.findOne({ _id: examId, schoolId, teacherId });
+    const exam = await Exam.findOne({ _id: examId, schoolId });
 
     if (!exam) {
       return res.status(404).json({ message: "Exam not found" });
+    }
+
+    const classLabels = await getTeacherClassLabels(schoolId, teacherId);
+    if (!classLabels.includes(exam.className)) {
+      return res.status(403).json({ message: "You are not assigned to this class" });
     }
 
     const teacher = await Staff.findById(teacherId).select("name");

@@ -5,6 +5,11 @@ import { createLog } from "../utils/createLog";
 
 const router = express.Router();
 
+const buildClassLabel = (name: string, section?: string | null) =>
+  section ? `${name} - ${section}` : name;
+
+const normalizeSection = (section?: string | null) => section?.trim().toUpperCase() || "";
+
 // ==========================
 // 📚 GET ALL CLASSES FOR A SCHOOL
 // ==========================
@@ -17,8 +22,9 @@ router.get("/:schoolId", async (req, res) => {
     // Count students for each class
     const classesWithCounts = await Promise.all(
       classes.map(async (cls) => {
+        const classLabel = buildClassLabel(cls.name, cls.section);
         const studentCount = await Student.countDocuments({ 
-          class: cls.name,
+          class: classLabel,
           schoolId: req.params.schoolId 
         });
         return {
@@ -41,14 +47,25 @@ router.get("/:schoolId", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { name, section, stream, classTeacher, academicYear, description, meetLink, schoolId } = req.body;
+    const normalizedSection = normalizeSection(section);
 
     if (!name || !schoolId) {
       return res.status(400).json({ message: "Required fields: name, schoolId" });
     }
 
+    const existingClass = await Class.findOne({
+      schoolId,
+      name: name.trim(),
+      section: normalizedSection || "",
+    });
+
+    if (existingClass) {
+      return res.status(400).json({ message: "This class and section already exist" });
+    }
+
     const newClass = await Class.create({
-      name,
-      section,
+      name: name.trim(),
+      section: normalizedSection,
       stream,
       classTeacher,
       academicYear,
@@ -78,9 +95,36 @@ router.post("/", async (req, res) => {
 // ==========================
 router.put("/:id", async (req, res) => {
   try {
+    const existingClass = await Class.findById(req.params.id);
+
+    if (!existingClass) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    const nextName = typeof req.body.name === "string" ? req.body.name.trim() : existingClass.name;
+    const nextSection =
+      req.body.section !== undefined
+        ? normalizeSection(req.body.section)
+        : normalizeSection(existingClass.section);
+
+    const duplicateClass = await Class.findOne({
+      _id: { $ne: req.params.id },
+      schoolId: existingClass.schoolId,
+      name: nextName,
+      section: nextSection || "",
+    });
+
+    if (duplicateClass) {
+      return res.status(400).json({ message: "This class and section already exist" });
+    }
+
     const updated = await Class.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      {
+        ...req.body,
+        ...(req.body.name !== undefined ? { name: nextName } : {}),
+        ...(req.body.section !== undefined ? { section: nextSection } : {}),
+      },
       { new: true }
     ).populate("classTeacher", "name email position");
 
@@ -130,17 +174,22 @@ router.delete("/:id", async (req, res) => {
 // ==========================
 router.get("/:schoolId/:className", async (req, res) => {
   try {
-    const classDoc = await Class.findOne({
-      name: req.params.className,
+    const requestedClass = decodeURIComponent(req.params.className);
+    const classes = await Class.find({
       schoolId: req.params.schoolId,
     }).populate("classTeacher", "name email position");
+
+    const classDoc =
+      classes.find((cls) => buildClassLabel(cls.name, cls.section) === requestedClass) ||
+      classes.find((cls) => cls.name === requestedClass);
 
     if (!classDoc) {
       return res.status(404).json({ message: "Class not found" });
     }
 
+    const classLabel = buildClassLabel(classDoc.name, classDoc.section);
     const students = await Student.find({
-      class: req.params.className,
+      class: classLabel,
       schoolId: req.params.schoolId,
     }).sort({ rollNumber: 1 });
 
