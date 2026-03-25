@@ -28,13 +28,17 @@ import socialMediaRoutes from "./routes/socialMediaRoutes";
 dotenv.config();
 
 const app = express();
+const allowedOrigins = [
+  "https://erp-portal-seven.vercel.app",
+  "http://localhost:5173",
+];
 
 // ==========================
 // 🔧 MIDDLEWARE
 // ==========================
 app.use(
   cors({
-    origin: "https://your-vercel-app.vercel.app",
+    origin: allowedOrigins,
   })
 );
 app.use(express.json({ limit: "50mb" }));
