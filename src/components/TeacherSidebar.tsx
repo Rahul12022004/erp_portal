@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -36,6 +36,7 @@ const allTeacherModules = [
 export function TeacherSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { teacherPermissions, setRole } = useRole();
 
   const teacherData = JSON.parse(localStorage.getItem("teacher") || "null");
@@ -94,10 +95,9 @@ export function TeacherSidebar() {
         <button
           onClick={() => {
             localStorage.removeItem("teacher");
-            localStorage.removeItem("school");
-            localStorage.removeItem("role");
-            setRole("super-admin");
-            window.location.reload();
+            localStorage.removeItem("teacherPermissions");
+            setRole("school-admin");
+            navigate("/school", { replace: true });
           }}
           className="sidebar-link w-full hover:!text-destructive"
         >

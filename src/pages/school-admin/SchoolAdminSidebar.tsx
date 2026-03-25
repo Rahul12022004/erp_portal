@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, BookOpen, ClipboardCheck, Users, UserCog,
   Monitor, FileText, DollarSign, UserPlus, Briefcase, Download, Building,
@@ -8,6 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useRole } from "@/contexts/RoleContext";
 
 // 🔥 ICON MAP (same as before)
 const iconMap: Record<string, LucideIcon> = {
@@ -66,6 +67,8 @@ export function SchoolAdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [schoolData, setSchoolData] = useState<SchoolSidebarData | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { setRole } = useRole();
 
   // 🔥 LOAD DATA
   useEffect(() => {
@@ -199,9 +202,11 @@ export function SchoolAdminSidebar() {
       <div className="px-3 py-4 border-t" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
         <button
           onClick={() => {
+            localStorage.removeItem("teacher");
+            localStorage.removeItem("teacherPermissions");
             localStorage.removeItem("school");
-            localStorage.removeItem("role");
-            window.location.reload();
+            setRole("super-admin");
+            navigate("/", { replace: true });
           }}
           className="sidebar-link w-full hover:!text-destructive"
         >

@@ -1,22 +1,29 @@
 import { useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { TeacherSidebar } from "@/components/TeacherSidebar";
 import { TopNavbar } from "@/components/TopNavbar";
 import { useRole } from "@/contexts/RoleContext";
 
 export default function TeacherLayout() {
   const { setRole } = useRole();
+  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
 
     const forceLogout = () => {
       if (!active) return;
+      const hasSchoolSession = Boolean(localStorage.getItem("school"));
       localStorage.removeItem("teacher");
-      localStorage.removeItem("school");
-      localStorage.removeItem("role");
+      localStorage.removeItem("teacherPermissions");
+      if (hasSchoolSession) {
+        setRole("school-admin");
+        navigate("/school", { replace: true });
+        return;
+      }
+
       setRole("super-admin");
-      window.location.reload();
+      navigate("/", { replace: true });
     };
 
     const validateTeacherSession = async () => {
@@ -48,7 +55,7 @@ export default function TeacherLayout() {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [setRole]);
+  }, [navigate, setRole]);
 
   return (
     <div className="flex min-h-screen w-full">

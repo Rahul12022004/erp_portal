@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 
 type Announcement = {
   _id: string;
@@ -6,6 +7,27 @@ type Announcement = {
   message: string;
   author: string;
   createdAt: string;
+};
+
+const getDismissedAnnouncementsKey = (schoolId: string) =>
+  `teacher-dismissed-announcements:${schoolId}`;
+
+const loadDismissedAnnouncementIds = (schoolId: string): string[] => {
+  if (!schoolId) return [];
+
+  try {
+    const raw = localStorage.getItem(getDismissedAnnouncementsKey(schoolId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveDismissedAnnouncementIds = (schoolId: string, ids: string[]) => {
+  if (!schoolId) return;
+  localStorage.setItem(getDismissedAnnouncementsKey(schoolId), JSON.stringify(ids));
 };
 
 export default function CommunicationModule() {
@@ -21,10 +43,12 @@ export default function CommunicationModule() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [dismissedAnnouncementIds, setDismissedAnnouncementIds] = useState<string[]>([]);
 
   const school = JSON.parse(localStorage.getItem("school") || "null");
   const teacher = JSON.parse(localStorage.getItem("teacher") || "null");
   const teacherName = teacher?.name || "Teacher";
+  const schoolId = school?._id ? String(school._id) : "";
 
   const fetchAnnouncements = async () => {
     if (!school?._id) {
@@ -60,6 +84,18 @@ export default function CommunicationModule() {
   useEffect(() => {
     fetchAnnouncements();
   }, []);
+
+  useEffect(() => {
+    setDismissedAnnouncementIds(loadDismissedAnnouncementIds(schoolId));
+  }, [schoolId]);
+
+  const handleDismissAnnouncement = (announcementId: string) => {
+    setDismissedAnnouncementIds((current) => {
+      const next = current.includes(announcementId) ? current : [...current, announcementId];
+      saveDismissedAnnouncementIds(schoolId, next);
+      return next;
+    });
+  };
 
   const postAnnouncement = async () => {
     if (!title.trim() || !message.trim()) {
@@ -163,6 +199,10 @@ export default function CommunicationModule() {
   };
 
   const filteredAnnouncements = announcements.filter((announcement) => {
+    if (dismissedAnnouncementIds.includes(announcement._id)) {
+      return false;
+    }
+
     const query = search.toLowerCase();
     return (
       announcement.title.toLowerCase().includes(query) ||
@@ -297,9 +337,20 @@ export default function CommunicationModule() {
                       </p>
                     </div>
 
-                    <span className="text-xs text-gray-500 whitespace-nowrap">
-                      {new Date(announcement.createdAt).toLocaleString()}
-                    </span>
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap pt-1">
+                        {new Date(announcement.createdAt).toLocaleString()}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDismissAnnouncement(announcement._id)}
+                        className="text-red-500 hover:text-red-700"
+                        aria-label="Dismiss announcement"
+                        title="Dismiss announcement"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mt-2 flex items-center justify-between gap-4">

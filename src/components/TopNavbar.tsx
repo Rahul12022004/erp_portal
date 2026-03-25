@@ -1,4 +1,4 @@
-import { Bell, Search } from "lucide-react";
+import { Bell } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useRole } from "@/contexts/RoleContext";
 import { useEffect, useState } from "react";
@@ -106,18 +106,13 @@ export function TopNavbar() {
 
       {/* RIGHT SIDE */}
       <div className="flex items-center gap-3">
-
-        <button className="p-2 rounded-lg hover:bg-muted">
-          <Search className="w-[18px] h-[18px]" />
-        </button>
-
         <button className="relative p-2 rounded-lg hover:bg-muted">
           <Bell className="w-[18px] h-[18px]" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
         </button>
 
         {/* PROFILE */}
-        <div className="flex items-center gap-3 ml-2 pl-3 border-l">
+        <div className="flex items-center gap-3 ml-2 pl-3 border-l pointer-events-none select-none">
 
           {/* LOGO OR INITIAL */}
           {isValidLogo ? (
