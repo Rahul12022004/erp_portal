@@ -12,7 +12,7 @@ export default function SchoolAdminsPage() {
 
   const fetchSchools = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/schools");
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/schools");
       const data = await res.json();
       setSchools(data);
     } catch (error) {
@@ -48,7 +48,7 @@ export default function SchoolAdminsPage() {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/schools/${id}`,
+        `https://erp-portal-1-ftwe.onrender.com/api/schools/${id}`,
         { method: "DELETE" }
       );
 
@@ -65,7 +65,7 @@ export default function SchoolAdminsPage() {
   const handleToggle = async (id: string) => {
     try {
       const res = await fetch(
-        `http://localhost:5000/api/schools/toggle/${id}`,
+        `https://erp-portal-1-ftwe.onrender.com/api/schools/toggle/${id}`,
         { method: "PUT" }
       );
 

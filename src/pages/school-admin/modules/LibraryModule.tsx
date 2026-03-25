@@ -95,7 +95,7 @@ export default function LibraryModule() {
         return;
       }
 
-      const res = await fetch(`http://localhost:5000/api/library/${school._id}`);
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/library/${school._id}`);
       if (!res.ok) {
         throw new Error(`Failed to load library data (${res.status})`);
       }
@@ -130,7 +130,7 @@ export default function LibraryModule() {
         return;
       }
 
-      const res = await fetch("http://localhost:5000/api/library/books", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/library/books", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -176,7 +176,7 @@ export default function LibraryModule() {
         return;
       }
 
-      const res = await fetch("http://localhost:5000/api/library/assign", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/library/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

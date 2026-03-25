@@ -62,7 +62,7 @@ export default function AttendanceModule() {
         setLoadingClasses(true);
         setError("");
 
-        const res = await fetch(`http://localhost:5000/api/classes/${schoolId}`);
+        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${schoolId}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load classes (${res.status})`);
@@ -119,7 +119,7 @@ export default function AttendanceModule() {
         setError("");
 
         const res = await fetch(
-          `http://localhost:5000/api/attendance/students/${schoolId}/${encodeURIComponent(selectedClass)}/${selectedDate}`
+          `https://erp-portal-1-ftwe.onrender.com/api/attendance/students/${schoolId}/${encodeURIComponent(selectedClass)}/${selectedDate}`
         );
 
         if (!res.ok) {
@@ -150,7 +150,7 @@ export default function AttendanceModule() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/attendance/students", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/attendance/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

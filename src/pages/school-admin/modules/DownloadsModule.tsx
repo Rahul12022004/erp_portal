@@ -48,7 +48,7 @@ function StudentReport() {
     if (!schoolId) { void message.error("School not found. Please log in again."); return; }
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${schoolId}`);
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${schoolId}`);
       if (!res.ok) throw new Error("Failed to fetch students");
       const data = await res.json() as Record<string, unknown>[];
 
@@ -113,7 +113,7 @@ function StaffReport() {
     if (!schoolId) { void message.error("School not found. Please log in again."); return; }
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/staff/${schoolId}`);
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${schoolId}`);
       if (!res.ok) throw new Error("Failed to fetch staff");
       const data = await res.json() as Record<string, unknown>[];
 
@@ -177,7 +177,7 @@ function FinancialReport() {
     if (!schoolId) { void message.error("School not found. Please log in again."); return; }
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/finance/${schoolId}/students/summary`);
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/finance/${schoolId}/students/summary`);
       if (!res.ok) throw new Error("Failed to fetch financial data");
       const data = await res.json() as Array<{
         student: Record<string, unknown>;

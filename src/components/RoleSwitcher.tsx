@@ -53,7 +53,7 @@ export function RoleSwitcher() {
 
       if (selectedRole === "school-admin") {
         const res = await fetch(
-          `http://localhost:5000/api/schools/admin/${email}`
+          `https://erp-portal-1-ftwe.onrender.com/api/schools/admin/${email}`
         );
 
         const data = await res.json();
@@ -77,7 +77,7 @@ export function RoleSwitcher() {
       }
 
       if (selectedRole === "teacher") {
-        const res = await fetch("http://localhost:5000/api/staff/login", {
+        const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/staff/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, email }),

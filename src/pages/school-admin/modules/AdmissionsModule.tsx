@@ -201,7 +201,7 @@ export default function AdmissionsModule() {
         return;
       }
 
-      const res = await fetch(`http://localhost:5000/api/students/${school._id}`);
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`);
       if (!res.ok) {
         throw new Error(`Failed to load admissions (${res.status})`);
       }
@@ -279,7 +279,7 @@ export default function AdmissionsModule() {
         schoolId: school._id,
       };
 
-      const res = await fetch("http://localhost:5000/api/students", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -369,7 +369,7 @@ export default function AdmissionsModule() {
       }
 
       const requests = excelAdmissions.map((student) =>
-        fetch("http://localhost:5000/api/students", {
+        fetch("https://erp-portal-1-ftwe.onrender.com/api/students", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...student, schoolId: school._id }),

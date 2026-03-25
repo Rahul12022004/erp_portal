@@ -30,7 +30,7 @@ export default function TeacherLayout() {
 
       try {
         const res = await fetch(
-          `http://localhost:5000/api/staff/session/${school._id}/${teacher._id}`
+          `https://erp-portal-1-ftwe.onrender.com/api/staff/session/${school._id}/${teacher._id}`
         );
 
         if (!res.ok) {

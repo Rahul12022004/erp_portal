@@ -83,7 +83,7 @@ export default function DigitalClassroomModule() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`http://localhost:5000/api/classes/${schoolId}`);
+        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${schoolId}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load classes (${res.status})`);
@@ -151,8 +151,8 @@ export default function DigitalClassroomModule() {
       setSaving(true);
 
       const url = editingClass
-        ? `http://localhost:5000/api/classes/${editingClass._id}`
-        : "http://localhost:5000/api/classes";
+        ? `https://erp-portal-1-ftwe.onrender.com/api/classes/${editingClass._id}`
+        : "https://erp-portal-1-ftwe.onrender.com/api/classes";
 
       const method = editingClass ? "PUT" : "POST";
 
@@ -211,7 +211,7 @@ export default function DigitalClassroomModule() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/classes/${classId}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${classId}`, {
         method: "DELETE",
       });
 
@@ -244,7 +244,7 @@ export default function DigitalClassroomModule() {
       }
 
       const res = await fetch(
-        `http://localhost:5000/api/classes/${schoolId}/${encodeURIComponent(className)}`
+        `https://erp-portal-1-ftwe.onrender.com/api/classes/${schoolId}/${encodeURIComponent(className)}`
       );
 
       if (!res.ok) {

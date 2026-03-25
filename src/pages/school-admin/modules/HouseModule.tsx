@@ -62,8 +62,8 @@ export default function HouseModule() {
       }
 
       const [studentsRes, classesRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/students/${school._id}`),
-        fetch(`http://localhost:5000/api/classes/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${school._id}`),
       ]);
 
       if (!studentsRes.ok || !classesRes.ok) {
@@ -148,7 +148,7 @@ export default function HouseModule() {
       setError("");
       setSuccess("");
 
-      const res = await fetch(`http://localhost:5000/api/students/${student._id}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${student._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ house }),

@@ -47,7 +47,7 @@ export default function ApprovalsModule() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`http://localhost:5000/api/leaves/school/${school._id}`);
+        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/leaves/school/${school._id}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load approvals (${res.status})`);
@@ -75,7 +75,7 @@ export default function ApprovalsModule() {
       setUpdatingId(leaveId);
       setError("");
 
-      const res = await fetch(`http://localhost:5000/api/leaves/${leaveId}/status`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/leaves/${leaveId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),

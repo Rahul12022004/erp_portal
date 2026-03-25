@@ -65,7 +65,7 @@ export default function StaffModule() {
         return;
       }
 
-      const res = await fetch(`http://localhost:5000/api/staff/${school._id}`);
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${school._id}`);
       if (!res.ok) {
         throw new Error(`Failed to load staff (${res.status})`);
       }
@@ -95,8 +95,8 @@ export default function StaffModule() {
       };
 
       const url = editingStaff
-        ? `http://localhost:5000/api/staff/${editingStaff._id}`
-        : "http://localhost:5000/api/staff";
+        ? `https://erp-portal-1-ftwe.onrender.com/api/staff/${editingStaff._id}`
+        : "https://erp-portal-1-ftwe.onrender.com/api/staff";
 
       const method = editingStaff ? "PUT" : "POST";
 
@@ -129,7 +129,7 @@ export default function StaffModule() {
     if (!confirm("Are you sure you want to delete this staff member?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/staff/${id}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${id}`, {
         method: "DELETE",
       });
 

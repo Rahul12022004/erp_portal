@@ -37,7 +37,7 @@ export default function TeacherAttendanceModule() {
       try {
         setLoading(true);
         const res = await fetch(
-          `http://localhost:5000/api/attendance/${schoolId}/${selectedDate}?position=Teacher`
+          `https://erp-portal-1-ftwe.onrender.com/api/attendance/${schoolId}/${selectedDate}?position=Teacher`
         );
 
         if (!res.ok) {
@@ -64,7 +64,7 @@ export default function TeacherAttendanceModule() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/attendance", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

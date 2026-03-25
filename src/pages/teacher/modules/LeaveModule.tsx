@@ -58,7 +58,7 @@ export default function LeaveModule() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`http://localhost:5000/api/leaves/${schoolId}/${teacherId}`);
+        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/leaves/${schoolId}/${teacherId}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load leaves (${res.status})`);
@@ -91,7 +91,7 @@ export default function LeaveModule() {
 
       const fileData = file ? await readFileAsDataUrl(file) : "";
 
-      const res = await fetch("http://localhost:5000/api/leaves", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/leaves", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

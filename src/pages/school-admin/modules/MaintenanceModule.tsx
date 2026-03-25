@@ -41,7 +41,7 @@ export default function MaintenanceModule() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`http://localhost:5000/api/maintenance/${school._id}`);
+        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/maintenance/${school._id}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load maintenance (${res.status})`);
@@ -86,7 +86,7 @@ export default function MaintenanceModule() {
     try {
       setSaving(true);
 
-      const res = await fetch("http://localhost:5000/api/maintenance", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/maintenance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -117,7 +117,7 @@ export default function MaintenanceModule() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/maintenance/${id}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/maintenance/${id}`, {
         method: "DELETE",
       });
 

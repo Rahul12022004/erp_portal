@@ -113,7 +113,7 @@ type FeeFormState = {
   description: string;
 };
 
-const API_BASE = (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL || "http://localhost:5000";
+const API_BASE = (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL || "https://erp-portal-1-ftwe.onrender.com";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0));

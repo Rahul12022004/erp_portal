@@ -51,7 +51,7 @@ export default function SurveyModule() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`http://localhost:5000/api/surveys/${school._id}`);
+        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/surveys/${school._id}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load surveys (${res.status})`);
@@ -95,7 +95,7 @@ export default function SurveyModule() {
     try {
       setSaving(true);
 
-      const res = await fetch("http://localhost:5000/api/surveys", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/surveys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -219,7 +219,7 @@ export default function SurveyModule() {
 
   const updateStatus = async (surveyId: string, status: Survey["status"]) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/surveys/${surveyId}/status`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/surveys/${surveyId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -248,7 +248,7 @@ export default function SurveyModule() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/surveys/${surveyId}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/surveys/${surveyId}`, {
         method: "DELETE",
       });
 

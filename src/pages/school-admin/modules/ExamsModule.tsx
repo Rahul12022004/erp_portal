@@ -180,8 +180,8 @@ export default function ExamsModule() {
         setError("");
 
         const [classesRes, examsRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/classes/${schoolId}`),
-          fetch(`http://localhost:5000/api/exams/school/${schoolId}`),
+          fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${schoolId}`),
+          fetch(`https://erp-portal-1-ftwe.onrender.com/api/exams/school/${schoolId}`),
         ]);
 
         if (!classesRes.ok) {
@@ -200,7 +200,7 @@ export default function ExamsModule() {
 
         // Teacher list should not block exam calendar rendering.
         try {
-          const staffRes = await fetch(`http://localhost:5000/api/staff/${schoolId}`);
+          const staffRes = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${schoolId}`);
           if (staffRes.ok) {
             const staffData = await staffRes.json();
             setTeachers(
@@ -412,8 +412,8 @@ export default function ExamsModule() {
     try {
       setSaving(true);
       const endpoint = activeExam
-        ? `http://localhost:5000/api/exams/${activeExam._id}`
-        : "http://localhost:5000/api/exams";
+        ? `https://erp-portal-1-ftwe.onrender.com/api/exams/${activeExam._id}`
+        : "https://erp-portal-1-ftwe.onrender.com/api/exams";
       const method = activeExam ? "PUT" : "POST";
 
       const res = await fetch(endpoint, {
@@ -463,7 +463,7 @@ export default function ExamsModule() {
       setAiCreating(true);
       const classOptions = classes.map((schoolClass) => getClassLabel(schoolClass));
 
-      const res = await fetch("http://localhost:5000/api/exams/ai-create", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/exams/ai-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -505,7 +505,7 @@ export default function ExamsModule() {
   const handleDeleteExam = async (examId: string) => {
     try {
       setDeletingId(examId);
-      const res = await fetch(`http://localhost:5000/api/exams/${examId}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/exams/${examId}`, {
         method: "DELETE",
       });
 
@@ -541,7 +541,7 @@ export default function ExamsModule() {
     revert: () => void;
   }) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/exams/${examId}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/exams/${examId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schoolId, examDate, startTime, endTime }),

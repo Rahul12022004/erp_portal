@@ -63,8 +63,8 @@ export default function StudentModule() {
       }
 
       const [studentsRes, classesRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/students/${school._id}`),
-        fetch(`http://localhost:5000/api/classes/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${school._id}`),
       ]);
 
       if (!studentsRes.ok) {
@@ -100,8 +100,8 @@ export default function StudentModule() {
       if (!school?._id) return;
 
       const url = editingStudent
-        ? `http://localhost:5000/api/students/${editingStudent._id}`
-        : "http://localhost:5000/api/students";
+        ? `https://erp-portal-1-ftwe.onrender.com/api/students/${editingStudent._id}`
+        : "https://erp-portal-1-ftwe.onrender.com/api/students";
 
       const method = editingStudent ? "PUT" : "POST";
 
@@ -128,7 +128,7 @@ export default function StudentModule() {
     if (!confirm("Are you sure you want to delete this student?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${id}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${id}`, {
         method: "DELETE",
       });
 

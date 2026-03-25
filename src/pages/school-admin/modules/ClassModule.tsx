@@ -138,9 +138,9 @@ export default function ClassModule() {
       }
 
       const [classesRes, studentsRes, staffRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/classes/${school._id}`),
-        fetch(`http://localhost:5000/api/students/${school._id}`),
-        fetch(`http://localhost:5000/api/staff/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${school._id}`),
       ]);
 
       if (!classesRes.ok) throw new Error(`Failed to load classes (${classesRes.status})`);
@@ -227,8 +227,8 @@ export default function ClassModule() {
       const nextClassName = getClassLabel({ name: trimmedName, section: trimmedSection });
       const res = await fetch(
         editingClass
-          ? `http://localhost:5000/api/classes/${editingClass._id}`
-          : "http://localhost:5000/api/classes",
+          ? `https://erp-portal-1-ftwe.onrender.com/api/classes/${editingClass._id}`
+          : "https://erp-portal-1-ftwe.onrender.com/api/classes",
         {
           method: editingClass ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -251,7 +251,7 @@ export default function ClassModule() {
         const impactedStudents = students.filter((student) => student.class === previousClassName);
         const updateResponses = await Promise.all(
           impactedStudents.map((student) =>
-            fetch(`http://localhost:5000/api/students/${student._id}`, {
+            fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${student._id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ class: nextClassName }),
@@ -283,7 +283,7 @@ export default function ClassModule() {
     if (!confirm(`Delete ${getClassLabel(schoolClass)}?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/classes/${schoolClass._id}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${schoolClass._id}`, {
         method: "DELETE",
       });
       const data = await res.json().catch(() => null);
@@ -313,7 +313,7 @@ export default function ClassModule() {
 
     try {
       setSavingClass(true);
-      const res = await fetch(`http://localhost:5000/api/classes/${activeClass._id}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${activeClass._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ classTeacher: selectedTeacherId || null }),
@@ -337,7 +337,7 @@ export default function ClassModule() {
 
     try {
       setSavingStudent(true);
-      const res = await fetch(`http://localhost:5000/api/students/${studentId}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${studentId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ class: getClassLabel(activeClass) }),

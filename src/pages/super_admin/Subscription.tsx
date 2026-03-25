@@ -18,7 +18,7 @@ export default function SubscriptionsPage() {
 
   const fetchSchools = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/schools");
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/schools");
       const data = await res.json();
       setSchools(data);
     } catch (err) {
@@ -38,8 +38,8 @@ export default function SubscriptionsPage() {
     try {
       const url =
         actionType === "upgrade"
-          ? `http://localhost:5000/api/schools/upgrade/${selectedSchool._id}`
-          : `http://localhost:5000/api/schools/renew/${selectedSchool._id}`;
+          ? `https://erp-portal-1-ftwe.onrender.com/api/schools/upgrade/${selectedSchool._id}`
+          : `https://erp-portal-1-ftwe.onrender.com/api/schools/renew/${selectedSchool._id}`;
 
       const body =
         actionType === "upgrade"

@@ -8,7 +8,7 @@ export default function LogsPage() {
   }, []);
 
   const fetchLogs = async () => {
-    const res = await fetch("http://localhost:5000/api/logs");
+    const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/logs");
     const data = await res.json();
     setLogs(data);
   };

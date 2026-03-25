@@ -90,7 +90,7 @@ export default function TeacherDashboard() {
         }
 
         const res = await fetch(
-          `http://localhost:5000/api/dashboard/teacher/${school._id}/${teacher._id}`
+          `https://erp-portal-1-ftwe.onrender.com/api/dashboard/teacher/${school._id}/${teacher._id}`
         );
 
         if (!res.ok) {

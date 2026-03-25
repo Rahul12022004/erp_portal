@@ -46,8 +46,8 @@ export default function HostelModule() {
       }
 
       const [hostelRes, studentRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/hostels/${school._id}`),
-        fetch(`http://localhost:5000/api/students/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/hostels/${school._id}`),
+        fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`),
       ]);
 
       if (!hostelRes.ok || !studentRes.ok) {
@@ -115,7 +115,7 @@ export default function HostelModule() {
       setError("");
 
       const res = await fetch(
-        `http://localhost:5000/api/hostels/${editingHostel.hostelId}`,
+        `https://erp-portal-1-ftwe.onrender.com/api/hostels/${editingHostel.hostelId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

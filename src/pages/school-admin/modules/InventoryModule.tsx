@@ -50,7 +50,7 @@ export default function InventoryModule() {
         return;
       }
 
-      const res = await fetch(`http://localhost:5000/api/inventory/${school._id}`);
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/inventory/${school._id}`);
       if (!res.ok) {
         throw new Error(`Failed to load inventory (${res.status})`);
       }
@@ -86,8 +86,8 @@ export default function InventoryModule() {
 
       const res = await fetch(
         editingItemId
-          ? `http://localhost:5000/api/inventory/${editingItemId}`
-          : "http://localhost:5000/api/inventory",
+          ? `https://erp-portal-1-ftwe.onrender.com/api/inventory/${editingItemId}`
+          : "https://erp-portal-1-ftwe.onrender.com/api/inventory",
         {
           method: editingItemId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -129,7 +129,7 @@ export default function InventoryModule() {
     if (!confirm("Are you sure you want to delete this inventory item?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/inventory/${id}`, {
+      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/inventory/${id}`, {
         method: "DELETE",
       });
 

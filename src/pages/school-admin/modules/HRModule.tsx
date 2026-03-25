@@ -32,7 +32,7 @@ const generatePassword = (teacherName: string) => {
   return `${cleanName}@${suffix}`;
 };
 
-const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_URL || "https://erp-portal-1-ftwe.onrender.com").replace(/\/$/, "");
 
 const toReadableFetchError = (err: unknown) => {
   if (err instanceof Error && /failed to fetch|networkerror|network request failed/i.test(err.message)) {

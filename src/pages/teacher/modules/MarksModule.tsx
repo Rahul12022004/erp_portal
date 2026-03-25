@@ -57,7 +57,7 @@ export default function MarksModule() {
         setLoadingExams(true);
         setError("");
 
-        const res = await fetch(`http://localhost:5000/api/marks/${schoolId}/${teacherId}`);
+        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/marks/${schoolId}/${teacherId}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load completed exams (${res.status})`);
@@ -100,7 +100,7 @@ export default function MarksModule() {
         setError("");
 
         const res = await fetch(
-          `http://localhost:5000/api/marks/${schoolId}/${teacherId}/${selectedExamId}`
+          `https://erp-portal-1-ftwe.onrender.com/api/marks/${schoolId}/${teacherId}/${selectedExamId}`
         );
 
         if (!res.ok) {
@@ -176,7 +176,7 @@ export default function MarksModule() {
     try {
       setSaving(true);
 
-      const res = await fetch("http://localhost:5000/api/marks", {
+      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/marks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
