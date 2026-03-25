@@ -4,18 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:backend": "npm --prefix backend run build",
-    "build:dev": "vite build --mode development",
-    "start": "npm --prefix backend run start",
-    "start:backend": "npm --prefix backend run start",
-    "dev:backend": "npm --prefix backend run dev",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
+  "dev": "vite",
+  "build": "vite build && npm --prefix backend install && npm --prefix backend run build",
+  "build:backend": "npm --prefix backend run build",
+  "start": "npm --prefix backend run start",
+  "start:backend": "npm --prefix backend run start",
+  "dev:backend": "npm --prefix backend run dev",
+  "lint": "eslint .",
+  "preview": "vite preview",
+  "test": "vitest run",
+  "test:watch": "vitest"
+},
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
     "@coreui/coreui": "^5.6.1",
@@ -78,6 +77,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "ts-node": "^10.9.2",
     "vaul": "^0.9.9",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
