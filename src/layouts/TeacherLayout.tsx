@@ -13,15 +13,8 @@ export default function TeacherLayout() {
 
     const forceLogout = () => {
       if (!active) return;
-      const hasSchoolSession = Boolean(localStorage.getItem("school"));
       localStorage.removeItem("teacher");
       localStorage.removeItem("teacherPermissions");
-      if (hasSchoolSession) {
-        setRole("school-admin");
-        navigate("/school", { replace: true });
-        return;
-      }
-
       setRole("super-admin");
       navigate("/", { replace: true });
     };

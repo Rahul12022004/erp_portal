@@ -96,8 +96,8 @@ export function TeacherSidebar() {
           onClick={() => {
             localStorage.removeItem("teacher");
             localStorage.removeItem("teacherPermissions");
-            setRole("school-admin");
-            navigate("/school", { replace: true });
+            setRole("super-admin");
+            navigate("/", { replace: true });
           }}
           className="sidebar-link w-full hover:!text-destructive"
         >
