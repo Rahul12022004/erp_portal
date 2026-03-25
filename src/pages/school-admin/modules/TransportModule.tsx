@@ -1,6 +1,15 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Bus, Edit, Trash2, Users, FileText, X, ExternalLink } from "lucide-react";
 
+const API_BASE_URL =
+  (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL ||
+  "https://your-backend-url.com";
+
+const API_ENDPOINTS = {
+  TRANSPORT: `${API_BASE_URL}/api/transport`,
+  STUDENTS: (schoolId: string) => `${API_BASE_URL}/api/students/${schoolId}`,
+};
+
 type Student = {
   _id: string;
   name: string;
@@ -80,20 +89,20 @@ export default function TransportModule() {
       }
 
       const [busRes, studentRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/transport/${school._id}`),
-        fetch(`http://localhost:5000/api/students/${school._id}`),
+        fetch(`${API_ENDPOINTS.TRANSPORT}/${school._id}`),
+        fetch(API_ENDPOINTS.STUDENTS(school._id)),
       ]);
 
       if (!busRes.ok || !studentRes.ok) {
         throw new Error(`Failed to load transport data (${busRes.status}/${studentRes.status})`);
       }
 
-      const busData = await busRes.json();
-      const studentData = await studentRes.json();
+      const busData: TransportBus[] = await busRes.json();
+      const studentData: Array<Student & { needsTransport?: boolean }> = await studentRes.json();
 
       setBuses(Array.isArray(busData) ? busData : []);
       // Only show students who requested transport
-      setStudents(Array.isArray(studentData) ? studentData.filter((s: any) => s.needsTransport) : []);
+      setStudents(Array.isArray(studentData) ? studentData.filter((s) => s.needsTransport) : []);
     } catch (err) {
       console.error("Transport fetch error:", err);
       setError(err instanceof Error ? err.message : "Failed to load transport data");
@@ -124,8 +133,8 @@ export default function TransportModule() {
 
       const res = await fetch(
         editingBusId
-          ? `http://localhost:5000/api/transport/${editingBusId}`
-          : "http://localhost:5000/api/transport",
+          ? `${API_ENDPOINTS.TRANSPORT}/${editingBusId}`
+          : API_ENDPOINTS.TRANSPORT,
         {
           method: editingBusId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -205,7 +214,7 @@ export default function TransportModule() {
     if (!confirm("Are you sure you want to delete this bus?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/transport/${id}`, {
+      const res = await fetch(`${API_ENDPOINTS.TRANSPORT}/${id}`, {
         method: "DELETE",
       });
 
