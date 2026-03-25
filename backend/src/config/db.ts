@@ -5,15 +5,16 @@ const connectDB = async () => {
     const uri = process.env.MONGO_URI;
 
     if (!uri) {
-      throw new Error("MONGO_URI not found ❌");
+      console.error("MONGO_URI not found ❌");
+      return;
     }
 
     await mongoose.connect(uri);
 
     console.log("MongoDB Connected ✅");
   } catch (error) {
-    console.error(error);
-    process.exit(1);
+    console.error("MongoDB connection failed:", error);
+    console.error("Server will continue running; check MONGO_URI and database network access.");
   }
 };
 

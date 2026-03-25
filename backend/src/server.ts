@@ -89,4 +89,6 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
 // ==========================
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => console.log("Server running"));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
