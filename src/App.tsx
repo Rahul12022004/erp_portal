@@ -28,68 +28,106 @@ import SchoolModulePage from "./pages/school-admin/SchoolModulePage";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherModulePage from "./pages/teacher/TeacherModulePage";
 
+// LOGIN PAGES
+import TeacherLogin from "./pages/TeacherLogin";
+import SchoolAdminLogin from "./pages/SchoolAdminLogin";
+import LandingPage from "./pages/LandingPage";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Protected Route Component
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useRole();
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/teacher-login" replace />;
+  }
+  
+  return children;
+}
+
 function AppRoutes() {
-  const { role } = useRole();
+  const { role, isAuthenticated } = useRole();
 
   return (
     <Routes>
+      {/* 🏠 LANDING PAGE - Show when not authenticated */}
+      <Route 
+        path="/" 
+        element={
+          isAuthenticated ? (
+            <Navigate
+              to={
+                role === "super-admin"
+                  ? "/dashboard"
+                  : role === "school-admin"
+                  ? "/school"
+                  : "/teacher"
+              }
+              replace
+            />
+          ) : (
+            <LandingPage />
+          )
+        } 
+      />
 
-      {/* 🔥 SUPER ADMIN */}
-      {role === "super-admin" && (
+      {/* 🔐 PUBLIC LOGIN PAGES */}
+      <Route path="/teacher-login" element={<TeacherLogin />} />
+      <Route path="/school-admin-login" element={<SchoolAdminLogin />} />
+
+      {/* 🔥 SUPER ADMIN - Protected */}
+      {isAuthenticated && role === "super-admin" && (
         <Route element={<DashboardLayout />}>
-
           <Route path="/" element={<DashboardPage />} />
           <Route path="/schools" element={<SchoolsPage />} />
           <Route path="/school-admins" element={<SchoolAdminsPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
-
-          {/* ✅ FIXED SETTINGS ROUTE */}
           <Route path="/settings" element={<SettingsPage />} />
-
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/user-change" element={<UserChangePage />} />
           <Route path="/security" element={<div>Security Coming Soon</div>} />
-
         </Route>
       )}
 
-      {/* 🏫 SCHOOL ADMIN */}
-      {role === "school-admin" && (
+      {/* 🏫 SCHOOL ADMIN - Protected */}
+      {isAuthenticated && role === "school-admin" && (
         <Route element={<SchoolAdminLayout />}>
           <Route path="/school" element={<SchoolAdminDashboard />} />
           <Route path="/school/:module" element={<SchoolModulePage />} />
         </Route>
       )}
 
-      {/* 👨‍🏫 TEACHER */}
-      {role === "teacher" && (
+      {/* 👨‍🏫 TEACHER - Protected */}
+      {isAuthenticated && role === "teacher" && (
         <Route element={<TeacherLayout />}>
           <Route path="/teacher" element={<TeacherDashboard />} />
           <Route path="/teacher/:module" element={<TeacherModulePage />} />
         </Route>
       )}
 
-      {/* 🔁 FALLBACK */}
+      {/* 🔁 FALLBACK - Redirect to login if not authenticated */}
       <Route
         path="*"
         element={
-          <Navigate
-            to={
-              role === "super-admin"
-                ? "/"
-                : role === "school-admin"
-                ? "/school"
-                : "/teacher"
-            }
-            replace
-          />
+          isAuthenticated ? (
+            <Navigate
+              to={
+                role === "super-admin"
+                  ? "/"
+                  : role === "school-admin"
+                  ? "/school"
+                  : "/teacher"
+              }
+              replace
+            />
+          ) : (
+            <Navigate to="/teacher-login" replace />
+          )
         }
       />
-
     </Routes>
   );
 }

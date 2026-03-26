@@ -6,11 +6,22 @@ export interface TeacherPermissions {
   modules: string[];
 }
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+}
+
 interface RoleContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   teacherPermissions: TeacherPermissions;
   setTeacherPermissions: (perms: TeacherPermissions) => void;
+  isAuthenticated: boolean;
+  user: User | null;
+  login: (user: User) => void;
+  logout: () => void;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -29,6 +40,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     const savedRole = localStorage.getItem("role") as UserRole | null;
     return savedRole || "super-admin";
   });
+
   const [teacherPermissionsState, setTeacherPermissionsState] = useState<TeacherPermissions>(() => {
     if (typeof window === "undefined") {
       return { modules: DEFAULT_TEACHER_MODULES };
@@ -51,6 +63,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return { modules: DEFAULT_TEACHER_MODULES };
   });
 
+  const [userState, setUserState] = useState<User | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const savedUser = localStorage.getItem("user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
   const setTeacherPermissions = (perms: TeacherPermissions) => {
     const nextPermissions = {
       modules: Array.isArray(perms?.modules) && perms.modules.length > 0
@@ -71,8 +92,37 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const login = (user: User) => {
+    setUserState(user);
+    setRole(user.role);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("user", JSON.stringify(user));
+    }
+  };
+
+  const logout = () => {
+    setUserState(null);
+    setRoleState("super-admin");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("teacherPermissions");
+    }
+  };
+
   return (
-    <RoleContext.Provider value={{ role: roleState, setRole, teacherPermissions: teacherPermissionsState, setTeacherPermissions }}>
+    <RoleContext.Provider 
+      value={{ 
+        role: roleState, 
+        setRole, 
+        teacherPermissions: teacherPermissionsState, 
+        setTeacherPermissions,
+        isAuthenticated: !!userState,
+        user: userState,
+        login,
+        logout
+      }}
+    >
       {children}
     </RoleContext.Provider>
   );

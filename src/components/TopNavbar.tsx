@@ -1,7 +1,14 @@
-import { Bell } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { Bell, LogOut, ChevronDown } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useRole } from "@/contexts/RoleContext";
 import { useEffect, useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const superAdminTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -15,7 +22,8 @@ const superAdminTitles: Record<string, string> = {
 
 export function TopNavbar() {
   const location = useLocation();
-  const { role } = useRole();
+  const navigate = useNavigate();
+  const { role, logout, user } = useRole();
 
   const [schoolData, setSchoolData] = useState<any>(null);
   const [teacherData, setTeacherData] = useState<any>(null);
@@ -91,7 +99,19 @@ export function TopNavbar() {
   const initials =
     adminName
       ?.split(" ")
-      .map((n: string) => n[0])
+      .map((n: string) =
+
+  const handleLogout = () => {
+    logout();
+    // Redirect to appropriate login page based on role
+    if (role === "teacher") {
+      navigate("/teacher-login");
+    } else if (role === "school-admin") {
+      navigate("/school-admin-login");
+    } else {
+      navigate("/teacher-login");
+    }
+  };> n[0])
       .join("") || "AD";
 
   return (
@@ -99,32 +119,48 @@ export function TopNavbar() {
 
       {/* TITLE */}
       <div className="flex items-center gap-4">
-        <div className="pl-12 lg:pl-0">
-          <h2 className="page-header text-lg">{title}</h2>
-        </div>
-      </div>
+        <div classNaDROPDOWN */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-3 ml-2 pl-3 border-l cursor-pointer hover:opacity-80 transition-opacity">
+              {/* LOGO OR INITIAL */}
+              {isValidLogo ? (
+                <img
+                  src={logo}
+                  className="w-8 h-8 rounded-full object-cover"
+                  alt="Profile"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                  <span className="text-xs text-white font-semibold">
+                    {initials}
+                  </span>
+                </div>
+              )}
 
-      {/* RIGHT SIDE */}
-      <div className="flex items-center gap-3">
-        <button className="relative p-2 rounded-lg hover:bg-muted">
-          <Bell className="w-[18px] h-[18px]" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-        </button>
+              {/* NAME + EMAIL */}
+              <div className="hidden sm:block">
+                <p className="text-sm font-medium">{adminName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {adminEmail}
+                </p>
+              </div>
 
-        {/* PROFILE */}
-        <div className="flex items-center gap-3 ml-2 pl-3 border-l pointer-events-none select-none">
-
-          {/* LOGO OR INITIAL */}
-          {isValidLogo ? (
-            <img
-              src={logo}
-              className="w-8 h-8 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-xs text-white font-semibold">
-                {initials}
-              </span>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-1.5">
+              <p className="text-sm font-semibold">{adminName}</p>
+              <p className="text-xs text-muted-foreground">{adminEmail}</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu </span>
             </div>
           )}
 
