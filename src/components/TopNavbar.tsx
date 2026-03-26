@@ -1,7 +1,7 @@
-import { Bell, LogOut, ChevronDown } from "lucide-react";
+import { Bell, ChevronDown, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useRole } from "@/contexts/RoleContext";
-import { useEffect, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+type SchoolSessionData = {
+  adminInfo?: {
+    name?: string;
+    email?: string;
+  };
+  schoolInfo?: {
+    logo?: string;
+  };
+};
+
+type TeacherSessionData = {
+  name?: string;
+  email?: string;
+};
 
 const superAdminTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -18,161 +33,164 @@ const superAdminTitles: Record<string, string> = {
   "/settings": "Settings",
   "/logs": "Activity Logs",
   "/security": "Security",
+  "/user-change": "User Change",
 };
+
+function readJsonStorage<T>(key: string): T | null {
+  const rawValue = localStorage.getItem(key);
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawValue) as T;
+  } catch {
+    return null;
+  }
+}
+
+function getPageTitle(pathname: string, role: string) {
+  if (role === "super-admin") {
+    return superAdminTitles[pathname] || "Dashboard";
+  }
+
+  if (role === "school-admin" && pathname === "/school") {
+    return "School Dashboard";
+  }
+
+  if (role === "teacher" && pathname === "/teacher") {
+    return "Teacher Dashboard";
+  }
+
+  const segment = pathname.split("/").filter(Boolean).pop() || "dashboard";
+  return segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+}
 
 export function TopNavbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { role, logout, user } = useRole();
+  const { role, logout } = useRole();
 
-  const [schoolData, setSchoolData] = useState<any>(null);
-  const [teacherData, setTeacherData] = useState<any>(null);
+  const [schoolData, setSchoolData] = useState<SchoolSessionData | null>(null);
+  const [teacherData, setTeacherData] = useState<TeacherSessionData | null>(null);
 
-  // 🔥 LOAD FROM LOCAL STORAGE
   useEffect(() => {
     const loadSessionData = () => {
-      const school = localStorage.getItem("school");
-      const teacher = localStorage.getItem("teacher");
-
-      setSchoolData(school ? JSON.parse(school) : null);
-      setTeacherData(teacher ? JSON.parse(teacher) : null);
+      setSchoolData(readJsonStorage<SchoolSessionData>("school"));
+      setTeacherData(readJsonStorage<TeacherSessionData>("teacher"));
     };
 
     loadSessionData();
 
-    const onStorage = () => loadSessionData();
-    const onSessionUpdate = () => loadSessionData();
-
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("school-session-updated", onSessionUpdate);
+    window.addEventListener("storage", loadSessionData);
+    window.addEventListener("school-session-updated", loadSessionData);
 
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("school-session-updated", onSessionUpdate);
+      window.removeEventListener("storage", loadSessionData);
+      window.removeEventListener("school-session-updated", loadSessionData);
     };
-  }, [role]);
+  }, []);
 
-  // ==========================
-  // TITLE LOGIC
-  // ==========================
-  let title = "Dashboard";
+  const title = getPageTitle(location.pathname, role);
 
-  if (role === "super-admin") {
-    title = superAdminTitles[location.pathname] || "Dashboard";
-  } else if (role === "school-admin") {
-    if (location.pathname === "/school") title = "School Dashboard";
-    else {
-      const seg = location.pathname.split("/").pop() || "";
-      title = seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, " ");
-    }
-  } else {
-    if (location.pathname === "/teacher") title = "Teacher Dashboard";
-    else {
-      const seg = location.pathname.split("/").pop() || "";
-      title = seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, " ");
-    }
-  }
-
-  // ==========================
-  // ADMIN DATA
-  // ==========================
-  const adminName =
+  const displayName =
     role === "school-admin"
-      ? schoolData?.adminInfo?.name
-      : role === "super-admin"
-      ? "Super Admin"
-      : teacherData?.name || "Teacher";
+      ? schoolData?.adminInfo?.name || "School Admin"
+      : role === "teacher"
+      ? teacherData?.name || "Teacher"
+      : "Super Admin";
 
-  const adminEmail =
+  const displayEmail =
     role === "school-admin"
-      ? schoolData?.adminInfo?.email
-      : role === "super-admin"
-      ? "admin@eduadmin.com"
-      : teacherData?.email || "teacher@mail.com";
+      ? schoolData?.adminInfo?.email || "school-admin@mail.com"
+      : role === "teacher"
+      ? teacherData?.email || "teacher@mail.com"
+      : "admin@eduadmin.com";
 
   const logo = schoolData?.schoolInfo?.logo;
-
-  const isValidLogo =
-    logo &&
-    (logo.startsWith("data:image") || logo.startsWith("http"));
+  const hasValidLogo = Boolean(
+    logo && (logo.startsWith("data:image") || logo.startsWith("http")),
+  );
 
   const initials =
-    adminName
-      ?.split(" ")
-      .map((n: string) =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "AD";
 
   const handleLogout = () => {
+    const activeRole = role;
     logout();
-    // Redirect to appropriate login page based on role
-    if (role === "teacher") {
-      navigate("/teacher-login");
-    } else if (role === "school-admin") {
-      navigate("/school-admin-login");
-    } else {
-      navigate("/teacher-login");
+
+    if (activeRole === "school-admin") {
+      navigate("/school-admin-login", { replace: true });
+      return;
     }
-  };> n[0])
-      .join("") || "AD";
+
+    navigate("/teacher-login", { replace: true });
+  };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-6 bg-card border-b border-border">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card px-6">
+      <div>
+        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+        <p className="text-sm text-muted-foreground">Manage your workspace from one place.</p>
+      </div>
 
-      {/* TITLE */}
       <div className="flex items-center gap-4">
-        <div classNaDROPDOWN */}
+        <button
+          type="button"
+          className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Notifications"
+        >
+          <Bell className="h-4 w-4" />
+        </button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-3 ml-2 pl-3 border-l cursor-pointer hover:opacity-80 transition-opacity">
-              {/* LOGO OR INITIAL */}
-              {isValidLogo ? (
+            <button
+              type="button"
+              className="flex items-center gap-3 rounded-full border border-border px-2 py-1.5 transition-colors hover:bg-muted"
+            >
+              {hasValidLogo ? (
                 <img
                   src={logo}
-                  className="w-8 h-8 rounded-full object-cover"
-                  alt="Profile"
+                  alt={displayName}
+                  className="h-9 w-9 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                  <span className="text-xs text-white font-semibold">
-                    {initials}
-                  </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                  {initials}
                 </div>
               )}
 
-              {/* NAME + EMAIL */}
-              <div className="hidden sm:block">
-                <p className="text-sm font-medium">{adminName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {adminEmail}
-                </p>
+              <div className="hidden text-left sm:block">
+                <p className="text-sm font-medium text-foreground">{displayName}</p>
+                <p className="text-xs text-muted-foreground">{displayEmail}</p>
               </div>
 
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </button>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end" className="w-56">
             <div className="px-2 py-1.5">
-              <p className="text-sm font-semibold">{adminName}</p>
-              <p className="text-xs text-muted-foreground">{adminEmail}</p>
+              <p className="text-sm font-semibold">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{displayEmail}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
+            <DropdownMenuItem
+              className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-600"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
               Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu </span>
-            </div>
-          )}
-
-          {/* NAME + EMAIL */}
-          <div className="hidden sm:block">
-            <p className="text-sm font-medium">{adminName}</p>
-            <p className="text-xs text-muted-foreground">
-              {adminEmail}
-            </p>
-          </div>
-
-        </div>
+        </DropdownMenu>
       </div>
     </header>
   );
