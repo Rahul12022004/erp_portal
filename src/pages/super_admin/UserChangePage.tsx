@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { GraduationCap, School } from "lucide-react";
 import { DEFAULT_TEACHER_MODULES, useRole } from "@/contexts/RoleContext";
+import { loginSchoolAdmin, loginTeacher, persistSchoolAdminSession, persistTeacherSession } from "@/lib/auth";
 
 type TargetRole = "school-admin" | "teacher";
 
 export default function UserChangePage() {
-  const { setRole, setTeacherPermissions } = useRole();
+  const { login, setTeacherPermissions } = useRole();
   const [targetRole, setTargetRole] = useState<TargetRole | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [name, setName] = useState("");
@@ -38,49 +39,35 @@ export default function UserChangePage() {
       setLoading(true);
 
       if (targetRole === "school-admin") {
-        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/schools/admin/${email}`);
-        const data = await res.json();
+        const session = await loginSchoolAdmin(email, password);
+        const user = {
+          id: session._id || "school_admin_001",
+          email,
+          name: session.adminInfo?.name || email.split("@")[0],
+          role: "school-admin" as const,
+        };
 
-        if (!res.ok) {
-          alert(data.message || "Login failed");
-          return;
-        }
-
-        if (data.adminInfo.password !== password) {
-          alert("Wrong password");
-          return;
-        }
-
-        localStorage.setItem("school", JSON.stringify(data));
-        localStorage.removeItem("teacher");
-        window.dispatchEvent(new Event("school-session-updated"));
-        setRole("school-admin");
+        login(user);
+        persistSchoolAdminSession(session, user);
         setShowLogin(false);
         return;
       }
 
-      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/staff/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
-      });
+      const session = await loginTeacher(name, email);
+      const user = {
+        id: session.teacher._id || "teacher_001",
+        email,
+        name: session.teacher.name || name,
+        role: "teacher" as const,
+      };
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.message || "Teacher login failed");
-        return;
-      }
-
-      localStorage.setItem("teacher", JSON.stringify(data.teacher));
-      localStorage.setItem("school", JSON.stringify(data.school));
+      login(user);
+      persistTeacherSession(session, user, { modules: DEFAULT_TEACHER_MODULES });
       setTeacherPermissions({ modules: DEFAULT_TEACHER_MODULES });
-      window.dispatchEvent(new Event("school-session-updated"));
-      setRole("teacher");
       setShowLogin(false);
     } catch (error) {
       console.error(error);
-      alert("Login error");
+      alert(error instanceof Error ? error.message : "Login error");
     } finally {
       setLoading(false);
     }

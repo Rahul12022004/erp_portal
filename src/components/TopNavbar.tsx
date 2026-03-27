@@ -26,7 +26,7 @@ type TeacherSessionData = {
 };
 
 const superAdminTitles: Record<string, string> = {
-  "/": "Dashboard",
+  "/dashboard": "Dashboard",
   "/schools": "Schools Management",
   "/school-admins": "School Admins",
   "/subscriptions": "Subscriptions",
@@ -124,6 +124,11 @@ export function TopNavbar() {
   const handleLogout = () => {
     const activeRole = role;
     logout();
+
+    if (activeRole === "super-admin") {
+      navigate("/super-admin-login", { replace: true });
+      return;
+    }
 
     if (activeRole === "school-admin") {
       navigate("/school-admin-login", { replace: true });

@@ -5,7 +5,7 @@ import { TopNavbar } from "@/components/TopNavbar";
 import { useRole } from "@/contexts/RoleContext";
 
 export default function TeacherLayout() {
-  const { setRole } = useRole();
+  const { logout } = useRole();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -13,10 +13,8 @@ export default function TeacherLayout() {
 
     const forceLogout = () => {
       if (!active) return;
-      localStorage.removeItem("teacher");
-      localStorage.removeItem("teacherPermissions");
-      setRole("super-admin");
-      navigate("/", { replace: true });
+      logout();
+      navigate("/teacher-login", { replace: true });
     };
 
     const validateTeacherSession = async () => {
@@ -48,7 +46,7 @@ export default function TeacherLayout() {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [navigate, setRole]);
+  }, [logout, navigate]);
 
   return (
     <div className="flex min-h-screen w-full">

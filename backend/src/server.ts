@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import connectDB from "./config/db";
+import connectDB, { getDatabaseStatus } from "./config/db";
 
 import schoolRoutes from "./routes/schoolRoutes";
 import logRoutes from "./routes/logRoutes";
@@ -28,17 +28,32 @@ import socialMediaRoutes from "./routes/socialMediaRoutes";
 dotenv.config();
 
 const app = express();
-const allowedOrigins = [
+const defaultAllowedOrigins = [
   "https://erp-portal-seven.vercel.app",
+  "http://localhost:8080",
   "http://localhost:5173",
 ];
+
+const envAllowedOrigins = (process.env.FRONTEND_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([...defaultAllowedOrigins, ...envAllowedOrigins]);
 
 // ==========================
 // 🔧 MIDDLEWARE
 // ==========================
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
   })
 );
 app.use(express.json({ limit: "50mb" }));
@@ -77,6 +92,17 @@ app.use("/api/social-media", socialMediaRoutes);
 // ==========================
 // 🧪 TEST ROUTE
 // ==========================
+app.get("/api/health", (req, res) => {
+  const db = getDatabaseStatus();
+
+  res.json({
+    ok: true,
+    dbConnected: db.connected,
+    dbReadyState: db.readyState,
+    dbLastError: db.lastError,
+  });
+});
+
 app.get("/", (req, res) => {
   res.send("API Running 🚀");
 });

@@ -31,6 +31,7 @@ import TeacherModulePage from "./pages/teacher/TeacherModulePage";
 // LOGIN PAGES
 import TeacherLogin from "./pages/TeacherLogin";
 import SchoolAdminLogin from "./pages/SchoolAdminLogin";
+import SuperAdminLogin from "./pages/SuperAdminLogin";
 import LandingPage from "./pages/LandingPage";
 
 import NotFound from "./pages/NotFound";
@@ -77,11 +78,12 @@ function AppRoutes() {
       {/* 🔐 PUBLIC LOGIN PAGES */}
       <Route path="/teacher-login" element={<TeacherLogin />} />
       <Route path="/school-admin-login" element={<SchoolAdminLogin />} />
+      <Route path="/super-admin-login" element={<SuperAdminLogin />} />
 
       {/* 🔥 SUPER ADMIN - Protected */}
       {isAuthenticated && role === "super-admin" && (
         <Route element={<DashboardLayout />}>
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/schools" element={<SchoolsPage />} />
           <Route path="/school-admins" element={<SchoolAdminsPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
@@ -116,7 +118,7 @@ function AppRoutes() {
             <Navigate
               to={
                 role === "super-admin"
-                  ? "/"
+                  ? "/dashboard"
                   : role === "school-admin"
                   ? "/school"
                   : "/teacher"

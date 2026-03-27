@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -9,13 +9,11 @@ import {
   Clock,
   MessageSquare,
   PenTool,
-  LogOut,
   GraduationCap,
   Menu,
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { useRole } from "@/contexts/RoleContext";
 
 const allTeacherModules = [
   { id: "dashboard", title: "Dashboard", path: "/teacher", icon: LayoutDashboard },
@@ -36,8 +34,7 @@ const allTeacherModules = [
 export function TeacherSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
-  const { teacherPermissions, setRole } = useRole();
+  const teacherPermissions = JSON.parse(localStorage.getItem("teacherPermissions") || '{"modules":[]}');
 
   const teacherData = JSON.parse(localStorage.getItem("teacher") || "null");
   const teacherName = teacherData?.name || "Teacher";
@@ -89,22 +86,6 @@ export function TeacherSidebar() {
           </NavLink>
         ))}
       </nav>
-
-      {/* Logout */}
-      <div className="px-3 py-4 border-t" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-        <button
-          onClick={() => {
-            localStorage.removeItem("teacher");
-            localStorage.removeItem("teacherPermissions");
-            setRole("super-admin");
-            navigate("/", { replace: true });
-          }}
-          className="sidebar-link w-full hover:!text-destructive"
-        >
-          <LogOut className="w-[18px] h-[18px]" />
-          <span>Logout</span>
-        </button>
-      </div>
     </div>
   );
 

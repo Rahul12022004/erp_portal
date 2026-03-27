@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { clearStoredSessions, persistRoleUser } from "@/lib/auth";
 
 export type UserRole = "super-admin" | "school-admin" | "teacher";
 
@@ -96,17 +97,17 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     setUserState(user);
     setRole(user.role);
     if (typeof window !== "undefined") {
-      localStorage.setItem("user", JSON.stringify(user));
+      persistRoleUser(user);
     }
   };
 
   const logout = () => {
     setUserState(null);
     setRoleState("super-admin");
+    setTeacherPermissionsState({ modules: DEFAULT_TEACHER_MODULES });
     if (typeof window !== "undefined") {
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
-      localStorage.removeItem("teacherPermissions");
+      clearStoredSessions();
+      window.dispatchEvent(new Event("school-session-updated"));
     }
   };
 

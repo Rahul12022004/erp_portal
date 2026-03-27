@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Shield, AlertCircle } from "lucide-react";
 import { useRole } from "@/contexts/RoleContext";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { loginSchoolAdmin, persistSchoolAdminSession } from "@/lib/auth";
+import { Input } from "@/components/ui/input";
+import { clearStoredSessions } from "@/lib/auth";
 
-export default function SchoolAdminLogin() {
+export default function SuperAdminLogin() {
   const navigate = useNavigate();
   const { login } = useRole();
   const [email, setEmail] = useState("");
@@ -30,17 +30,17 @@ export default function SchoolAdminLogin() {
         return;
       }
 
-      const session = await loginSchoolAdmin(email, password);
-      const user = {
-        id: session._id || "school_admin_001",
-        email,
-        name: session.adminInfo?.name || email.split("@")[0],
-        role: "school-admin" as const,
-      };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      clearStoredSessions();
 
-      login(user);
-      persistSchoolAdminSession(session, user);
-      navigate("/school", { replace: true });
+      login({
+        id: "super_admin_001",
+        email,
+        name: "Super Admin",
+        role: "super-admin",
+      });
+
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
@@ -49,28 +49,25 @@ export default function SchoolAdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      {/* Background pattern */}
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4">
       <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full mix-blend-multiply filter blur-3xl"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full mix-blend-multiply filter blur-3xl"></div>
+        <div className="absolute left-0 top-0 h-96 w-96 rounded-full bg-white blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-white blur-3xl" />
       </div>
 
       <div className="relative z-10 w-full max-w-md">
-        {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-lg shadow-lg mb-4">
-            <div className="text-2xl font-bold text-slate-900">SA</div>
+        <div className="mb-8 text-center">
+          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-lg bg-white shadow-lg">
+            <Shield className="h-8 w-8 text-slate-900" />
           </div>
-          <h1 className="text-3xl font-bold text-white">School Admin Login</h1>
-          <p className="text-slate-300 mt-2">Manage your school efficiently</p>
+          <h1 className="text-3xl font-bold text-white">Super Admin Login</h1>
+          <p className="mt-2 text-slate-300">Access platform-level controls and system settings</p>
         </div>
 
-        {/* Login Card */}
-        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur">
+        <Card className="border-0 bg-white/95 shadow-2xl backdrop-blur">
           <CardHeader className="space-y-2">
             <CardTitle>Sign In</CardTitle>
-            <CardDescription>Enter your credentials to access the admin panel</CardDescription>
+            <CardDescription>Enter your credentials to access the super admin panel</CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -89,7 +86,7 @@ export default function SchoolAdminLogin() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@school.com"
+                  placeholder="admin@eduadmin.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
@@ -121,10 +118,7 @@ export default function SchoolAdminLogin() {
                   onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                   disabled={loading}
                 />
-                <label
-                  htmlFor="remember"
-                  className="text-sm text-slate-600 cursor-pointer"
-                >
+                <label htmlFor="remember" className="cursor-pointer text-sm text-slate-600">
                   Remember me
                 </label>
               </div>
@@ -132,45 +126,30 @@ export default function SchoolAdminLogin() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white font-semibold"
+                className="h-10 w-full bg-slate-900 font-semibold text-white hover:bg-slate-800"
               >
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
 
-            <div className="mt-4 text-center">
-              <a
-                href="#"
-                className="text-sm text-slate-600 hover:text-slate-900 font-medium"
-              >
-                Forgot password?
-              </a>
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-slate-200">
+            <div className="mt-6 border-t border-slate-200 pt-6">
               <p className="text-center text-sm text-slate-600">
-                Are you a teacher?{" "}
-                <Link
-                  to="/teacher-login"
-                  className="text-slate-900 font-semibold hover:underline"
-                >
-                  Teacher Login
+                Need another portal?{" "}
+                <Link to="/teacher-login" className="font-semibold text-slate-900 hover:underline">
+                  Teacher
                 </Link>
-              </p>
-              <p className="mt-2 text-center text-xs text-slate-500">
-                Need platform access?{" "}
-                <Link to="/super-admin-login" className="font-semibold text-slate-900 hover:underline">
-                  Super Admin
+                {" "}or{" "}
+                <Link to="/school-admin-login" className="font-semibold text-slate-900 hover:underline">
+                  School Admin
                 </Link>
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Demo Credentials */}
-        <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+        <div className="mt-6 rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
           <p className="text-xs text-blue-700 dark:text-blue-300">
-            <strong>Login:</strong> Use the school admin email and password from the school record to load the full school session.
+            <strong>Demo:</strong> Super admin still uses demo credentials, but it now starts from a clean session state
           </p>
         </div>
       </div>

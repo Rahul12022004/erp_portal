@@ -8,7 +8,6 @@ import {
   Settings,
   ScrollText,
   Shield,
-  LogOut,
   GraduationCap,
   Menu,
   X,
@@ -16,7 +15,7 @@ import {
 import { useState } from "react";
 
 const menuItems = [
-  { title: "Dashboard", path: "/", icon: LayoutDashboard },
+  { title: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { title: "Schools", path: "/schools", icon: School },
   { title: "School Admins", path: "/school-admins", icon: UserCog },
   { title: "Subscriptions", path: "/subscriptions", icon: CreditCard },
@@ -67,14 +66,6 @@ export function AppSidebar() {
           </NavLink>
         ))}
       </nav>
-
-      {/* Logout */}
-      <div className="px-3 py-4 border-t" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-        <button className="sidebar-link w-full hover:!text-destructive">
-          <LogOut className="w-[18px] h-[18px]" />
-          <span>Logout</span>
-        </button>
-      </div>
     </div>
   );
 

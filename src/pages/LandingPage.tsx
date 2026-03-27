@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Users, BarChart3 } from "lucide-react";
+import { BookOpen, Users, BarChart3, Shield } from "lucide-react";
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -52,6 +52,14 @@ export default function LandingPage() {
             <p className="text-xl text-slate-300 max-w-2xl mx-auto mb-8">
               A comprehensive platform for teachers and school administrators to streamline educational operations
             </p>
+            <button
+              type="button"
+              onClick={() => navigate("/super-admin-login")}
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+            >
+              <Shield className="h-4 w-4" />
+              Super Admin Login
+            </button>
           </div>
 
           {/* Login Cards */}

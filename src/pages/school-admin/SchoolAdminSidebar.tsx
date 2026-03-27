@@ -1,14 +1,13 @@
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, BookOpen, ClipboardCheck, Users, UserCog,
   Monitor, FileText, DollarSign, UserPlus, Briefcase, Download, Building,
   Library, HeadphonesIcon, Bus, Package, ShoppingCart, UtensilsCrossed,
   CheckSquare, ScrollText, Shield, Wrench, Settings,
-  Trophy, Video, BarChart3, Store, Clock, LogOut, GraduationCap, Menu, X, Share2,
+  Trophy, Video, BarChart3, Store, Clock, GraduationCap, Menu, X, Share2,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useRole } from "@/contexts/RoleContext";
 
 // 🔥 ICON MAP (same as before)
 const iconMap: Record<string, LucideIcon> = {
@@ -67,8 +66,6 @@ export function SchoolAdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [schoolData, setSchoolData] = useState<SchoolSidebarData | null>(null);
   const location = useLocation();
-  const navigate = useNavigate();
-  const { setRole } = useRole();
 
   // 🔥 LOAD DATA
   useEffect(() => {
@@ -197,23 +194,6 @@ export function SchoolAdminSidebar() {
           );
         })}
       </nav>
-
-      {/* LOGOUT (UNCHANGED UI) */}
-      <div className="px-3 py-4 border-t" style={{ borderColor: "hsl(var(--sidebar-border))" }}>
-        <button
-          onClick={() => {
-            localStorage.removeItem("teacher");
-            localStorage.removeItem("teacherPermissions");
-            localStorage.removeItem("school");
-            setRole("super-admin");
-            navigate("/", { replace: true });
-          }}
-          className="sidebar-link w-full hover:!text-destructive"
-        >
-          <LogOut className="w-[18px] h-[18px]" />
-          <span>Logout</span>
-        </button>
-      </div>
     </div>
   );
 

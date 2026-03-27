@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useRole } from "@/contexts/RoleContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DEFAULT_TEACHER_MODULES } from "@/contexts/RoleContext";
+import { loginTeacher, persistTeacherSession } from "@/lib/auth";
 
 export default function TeacherLogin() {
   const navigate = useNavigate();
-  const { login } = useRole();
+  const { login, setTeacherPermissions } = useRole();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,33 +25,24 @@ export default function TeacherLogin() {
     setLoading(true);
 
     try {
-      // TODO: Replace with actual backend API call
-      // const response = await fetch("http://localhost:5000/api/auth/teacher/login", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email, password }),
-      // });
-      // const data = await response.json();
-      
-      // Mock authentication for demo
-      if (!email || !password) {
-        setError("Please enter both email and password");
+      if (!name || !email) {
+        setError("Please enter both teacher name and email");
         setLoading(false);
         return;
       }
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const session = await loginTeacher(name, email);
+      const user = {
+        id: session.teacher._id || "teacher_001",
+        email,
+        name: session.teacher.name || name,
+        role: "teacher" as const,
+      };
 
-      // Mock successful login
-      login({
-        id: "teacher_001",
-        email: email,
-        name: email.split("@")[0],
-        role: "teacher",
-      });
-
-      navigate("/teacher");
+      login(user);
+      persistTeacherSession(session, user, { modules: DEFAULT_TEACHER_MODULES });
+      setTeacherPermissions({ modules: DEFAULT_TEACHER_MODULES });
+      navigate("/teacher", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
@@ -92,6 +85,22 @@ export default function TeacherLogin() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium text-slate-700">
+                  Teacher Name
+                </label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
+                  className="h-10"
+                  autoComplete="name"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-slate-700">
                   Email Address
                 </label>
@@ -104,22 +113,6 @@ export default function TeacherLogin() {
                   disabled={loading}
                   className="h-10"
                   autoComplete="email"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-slate-700">
-                  Password
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  className="h-10"
-                  autoComplete="current-password"
                 />
               </div>
 
@@ -159,12 +152,18 @@ export default function TeacherLogin() {
             <div className="mt-6 pt-6 border-t border-slate-200">
               <p className="text-center text-sm text-slate-600">
                 Not a teacher?{" "}
-                <a
-                  href="/school-admin-login"
+                <Link
+                  to="/school-admin-login"
                   className="text-slate-900 font-semibold hover:underline"
                 >
                   School Admin Login
-                </a>
+                </Link>
+              </p>
+              <p className="mt-2 text-center text-xs text-slate-500">
+                Need higher access?{" "}
+                <Link to="/super-admin-login" className="font-semibold text-slate-900 hover:underline">
+                  Super Admin
+                </Link>
               </p>
             </div>
           </CardContent>
@@ -173,7 +172,7 @@ export default function TeacherLogin() {
         {/* Demo Credentials */}
         <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
           <p className="text-xs text-blue-700 dark:text-blue-300">
-            <strong>Demo:</strong> Use any email (e.g., teacher@school.com) with any password
+            <strong>Login:</strong> Use a valid teacher email from your school. The app now loads the teacher and school session automatically.
           </p>
         </div>
       </div>
