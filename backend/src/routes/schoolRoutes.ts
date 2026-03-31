@@ -2,6 +2,7 @@ import express from "express";
 import School from "../models/School";
 import Staff from "../models/Staff";
 import { createLog } from "../utils/createLog";
+import { sendSchoolAdminCredentialsEmail } from "../utils/sendEmail";
 
 const router = express.Router();
 
@@ -19,6 +20,110 @@ const getEndDate = (plan: string) => {
   return date.toISOString().split("T")[0];
 };
 
+// Generate random password
+const generateRandomPassword = (length: number = 12): string => {
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return password;
+};
+
+// Get modules based on subscription plan
+const getModulesByPlan = (plan: string): string[] => {
+  const modulesByPlan: { [key: string]: string[] } = {
+    Basic: [
+      "Student Management",
+      "Attendance",
+      "Marks & Results",
+      "Announcements"
+    ],
+    Standard: [
+      "Student Management",
+      "Staff Management",
+      "Attendance",
+      "Marks & Results",
+      "Announcements",
+      "Leave Management",
+      "Class Management",
+      "Finance & Fees"
+    ],
+    Premium: [
+      "Student Management",
+      "Staff Management",
+      "Attendance",
+      "Marks & Results",
+      "Announcements",
+      "Leave Management",
+      "Class Management",
+      "Finance & Fees",
+      "Hostel Management",
+      "Transport Management",
+      "Library Management",
+      "Inventory Management",
+      "Surveys & Feedback",
+      "Social Media Integration"
+    ]
+  };
+
+  return modulesByPlan[plan] || modulesByPlan["Basic"];
+};
+
+const getRequestedModules = (subscriptionPlan: string, modules?: unknown): string[] => {
+  if (Array.isArray(modules)) {
+    const cleaned = modules
+      .map((moduleName) => String(moduleName || "").trim())
+      .filter(Boolean);
+
+    if (cleaned.length > 0) {
+      return [...new Set(cleaned)];
+    }
+  }
+
+  return getModulesByPlan(subscriptionPlan);
+};
+
+
+// ==========================
+// 🔐 SCHOOL ADMIN LOGIN
+// ==========================
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const school = await School.findOne({
+      $or: [
+        { "adminInfo.email": email },
+        { "schoolInfo.email": email },
+      ],
+    });
+
+    if (!school) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (school.adminInfo?.status === "Disabled") {
+      return res.status(403).json({ message: "Account disabled" });
+    }
+
+    if (school.adminInfo?.password !== password) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    res.json(school);
+  } catch (error) {
+    console.error("SCHOOL LOGIN ERROR:", error);
+    res.status(500).json({
+      message: "School admin login failed",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
 
 // ==========================
 // 🔐 LOGIN (GET SCHOOL BY ADMIN EMAIL)
@@ -47,10 +152,106 @@ router.get("/admin/:email", async (req, res) => {
 
 
 // ==========================
+// 📝 SCHOOL REGISTRATION (SIGN UP)
+// ==========================
+router.post("/register", async (req, res) => {
+  try {
+    const { schoolName, schoolEmail, schoolPhone, schoolAddress, schoolWebsite, adminName, adminEmail, adminPhone, schoolType, maxStudents, subscriptionPlan } = req.body;
+
+    // Validation
+    if (!schoolName || !schoolEmail || !adminName || !adminEmail) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Check if school email already exists
+    const existingSchool = await School.findOne({ "schoolInfo.email": schoolEmail });
+    if (existingSchool) {
+      return res.status(400).json({ message: "School email already registered" });
+    }
+
+    // Check if admin email already exists
+    const existingAdmin = await School.findOne({ "adminInfo.email": adminEmail });
+    if (existingAdmin) {
+      return res.status(400).json({ message: "Admin email already registered" });
+    }
+
+    // Generate random password
+    const generatedPassword = generateRandomPassword();
+
+    // Create school with auto-generated credentials
+    const newSchool = await School.create({
+      schoolInfo: {
+        name: schoolName,
+        email: schoolEmail,
+        phone: schoolPhone,
+        address: schoolAddress,
+        website: schoolWebsite,
+        logo: "",
+      },
+      adminInfo: {
+        name: adminName,
+        email: adminEmail,
+        password: generatedPassword,
+        phone: adminPhone,
+        image: req.body.adminImage || "",
+        status: "Active",
+      },
+      systemInfo: {
+        schoolType: schoolType || "Public",
+        maxStudents: parseInt(maxStudents) || 500,
+        subscriptionPlan: subscriptionPlan || "Basic",
+        subscriptionEndDate: getEndDate(subscriptionPlan),
+      },
+      modules: getModulesByPlan(subscriptionPlan),
+    });
+
+    // Send email with credentials
+    try {
+      await sendSchoolAdminCredentialsEmail(
+        adminName,
+        adminEmail,
+        schoolName,
+        generatedPassword,
+        subscriptionPlan
+      );
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+      // Don't fail the registration if email fails, but log it
+    }
+
+    // Create log entry
+    await createLog({
+      action: "SCHOOL_REGISTERED",
+      message: `New school registered: ${schoolName}`,
+      schoolId: newSchool._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "School registered successfully! Admin credentials sent to email.",
+      data: {
+        _id: newSchool._id,
+        schoolName: newSchool.schoolInfo?.name,
+        adminEmail: newSchool.adminInfo?.email,
+        adminPassword: generatedPassword,
+        subscriptionPlan: newSchool.systemInfo?.subscriptionPlan,
+        modules: newSchool.modules,
+      },
+    });
+
+  } catch (error) {
+    console.error("REGISTRATION ERROR:", error);
+    res.status(500).json({ message: "Registration failed. Please try again." });
+  }
+});
+
+
+// ==========================
 // ✅ CREATE SCHOOL
 // ==========================
 router.post("/", async (req, res) => {
   try {
+    const subscriptionPlan = req.body.subscriptionPlan || "Basic";
     const newSchoolData = {
       schoolInfo: {
         name: req.body.schoolName,
@@ -65,15 +266,16 @@ router.post("/", async (req, res) => {
         email: req.body.adminEmail,
         password: req.body.adminPassword,
         phone: req.body.adminPhone,
+        image: req.body.adminImage || "",
         status: "Active",
       },
       systemInfo: {
         schoolType: req.body.schoolType,
         maxStudents: req.body.maxStudents,
-        subscriptionPlan: req.body.subscriptionPlan,
-        subscriptionEndDate: getEndDate(req.body.subscriptionPlan),
+        subscriptionPlan,
+        subscriptionEndDate: getEndDate(subscriptionPlan),
       },
-      modules: req.body.modules || [],
+      modules: getRequestedModules(subscriptionPlan, req.body.modules),
     };
 
     const school = await School.create(newSchoolData);
@@ -98,6 +300,15 @@ router.post("/", async (req, res) => {
 // ==========================
 router.put("/:id", async (req, res) => {
   try {
+    const school = await School.findById(req.params.id);
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    const subscriptionPlan =
+      req.body.subscriptionPlan || school.systemInfo?.subscriptionPlan || "Basic";
+
     const updated = await School.findByIdAndUpdate(
       req.params.id,
       {
@@ -112,6 +323,14 @@ router.put("/:id", async (req, res) => {
           "adminInfo.name": req.body.adminName,
           "adminInfo.email": req.body.adminEmail,
           "adminInfo.phone": req.body.adminPhone,
+          "adminInfo.image": req.body.adminImage,
+
+          "systemInfo.schoolType": req.body.schoolType,
+          "systemInfo.maxStudents": req.body.maxStudents,
+          "systemInfo.subscriptionPlan": subscriptionPlan,
+          "systemInfo.subscriptionEndDate": getEndDate(subscriptionPlan),
+
+          modules: getRequestedModules(subscriptionPlan, req.body.modules),
         },
       },
       { new: true }
@@ -236,16 +455,31 @@ router.put("/upgrade/:id", async (req, res) => {
   try {
     const { subscriptionPlan } = req.body;
 
+    if (!subscriptionPlan) {
+      return res.status(400).json({ message: "subscriptionPlan is required" });
+    }
+
     const updated = await School.findByIdAndUpdate(
       req.params.id,
       {
         $set: {
           "systemInfo.subscriptionPlan": subscriptionPlan,
           "systemInfo.subscriptionEndDate": getEndDate(subscriptionPlan),
+          modules: getModulesByPlan(subscriptionPlan),
         },
       },
       { new: true }
     );
+
+    if (!updated) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    await createLog({
+      action: "UPGRADE_SUBSCRIPTION",
+      message: `${updated.schoolInfo?.name} moved to ${subscriptionPlan}`,
+      schoolId: updated._id,
+    });
 
     res.json({ success: true, data: updated });
 
@@ -316,6 +550,7 @@ router.post("/seed-dummy", async (req, res) => {
         email: `admin.${stamp}@example.com`,
         password: "admin123",
         phone: "+91-9000000002",
+        image: "",
         status: "Active",
       },
       systemInfo: {

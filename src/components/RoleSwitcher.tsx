@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRole, UserRole, DEFAULT_TEACHER_MODULES } from "@/contexts/RoleContext";
+import { loginSchoolAdmin, loginTeacher } from "@/lib/auth";
 import { Shield, School, GraduationCap } from "lucide-react";
 
 const roles: { value: UserRole; label: string; icon: any }[] = [
@@ -52,50 +53,34 @@ export function RoleSwitcher() {
       setLoading(true);
 
       if (selectedRole === "school-admin") {
-        const res = await fetch(
-          `https://erp-portal-1-ftwe.onrender.com/api/schools/admin/${email}`
-        );
+        try {
+          const data = await loginSchoolAdmin(email, password);
 
-        const data = await res.json();
-
-        if (!res.ok) {
-          alert(data.message || "Login failed");
-          return;
+          localStorage.setItem("school", JSON.stringify(data));
+          localStorage.removeItem("teacher");
+          window.dispatchEvent(new Event("school-session-updated"));
+          setRole("school-admin");
+          setShowLogin(false);
+        } catch (error) {
+          alert(error instanceof Error ? error.message : "School admin login failed");
         }
 
-        if (data.adminInfo.password !== password) {
-          alert("Wrong password");
-          return;
-        }
-
-        localStorage.setItem("school", JSON.stringify(data));
-        localStorage.removeItem("teacher");
-        window.dispatchEvent(new Event("school-session-updated"));
-        setRole("school-admin");
-        setShowLogin(false);
         return;
       }
 
       if (selectedRole === "teacher") {
-        const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/staff/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email }),
-        });
+        try {
+          const data = await loginTeacher(name, email);
 
-        const data = await res.json();
-
-        if (!res.ok) {
-          alert(data.message || "Teacher login failed");
-          return;
+          localStorage.setItem("teacher", JSON.stringify(data.teacher));
+          localStorage.setItem("school", JSON.stringify(data.school));
+          setTeacherPermissions({ modules: DEFAULT_TEACHER_MODULES });
+          window.dispatchEvent(new Event("school-session-updated"));
+          setRole("teacher");
+          setShowLogin(false);
+        } catch (error) {
+          alert(error instanceof Error ? error.message : "Teacher login failed");
         }
-
-        localStorage.setItem("teacher", JSON.stringify(data.teacher));
-        localStorage.setItem("school", JSON.stringify(data.school));
-        setTeacherPermissions({ modules: DEFAULT_TEACHER_MODULES });
-        window.dispatchEvent(new Event("school-session-updated"));
-        setRole("teacher");
-        setShowLogin(false);
       }
 
     } catch (err) {

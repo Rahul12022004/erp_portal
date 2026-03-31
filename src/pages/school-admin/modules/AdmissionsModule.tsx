@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { FileSpreadsheet, IdCard, Printer, UserPlus, X } from "lucide-react";
+import { Download, FileSpreadsheet, IdCard, Printer, UserPlus, X } from "lucide-react";
+import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 
 type Student = {
@@ -182,6 +183,7 @@ export default function AdmissionsModule() {
   const [success, setSuccess] = useState("");
   const [photoPreview, setPhotoPreview] = useState("");
   const [idCardStudent, setIdCardStudent] = useState<Student | null>(null);
+  const [showTransportTerms, setShowTransportTerms] = useState(false);
   // ref kept for potential future use
   const _idCardRef = useRef<HTMLDivElement>(null);
 
@@ -426,6 +428,85 @@ export default function AdmissionsModule() {
       setError("Failed to process photo. Please try a different image.");
     }
     e.target.value = "";
+  };
+
+  const downloadTransportConsentForm = () => {
+    const school = JSON.parse(localStorage.getItem("school") || "{}");
+    const schoolName =
+      school?.schoolInfo?.name ||
+      school?.name ||
+      "School";
+
+    const pdf = new jsPDF({ unit: "pt", format: "a4" });
+    const marginX = 48;
+    let currentY = 56;
+
+    const addWrappedText = (text: string, fontSize = 11, spacing = 18) => {
+      pdf.setFontSize(fontSize);
+      const lines = pdf.splitTextToSize(text, 500);
+      pdf.text(lines, marginX, currentY);
+      currentY += lines.length * spacing;
+    };
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text("School Transport Undertaking Form", marginX, currentY);
+    currentY += 24;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+    pdf.text(`School: ${schoolName}`, marginX, currentY);
+    currentY += 18;
+    pdf.text(`Student Name: ${formData.name || "____________________"}`, marginX, currentY);
+    currentY += 18;
+    pdf.text(`Admission No: ${formData.admissionNumber || "____________________"}`, marginX, currentY);
+    currentY += 18;
+    pdf.text(`Class / Section: ${formData.class || "____________________"} ${formData.classSection || ""}`.trim(), marginX, currentY);
+    currentY += 28;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Transport Terms & Conditions", marginX, currentY);
+    currentY += 20;
+
+    pdf.setFont("helvetica", "normal");
+    addWrappedText(
+      "1. The school provides bus transportation only for students who opt for the school bus service and follow all transport rules."
+    );
+    addWrappedText(
+      "2. If the student does not use the school bus service, the parent or guardian is fully responsible for safe transportation to and from school."
+    );
+    addWrappedText(
+      "3. The school is not responsible for accidents, delays, injuries, or third-party transportation risks outside official school transport."
+    );
+    addWrappedText(
+      "4. Parents or guardians must ensure timely drop-off and pick-up of the student on all school working days."
+    );
+    addWrappedText(
+      "5. By signing this form, the parent or guardian acknowledges these terms and accepts full responsibility for the child's transportation arrangements."
+    );
+
+    currentY += 18;
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Parent / Guardian Declaration", marginX, currentY);
+    currentY += 20;
+    pdf.setFont("helvetica", "normal");
+    addWrappedText(
+      "I hereby confirm that my child will not be using the school bus service. I accept full responsibility for my child's transportation and undertake to inform the school immediately of any change in transport mode."
+    );
+
+    currentY += 36;
+    pdf.text("Parent / Guardian Name: ________________________________", marginX, currentY);
+    currentY += 32;
+    pdf.text("Signature: ____________________    Date: ____________________", marginX, currentY);
+    currentY += 32;
+    pdf.text("Mobile Number: ____________________________________________", marginX, currentY);
+
+    pdf.save(`transport-undertaking-${(formData.name || "student").replace(/\s+/g, "-").toLowerCase()}.pdf`);
+  };
+
+  const acceptTransportTerms = () => {
+    setFormData((prev) => ({ ...prev, busConsent: true }));
+    setShowTransportTerms(false);
   };
 
   const printIdCard = () => {
@@ -725,36 +806,115 @@ export default function AdmissionsModule() {
             onChange={(e) => setFormData({ ...formData, languagePreferences: e.target.value })}
           />
 
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
               <input
+                id="parent-consent"
                 type="checkbox"
                 checked={formData.hasParentConsent}
                 onChange={(e) => setFormData({ ...formData, hasParentConsent: e.target.checked })}
                 required
               />
-              Parent Consent Form Signed
-            </label>
-            <label className="flex items-center gap-2">
+              <label htmlFor="parent-consent" className="font-medium">
+                Parent Consent Form Signed
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3">
               <input
+                id="bus-required"
                 type="checkbox"
                 checked={formData.needsTransport}
-                onChange={(e) =>
-                  setFormData({ ...formData, needsTransport: e.target.checked, busConsent: false })
-                }
+                onChange={(e) => {
+                  const needsTransport = e.target.checked;
+                  setFormData({
+                    ...formData,
+                    needsTransport,
+                    busConsent: needsTransport ? false : formData.busConsent,
+                  });
+
+                  if (!needsTransport) {
+                    setShowTransportTerms(true);
+                  }
+                }}
               />
-              School Bus Facility Required
-            </label>
-            {!formData.needsTransport && (
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.busConsent}
-                  onChange={(e) => setFormData({ ...formData, busConsent: e.target.checked })}
-                  required
-                />
-                Parent Consent for Not Taking School Bus
+              <label htmlFor="bus-required" className="font-medium">
+                School Bus Facility Required
               </label>
+            </div>
+
+            {formData.needsTransport && (
+              <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                <h3 className="mb-4 text-lg font-semibold text-primary">
+                  School Transport Details
+                </h3>
+
+                <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm text-foreground">
+                  <p className="font-semibold">Instructions:</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <li>Students must arrive at pickup point 5 minutes early.</li>
+                    <li>Follow discipline inside the bus.</li>
+                    <li>Any damage to bus property will be charged.</li>
+                    <li>Bus fee must be paid on time.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {!formData.needsTransport && (
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    id="no-bus-consent"
+                    type="checkbox"
+                    checked={formData.busConsent}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setShowTransportTerms(true);
+                        return;
+                      }
+
+                      setFormData({ ...formData, busConsent: false });
+                    }}
+                    required
+                  />
+                  <label htmlFor="no-bus-consent" className="font-medium text-foreground">
+                    Parent Consent for Not Taking School Bus
+                  </label>
+                </div>
+
+                <p className="mt-3 text-sm text-muted-foreground">
+                  If the student does not use school transport, full responsibility of travel lies with
+                  the parent or guardian. The school will not be held responsible for any incident during commute.
+                </p>
+
+                <div className="mt-4 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-foreground">
+                  <p className="font-semibold">Instructions:</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <li>Download the undertaking form before proceeding.</li>
+                    <li>Parent or guardian must sign the form physically.</li>
+                    <li>Submit the signed form to the school admin.</li>
+                    <li>Transport responsibility remains with the parent until the school receives the signed form.</li>
+                  </ul>
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={downloadTransportConsentForm}
+                    className="inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Form
+                  </button>
+                </div>
+
+                {formData.busConsent && (
+                  <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                    Please sign the downloaded form and submit it to the school admin.
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -948,6 +1108,106 @@ export default function AdmissionsModule() {
                 onClick={() => setIdCardStudent(null)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTransportTerms && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowTransportTerms(false)}
+        >
+          <div
+            className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-semibold text-[#750550]">
+                Transport Terms & Conditions
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowTransportTerms(false)}
+                className="text-lg text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] space-y-4 overflow-y-auto px-6 py-5 text-sm leading-6 text-slate-700">
+              <h2 className="text-xl font-semibold text-[#750550]">School Transport Policy</h2>
+              <p>
+                This policy outlines the responsibilities of the school and parents regarding student transportation.
+              </p>
+
+              <h3 className="text-lg font-semibold text-[#750550]">1. School Bus Facility</h3>
+              <p>
+                The school provides transportation facilities for students who opt for the school bus service.
+                This service is subject to availability and adherence to school rules.
+              </p>
+
+              <h3 className="text-lg font-semibold text-[#750550]">2. Parent Responsibility (Important)</h3>
+              <p>
+                If a student does not avail the school bus service, the responsibility of safe transportation
+                to and from the school lies entirely with the parents or guardians.
+              </p>
+
+              <ul className="list-disc space-y-2 pl-5">
+                <li>School will not be responsible for any accidents or incidents outside school transport.</li>
+                <li>Parents must ensure timely drop-off and pick-up of students.</li>
+                <li>Any delays, safety issues, or travel arrangements are solely managed by parents.</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-[#750550]">3. School Liability</h3>
+              <p>
+                The school is only responsible for students during official school transport usage or within
+                school premises.
+              </p>
+              <p>For students not using the school bus, the school holds no liability for:</p>
+              <ol className="list-decimal space-y-2 pl-5">
+                <li>Road accidents or injuries during commute</li>
+                <li>Delays or absenteeism due to transport issues</li>
+                <li>Any third-party transportation risks</li>
+              </ol>
+
+              <h3 className="text-lg font-semibold text-[#750550]">4. Consent</h3>
+              <p>
+                By proceeding with admission, parents or guardians acknowledge and agree to these terms and
+                take full responsibility for the child&apos;s transportation if not using the school bus service.
+              </p>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                Download the undertaking form, sign it physically, and submit it to the school admin.
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={downloadTransportConsentForm}
+                className="inline-flex items-center justify-center gap-2 rounded bg-slate-200 px-4 py-2 font-medium text-slate-800 hover:bg-slate-300"
+              >
+                <Download className="h-4 w-4" />
+                Download Form
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, busConsent: false }));
+                  setShowTransportTerms(false);
+                }}
+                className="rounded bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200"
+              >
+                Decline
+              </button>
+              <button
+                type="button"
+                onClick={acceptTransportTerms}
+                className="rounded bg-[#750550] px-4 py-2 font-medium text-white hover:bg-[#4a0433]"
+              >
+                Accept
               </button>
             </div>
           </div>

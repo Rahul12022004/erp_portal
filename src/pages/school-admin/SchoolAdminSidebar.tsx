@@ -4,10 +4,11 @@ import {
   Monitor, FileText, DollarSign, UserPlus, Briefcase, Download, Building,
   Library, HeadphonesIcon, Bus, Package, ShoppingCart, UtensilsCrossed,
   CheckSquare, ScrollText, Shield, Wrench, Settings,
-  Trophy, Video, BarChart3, Store, Clock, GraduationCap, Menu, X, Share2,
+  Trophy, Video, BarChart3, Store, Clock, GraduationCap, Menu, X, Share2, UserCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { API_URL } from "@/lib/api";
 
 // 🔥 ICON MAP (same as before)
 const iconMap: Record<string, LucideIcon> = {
@@ -43,23 +44,74 @@ const iconMap: Record<string, LucideIcon> = {
   Logs: ScrollText,
   Settings: Settings,
   "Social Media": Share2,
+  Visitor: UserCheck,
 };
 
 // 🔥 SAME GROUP STRUCTURE (NO UI CHANGE)
 const menuGroups = [
   { label: "Overview", items: ["Dashboard"] },
   { label: "Academics", items: ["Communication", "Academics", "Attendance", "Classes", "Students", "Staff", "Exams", "Time Table"] },
-  { label: "Administration", items: ["Finance", "Admissions", "HR", "Transport", "Hostel", "Library", "Inventory", "Social Media"] },
+  { label: "Administration", items: ["Finance", "Admissions", "Visitor", "HR", "Transport", "Hostel", "Library", "Inventory", "Social Media"] },
   { label: "Services", items: ["Sports", "House"] },
   { label: "Management", items: ["Approvals", "Maintenance", "Survey", "Downloads", "Support", "Logs", "Settings"] },
 ];
 
 type SchoolSidebarData = {
+  _id?: string;
   modules?: string[];
+  systemInfo?: {
+    subscriptionPlan?: string;
+  };
   schoolInfo?: {
     name?: string;
     logo?: string;
   };
+};
+
+const portalModulesByNormalizedSource: Record<string, string[]> = {
+  dashboard: ["Dashboard"],
+  communication: ["Communication"],
+  announcements: ["Communication"],
+  academics: ["Academics"],
+  attendance: ["Attendance"],
+  classes: ["Classes"],
+  classmanagement: ["Classes"],
+  digitalclassroom: ["Classes"],
+  students: ["Students"],
+  studentmanagement: ["Students"],
+  staff: ["Staff"],
+  staffmanagement: ["Staff"],
+  exams: ["Exams"],
+  marksresults: ["Exams"],
+  timetable: ["Time Table"],
+  finance: ["Finance"],
+  financefees: ["Finance"],
+  admissions: ["Admissions"],
+  hr: ["HR"],
+  transport: ["Transport"],
+  transportmanagement: ["Transport"],
+  hostel: ["Hostel"],
+  hostelmanagement: ["Hostel"],
+  library: ["Library"],
+  librarymanagement: ["Library"],
+  inventory: ["Inventory"],
+  inventorymanagement: ["Inventory"],
+  socialmedia: ["Social Media"],
+  socialmediaintegration: ["Social Media"],
+  survey: ["Survey"],
+  surveysfeedback: ["Survey"],
+  approvals: ["Approvals"],
+  leavemanagement: ["Approvals"],
+  maintenance: ["Maintenance"],
+  sports: ["Sports"],
+  house: ["House"],
+  discipline: ["House"],
+  downloads: ["Downloads"],
+  support: ["Support"],
+  logs: ["Logs"],
+  settings: ["Settings"],
+  visitor: ["Visitor"],
+  visitors: ["Visitor"],
 };
 
 export function SchoolAdminSidebar() {
@@ -88,23 +140,67 @@ export function SchoolAdminSidebar() {
     };
   }, []);
 
+  useEffect(() => {
+    const schoolId = schoolData?._id;
+    if (!schoolId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncLatestSchool = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/schools/${schoolId}`);
+        if (!response.ok) {
+          return;
+        }
+
+        const latestSchool = await response.json();
+        if (cancelled) {
+          return;
+        }
+
+        setSchoolData(latestSchool);
+        localStorage.setItem("school", JSON.stringify(latestSchool));
+      } catch (error) {
+        console.error("Unable to refresh school modules:", error);
+      }
+    };
+
+    syncLatestSchool();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [schoolData?._id]);
+
   const modules = schoolData?.modules || [];
+  const subscriptionPlan = schoolData?.systemInfo?.subscriptionPlan || "";
 
   const normalizeModuleName = (value: string) =>
     String(value || "")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "");
 
-  const normalizedModules = new Set(modules.map((moduleName) => normalizeModuleName(moduleName)));
+  const availablePortalModules = new Set(
+    modules.flatMap((moduleName) => {
+      const normalizedName = normalizeModuleName(moduleName);
+      const mappedPortalModules = portalModulesByNormalizedSource[normalizedName];
 
-  const hasModule = (moduleName: string) => normalizedModules.has(normalizeModuleName(moduleName));
+      if (mappedPortalModules) {
+        return mappedPortalModules;
+      }
+
+      return Object.keys(iconMap)
+        .filter((item) => normalizeModuleName(item) === normalizedName);
+    })
+  );
 
   const hasModuleAccess = (item: string) =>
-    item === "Social Media" ||
-    hasModule(item) ||
-    (item === "House" && hasModule("Discipline")) ||
-    (item === "Classes" && hasModule("Digital Classroom")) ||
-    (item === "Digital Classroom" && hasModule("Classes"));
+    item === "Dashboard" ||
+    item === "Visitor" ||
+    subscriptionPlan === "Premium" ||
+    availablePortalModules.has(item);
 
   const schoolName = schoolData?.schoolInfo?.name || "School";
   const logo = schoolData?.schoolInfo?.logo;

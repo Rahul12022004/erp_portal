@@ -1,5 +1,5 @@
 import type { TeacherPermissions, User } from "@/contexts/RoleContext";
-import { API_BASE } from "@/lib/api";
+import { API_URL } from "@/lib/api";
 
 type SchoolAdminSession = {
   _id?: string;
@@ -73,22 +73,31 @@ export function persistTeacherSession(
 }
 
 export async function loginSchoolAdmin(email: string, password: string) {
-  const response = await fetch(`${API_BASE}/api/schools/admin/${encodeURIComponent(email)}`);
-  const data = await response.json();
+  try {
+    const response = await fetch(`${API_URL}/api/schools/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-  if (!response.ok) {
-    throw new Error(data.message || "School admin login failed");
+    const data = await response.json().catch(() => ({ message: "Invalid server response" }));
+
+    if (!response.ok) {
+      throw new Error(data.message || `School admin login failed (${response.status})`);
+    }
+
+    return data as SchoolAdminSession;
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Unable to connect to backend. Please check your network and backend server."
+    );
   }
-
-  if (data.adminInfo?.password !== password) {
-    throw new Error("Wrong password");
-  }
-
-  return data as SchoolAdminSession;
 }
 
 export async function loginTeacher(name: string, email: string) {
-  const response = await fetch(`${API_BASE}/api/staff/login`, {
+  const response = await fetch(`${API_URL}/api/staff/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, email }),

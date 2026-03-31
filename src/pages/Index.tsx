@@ -1,15 +1,15 @@
 import { useParams } from "react-router-dom";
 import { useRole } from "@/contexts/RoleContext";
 
-import AttendanceModule from "./modules/AttendanceModule";
-import AssignmentsModule from "./modules/AssignmentsModule";
-import ExamsModule from "./modules/ExamsModule";
-import MarksModule from "./modules/MarksModule";
-import StudentsModule from "./modules/StudentModule";
-import DigitalClassroomModule from "./modules/DigitalClassroomModule";
-import TimeTableModule from "./modules/TimeTableModule";
-import CommunicationModule from "./modules/CommunicationModule";
-import LeaveModule  from "./modules/LeaveModule"; // Adjusted to named import
+import AttendanceModule from "./teacher/modules/AttendanceModule";
+import AssignmentsModule from "./teacher/modules/AssignmentsModule";
+import ExamsModule from "./teacher/modules/ExamsModule";
+import MarksModule from "./teacher/modules/MarksModule";
+import StudentsModule from "./teacher/modules/StudentModule";
+import DigitalClassroomModule from "./teacher/modules/DigitalClassroomModule";
+import TimeTableModule from "./teacher/modules/TimeTableModule";
+import CommunicationModule from "./teacher/modules/CommunicationModule";
+import LeaveModule from "./teacher/modules/LeaveModule";
 
 const moduleNames: Record<string, string> = {
   students: "My Students",

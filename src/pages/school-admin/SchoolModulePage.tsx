@@ -21,6 +21,7 @@ import TransportModule from "./modules/TransportModule";
 import SportsModule from "./modules/SportsModule";
 import HouseModule from "./modules/HouseModule";
 import SocialMediaModule from "./modules/SocialMediaModule";
+import VisitorModule from "./modules/VisitorModule";
 
 const moduleNames: Record<string, string> = {
   communication: "Communication",
@@ -46,6 +47,7 @@ const moduleNames: Record<string, string> = {
   support: "Support",
   sports: "Sports",
   "social-media": "Social Media",
+  visitor: "Visitor",
 };
 
 export default function SchoolModulePage() {
@@ -100,6 +102,8 @@ export default function SchoolModulePage() {
         return <SocialMediaModule />;
       case "support":
         return <SupportModule />;
+      case "visitor":
+        return <VisitorModule />;
       default:
         return (
           <div className="stat-card flex h-64 items-center justify-center">

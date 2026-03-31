@@ -1,92 +1,40 @@
-const DEPLOYED_API_BASE = "https://erp-portal-1-ftwe.onrender.com";
-const LOCAL_API_BASE = "http://localhost:5000";
-const AUTO_API_MODE = "auto";
-
-type ApiSelection = {
-  autoDetect: boolean;
-  configuredBase: string | null;
-};
+const DEFAULT_LOCAL_API_URL = "http://localhost:5000";
+const DEFAULT_LEGACY_API_URL = "https://erp-portal-1-ftwe.onrender.com";
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/$/, "");
 }
 
-function isLocalHost(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1";
+const envApiUrl = trimTrailingSlash(
+  (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL || ""
+);
+
+export const API_URL = envApiUrl ||
+  ((import.meta.env.MODE === "development") ? DEFAULT_LOCAL_API_URL : DEFAULT_LEGACY_API_URL);
+
+if (!envApiUrl && import.meta.env.MODE !== "development") {
+  console.warn(
+    "VITE_API_URL is not set. Falling back to legacy API URL. Set VITE_API_URL in Vercel environment variables to your Render backend URL."
+  );
 }
-
-function getApiSelection(): ApiSelection {
-  const configured = (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL;
-  if (!configured || configured.trim().length === 0) {
-    return { autoDetect: true, configuredBase: null };
-  }
-
-  const normalized = configured.trim();
-  if (normalized.toLowerCase() === AUTO_API_MODE) {
-    return { autoDetect: true, configuredBase: null };
-  }
-
-  return { autoDetect: false, configuredBase: trimTrailingSlash(normalized) };
-}
-
-const apiSelection = getApiSelection();
-const shouldAutoDetectLocal =
-  apiSelection.autoDetect &&
-  typeof window !== "undefined" &&
-  isLocalHost(window.location.hostname);
-
-let activeApiBase = apiSelection.configuredBase || DEPLOYED_API_BASE;
-
-export const API_BASE = apiSelection.configuredBase || DEPLOYED_API_BASE;
 
 let fetchRewriterInstalled = false;
 let originalFetchRef: typeof window.fetch | null = null;
 
 function rewriteUrl(url: string) {
-  if (url.startsWith(`${DEPLOYED_API_BASE}/`)) {
-    return `${activeApiBase}${url.slice(DEPLOYED_API_BASE.length)}`;
+  if (url.startsWith("/api/")) {
+    return `${API_URL}${url}`;
   }
 
-  if (url.startsWith("/api/")) {
-    return `${activeApiBase}${url}`;
+  if (url.startsWith(`${DEFAULT_LEGACY_API_URL}/`)) {
+    return `${API_URL}${url.slice(DEFAULT_LEGACY_API_URL.length)}`;
+  }
+
+  if (url.startsWith(`${DEFAULT_LOCAL_API_URL}/`)) {
+    return `${API_URL}${url.slice(DEFAULT_LOCAL_API_URL.length)}`;
   }
 
   return url;
-}
-
-async function hasHealthyLocalBackend() {
-  if (!originalFetchRef) {
-    return false;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 1500);
-
-  try {
-    const response = await originalFetchRef(`${LOCAL_API_BASE}/api/health`, {
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      return false;
-    }
-
-    const data = (await response.json()) as { dbConnected?: boolean };
-    return Boolean(data.dbConnected);
-  } catch {
-    return false;
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
-async function autoSelectApiBase() {
-  if (!shouldAutoDetectLocal) {
-    return;
-  }
-
-  activeApiBase = (await hasHealthyLocalBackend()) ? LOCAL_API_BASE : DEPLOYED_API_BASE;
-  window.dispatchEvent(new CustomEvent("api-base-updated", { detail: { apiBase: activeApiBase } }));
 }
 
 export function installApiFetchRewriter() {
@@ -115,6 +63,4 @@ export function installApiFetchRewriter() {
   }) as typeof window.fetch;
 
   fetchRewriterInstalled = true;
-
-  void autoSelectApiBase();
 }

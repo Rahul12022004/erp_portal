@@ -1,7 +1,33 @@
 import { useEffect, useState } from "react";
 
+interface SchoolInfo {
+  name?: string;
+  logo?: string;
+  email?: string;
+}
+
+interface AdminInfo {
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface SystemInfo {
+  subscriptionPlan?: string;
+  maxStudents?: number;
+  subscriptionEndDate?: string;
+}
+
+interface School {
+  _id: string;
+  schoolInfo?: SchoolInfo;
+  adminInfo?: AdminInfo;
+  systemInfo?: SystemInfo;
+  modules?: string[];
+}
+
 export default function DashboardPage() {
-  const [schools, setSchools] = useState<any[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -144,7 +170,13 @@ export default function DashboardPage() {
 }
 
 // 🔹 CARD COMPONENT
-function Card({ title, value, color }: any) {
+interface CardProps {
+  title: string;
+  value: number;
+  color?: "green" | "red";
+}
+
+function Card({ title, value, color }: CardProps) {
   return (
     <div className="bg-white shadow rounded-xl p-5">
       <p className="text-sm text-gray-500">{title}</p>

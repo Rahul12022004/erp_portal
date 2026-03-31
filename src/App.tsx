@@ -32,6 +32,7 @@ import TeacherModulePage from "./pages/teacher/TeacherModulePage";
 import TeacherLogin from "./pages/TeacherLogin";
 import SchoolAdminLogin from "./pages/SchoolAdminLogin";
 import SuperAdminLogin from "./pages/SuperAdminLogin";
+import SchoolSignup from "./pages/SchoolSignup";
 import LandingPage from "./pages/LandingPage";
 
 import NotFound from "./pages/NotFound";
@@ -79,6 +80,7 @@ function AppRoutes() {
       <Route path="/teacher-login" element={<TeacherLogin />} />
       <Route path="/school-admin-login" element={<SchoolAdminLogin />} />
       <Route path="/super-admin-login" element={<SuperAdminLogin />} />
+      <Route path="/school-signup" element={<SchoolSignup />} />
 
       {/* 🔥 SUPER ADMIN - Protected */}
       {isAuthenticated && role === "super-admin" && (

@@ -14,6 +14,11 @@ const paymentHistorySchema = new mongoose.Schema(
     transactionId: { type: String, required: true },
     paymentDate: { type: String, required: true },
     amountPaid: { type: Number, required: true },
+    paymentType: {
+      type: String,
+      enum: ["upi", "card", "cash", "cheque"],
+      default: "cash",
+    },
     sentToEmail: { type: Boolean, default: false },
     createdAt: { type: String, default: () => new Date().toISOString() },
   },

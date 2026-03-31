@@ -3,6 +3,7 @@ import express from "express";
 import Class from "../models/Class";
 import Exam from "../models/Exam";
 import Mark from "../models/Mark";
+import School from "../models/School";
 import Staff from "../models/Staff";
 import Student from "../models/Student";
 import { createLog } from "../utils/createLog";
@@ -36,6 +37,56 @@ const isExamCompleted = (examDate: string, endTime: string) => {
 };
 
 // ==========================
+// 📥 DOWNLOAD MARKS AS PDF
+// ==========================
+router.get("/download/:schoolId/:examId", async (req, res) => {
+  try {
+    const { schoolId, examId } = req.params;
+
+    const exam = await Exam.findOne({ _id: examId, schoolId }).populate("teacherId", "name email");
+    if (!exam) {
+      return res.status(404).json({ message: "Exam not found" });
+    }
+
+    const school = await School.findById(schoolId).select("schoolInfo.name schoolInfo.address schoolInfo.logo");
+
+    const marks = await Mark.find({ schoolId, examId })
+      .populate("studentId", "name rollNumber email class")
+      .sort({ "studentId.rollNumber": 1 });
+
+    res.json({
+      exam: {
+        title: exam.title,
+        examType: exam.examType,
+        className: exam.className,
+        subject: exam.subject,
+        examDate: exam.examDate,
+        startTime: exam.startTime,
+        endTime: exam.endTime,
+      },
+      school: school ? { name: school.schoolInfo?.name, address: school.schoolInfo?.address, logo: school.schoolInfo?.logo } : null,
+      teacher: exam.teacherId
+        ? typeof exam.teacherId === "object"
+          ? (exam.teacherId as any).name
+          : exam.teacherId
+        : null,
+      marks: marks.map((m) => ({
+        studentName: (m.studentId as any)?.name || "N/A",
+        rollNumber: (m.studentId as any)?.rollNumber || "N/A",
+        email: (m.studentId as any)?.email || "N/A",
+        obtainedMarks: m.obtainedMarks,
+        maxMarks: m.maxMarks,
+        remarks: m.remarks,
+      })),
+    });
+  } catch (error) {
+    console.error("DOWNLOAD MARKS ERROR:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ message: "Failed to download marks", error: message });
+  }
+});
+
+// ==========================
 // 📚 GET COMPLETED EXAMS FOR MARK ENTRY
 // ==========================
 router.get("/:schoolId/:teacherId", async (req, res) => {
@@ -44,16 +95,23 @@ router.get("/:schoolId/:teacherId", async (req, res) => {
 
     const classLabels = await getTeacherClassLabels(schoolId, teacherId);
 
-    if (classLabels.length === 0) {
-      return res.json([]);
-    }
+    // Exams where teacher is explicitly assigned OR no teacher assigned (null)
+    const assignedExams = await Exam.find({
+      schoolId,
+      teacherId: { $in: [teacherId, null] },
+    }).sort({ examDate: -1, startTime: -1 });
 
-    const exams = await Exam.find({ schoolId, className: { $in: classLabels } }).sort({
-      examDate: -1,
-      startTime: -1,
+    // Only filter by class if teacher is not explicitly assigned to any exam
+    const examsForTeacher = assignedExams.filter((exam) => {
+      // If teacher is explicitly assigned to this exam, no class check needed
+      if (exam.teacherId && exam.teacherId.toString() === teacherId) {
+        return true;
+      }
+      // Otherwise teacher must be classTeacher of the exam's class
+      return classLabels.includes(exam.className);
     });
 
-    const completedExams = exams.filter((exam) =>
+    const completedExams = examsForTeacher.filter((exam) =>
       isExamCompleted(exam.examDate, exam.endTime)
     );
 
@@ -77,9 +135,15 @@ router.get("/:schoolId/:teacherId/:examId", async (req, res) => {
       return res.status(404).json({ message: "Exam not found" });
     }
 
-    const classLabels = await getTeacherClassLabels(schoolId, teacherId);
-    if (!classLabels.includes(exam.className)) {
-      return res.status(403).json({ message: "You are not assigned to this class" });
+    // Check if teacher is explicitly assigned to this exam
+    const isExplicitlyAssigned = exam.teacherId && exam.teacherId.toString() === teacherId;
+
+    // If not explicitly assigned, teacher must be classTeacher of the exam's class
+    if (!isExplicitlyAssigned) {
+      const classLabels = await getTeacherClassLabels(schoolId, teacherId);
+      if (!classLabels.includes(exam.className)) {
+        return res.status(403).json({ message: "You are not assigned to this class" });
+      }
     }
 
     const [students, marks] = await Promise.all([
@@ -138,9 +202,15 @@ router.post("/", async (req, res) => {
       return res.status(404).json({ message: "Exam not found" });
     }
 
-    const classLabels = await getTeacherClassLabels(schoolId, teacherId);
-    if (!classLabels.includes(exam.className)) {
-      return res.status(403).json({ message: "You are not assigned to this class" });
+    // Check if teacher is explicitly assigned to this exam
+    const isExplicitlyAssigned = exam.teacherId && exam.teacherId.toString() === teacherId;
+
+    // If not explicitly assigned, teacher must be classTeacher of the exam's class
+    if (!isExplicitlyAssigned) {
+      const classLabels = await getTeacherClassLabels(schoolId, teacherId);
+      if (!classLabels.includes(exam.className)) {
+        return res.status(403).json({ message: "You are not assigned to this class" });
+      }
     }
 
     const teacher = await Staff.findById(teacherId).select("name");

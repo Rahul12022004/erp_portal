@@ -16,6 +16,98 @@ const getSmtpConfig = () => {
 };
 
 /**
+ * Send email to school admin with login credentials
+ */
+export const sendSchoolAdminCredentialsEmail = async (
+  adminName: string,
+  adminEmail: string,
+  schoolName: string,
+  generatedPassword: string,
+  subscriptionPlan: string
+): Promise<void> => {
+  try {
+    const transporter = nodemailer.createTransport(getSmtpConfig());
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #2563eb; color: white; padding: 20px; border-radius: 5px 5px 0 0; }
+          .content { background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
+          .credentials { background-color: #dbeafe; padding: 15px; margin: 15px 0; border-left: 4px solid #2563eb; }
+          .footer { color: #666; font-size: 12px; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px; }
+          .plan-badge { display: inline-block; background-color: #3b82f6; color: white; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Welcome to ERP Portal!</h1>
+            <p>Your School Account is Ready</p>
+          </div>
+          <div class="content">
+            <p>Dear ${adminName},</p>
+            
+            <p>Congratulations! Your school <strong>${schoolName}</strong> has been successfully registered on ERP Portal.</p>
+            
+            <h3>Your Admin Credentials:</h3>
+            <div class="credentials">
+              <p><strong>School Name:</strong> ${schoolName}</p>
+              <p><strong>Admin Email:</strong> ${adminEmail}</p>
+              <p><strong>Generated Password:</strong> <code>${generatedPassword}</code></p>
+              <p><strong>Subscription Plan:</strong> <span class="plan-badge">${subscriptionPlan}</span></p>
+              <p><strong>Access URL:</strong> <a href="http://localhost:5173/school-admin-login">http://localhost:5173/school-admin-login</a></p>
+            </div>
+            
+            <h3>Next Steps:</h3>
+            <ol>
+              <li>Visit the admin login page using the URL above</li>
+              <li>Enter your email: <strong>${adminEmail}</strong></li>
+              <li>Enter the generated password</li>
+              <li>Update your password after first login</li>
+              <li>Start configuring your school dashboard</li>
+            </ol>
+            
+            <h3>What You Can Do:</h3>
+            <ul>
+              <li>Manage students and staff</li>
+              <li>Create classes and subjects</li>
+              <li>Track attendance and marks</li>
+              <li>Manage finances and fees</li>
+              <li>And much more...</li>
+            </ul>
+            
+            <p>If you have any questions or need support, please contact our team.</p>
+            
+            <p>Best regards,<br><strong>ERP Portal Team</strong></p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email. Please do not reply to this email. For support, contact support@erp-portal.com</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "noreply@erp-portal.com",
+      to: adminEmail,
+      subject: `Welcome to ERP Portal - ${schoolName} Admin Credentials`,
+      html: htmlContent,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✓ Admin credentials email sent to ${adminEmail}`);
+  } catch (error) {
+    console.error("📧 Error sending admin credentials email:", error);
+    throw new Error(`Failed to send admin credentials email to ${adminEmail}`);
+  }
+};
+
+/**
  * Send email to teacher with login credentials
  */
 export const sendTeacherCredentialsEmail = async (
@@ -180,6 +272,7 @@ type StudentFeeReceiptEmailPayload = {
   className: string;
   schoolName: string;
   paymentDate: string;
+  paymentType?: string;
   transactionId: string;
   amountPaid: number;
   receiptNumber: string;
@@ -197,6 +290,7 @@ export const sendStudentFeeReceiptEmail = async ({
   className,
   schoolName,
   paymentDate,
+  paymentType,
   transactionId,
   amountPaid,
   receiptNumber,
@@ -251,6 +345,7 @@ export const sendStudentFeeReceiptEmail = async ({
               <div class="meta-item"><strong>Receipt Number:</strong><br />${receiptNumber}</div>
               <div class="meta-item"><strong>Transaction ID:</strong><br />${transactionId}</div>
               <div class="meta-item"><strong>Payment Date:</strong><br />${paymentDate}</div>
+              <div class="meta-item"><strong>Payment Type:</strong><br />${paymentType || "cash"}</div>
               <div class="meta-item"><strong>Payment Status:</strong><br />${paymentStatus.toUpperCase()}</div>
             </div>
 

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 import connectDB, { getDatabaseStatus } from "./config/db";
 
 import schoolRoutes from "./routes/schoolRoutes";
@@ -24,13 +25,16 @@ import libraryRoutes from "./routes/libraryRoutes";
 import inventoryRoutes from "./routes/inventoryRoutes";
 import teacherRoleRoutes from "./routes/teacherRoleRoutes";
 import socialMediaRoutes from "./routes/socialMediaRoutes";
+import visitorRoutes from "./routes/visitorRoutes";
+import { seedDatabase } from "./seed";
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 const app = express();
 const defaultAllowedOrigins = [
   "https://erp-portal-seven.vercel.app",
   "http://localhost:8080",
+  "http://localhost:8081",
   "http://localhost:5173",
 ];
 
@@ -41,13 +45,27 @@ const envAllowedOrigins = (process.env.FRONTEND_ORIGINS || "")
 
 const allowedOrigins = new Set([...defaultAllowedOrigins, ...envAllowedOrigins]);
 
+function isLocalDevOrigin(origin: string) {
+  try {
+    const { protocol, hostname } = new URL(origin);
+    return (
+      (protocol === "http:" || protocol === "https:") &&
+      (hostname === "localhost" || hostname === "127.0.0.1")
+    );
+  } catch {
+    return false;
+  }
+}
+
+console.log("Allowed CORS origins:", Array.from(allowedOrigins).join(", "));
+
 // ==========================
 // 🔧 MIDDLEWARE
 // ==========================
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (!origin || allowedOrigins.has(origin) || isLocalDevOrigin(origin)) {
         callback(null, true);
         return;
       }
@@ -62,7 +80,21 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // ==========================
 // 🗄 DATABASE
 // ==========================
-connectDB();
+const shouldSeedLocalData =
+  process.env.NODE_ENV === "development" ||
+  process.env.SEED_LOCAL_DATA === "true";
+
+async function initializeDatabase() {
+  await connectDB();
+
+  if (shouldSeedLocalData) {
+    seedDatabase(false).catch((error) => {
+      console.error("Local seed failed:", error);
+    });
+  }
+}
+
+initializeDatabase();
 
 // ==========================
 // 🚀 ROUTES
@@ -88,6 +120,7 @@ app.use("/api/library", libraryRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/teacher-roles", teacherRoleRoutes);
 app.use("/api/social-media", socialMediaRoutes);
+app.use("/api/visitors", visitorRoutes);
 
 // ==========================
 // 🧪 TEST ROUTE
@@ -124,5 +157,5 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} (process.env.PORT=${process.env.PORT ?? "unset"})`);
 });

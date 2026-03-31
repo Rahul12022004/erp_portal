@@ -12,6 +12,8 @@ import {
   type EventDropArg,
   type EventInput,
 } from "@fullcalendar/core";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   Alert,
   Badge,
@@ -36,6 +38,7 @@ import {
   CheckCircleFilled,
   ClockCircleOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   EyeOutlined,
   FileTextOutlined,
@@ -600,6 +603,121 @@ export default function ExamsModule() {
     });
   };
 
+  const downloadExamMarks = async (exam: Exam) => {
+    try {
+      const res = await fetch(
+        `https://erp-portal-1-ftwe.onrender.com/api/marks/download/${schoolId}/${exam._id}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch marks data");
+
+      const data = await res.json();
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Header with logo
+      if (data.school?.logo) {
+        try {
+          doc.addImage(data.school.logo, "PNG", 14, 10, 30, 30);
+        } catch {
+          // logo failed to load, skip
+        }
+      }
+
+      // School name
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(data.school?.name || "School", pageWidth / 2, 20, { align: "center" });
+
+      if (data.school?.address) {
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(data.school.address, pageWidth / 2, 26, { align: "center" });
+      }
+
+      // Divider line
+      doc.setLineWidth(0.5);
+      doc.line(14, 32, pageWidth - 14, 32);
+
+      // Exam details
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Exam Marks Report", pageWidth / 2, 40, { align: "center" });
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+
+      const details = [
+        ["Exam Title:", data.exam.title],
+        ["Subject:", data.exam.subject],
+        ["Class:", data.exam.className],
+        ["Exam Type:", data.exam.examType],
+        ["Date:", data.exam.examDate],
+        ["Time:", `${data.exam.startTime} - ${data.exam.endTime}`],
+        ["Teacher:", data.teacher || "Not Assigned"],
+      ];
+
+      let yPos = 48;
+      details.forEach(([label, value]) => {
+        doc.setFont("helvetica", "bold");
+        doc.text(label, 20, yPos);
+        doc.setFont("helvetica", "normal");
+        doc.text(value, 55, yPos);
+        yPos += 6;
+      });
+
+      // Marks table
+      const tableData = data.marks.map((m: any, index: number) => [
+        index + 1,
+        m.rollNumber,
+        m.studentName,
+        m.email,
+        m.obtainedMarks,
+        m.maxMarks,
+        m.remarks || "-",
+      ]);
+
+      autoTable(doc, {
+        startY: yPos + 4,
+        head: [["#", "Roll No", "Student Name", "Email", "Obtained", "Max Marks", "Remarks"]],
+        body: tableData,
+        theme: "striped",
+        headStyles: { fillColor: [37, 99, 235] },
+        styles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 50 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 22 },
+          6: { cellWidth: 30 },
+        },
+        margin: { left: 14, right: 14 },
+      });
+
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.text(
+          `Generated on ${new Date().toLocaleDateString()} | Page ${i} of ${pageCount}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 8,
+          { align: "center" }
+        );
+      }
+
+      doc.save(`${data.exam.title.replace(/\s+/g, "_")}_Marks.pdf`);
+      void message.success("Marks PDF downloaded");
+    } catch (err) {
+      console.error("Download marks error:", err);
+      void message.error("Failed to download marks");
+    }
+  };
+
   const renderEventContent = (arg: EventContentArg) => {
     const exam = arg.event.extendedProps.exam as Exam;
     const uploadCount = Number(arg.event.extendedProps.uploadCount || 0);
@@ -993,6 +1111,11 @@ export default function ExamsModule() {
             </div>
             <Space>
               <Button onClick={closeModal}>Cancel</Button>
+              {activeExam ? (
+                <Button icon={<DownloadOutlined />} onClick={() => void downloadExamMarks(activeExam)}>
+                  Download Marks
+                </Button>
+              ) : null}
               <Button type="primary" htmlType="submit" loading={saving} icon={activeExam ? <EditOutlined /> : <PlusOutlined />}>
                 {activeExam ? "Save Changes" : "Create Exam"}
               </Button>

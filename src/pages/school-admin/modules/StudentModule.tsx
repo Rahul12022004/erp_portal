@@ -1,434 +1,431 @@
-import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { Edit, ImagePlus, RefreshCw, Trash2, X } from "lucide-react";
+import { API_URL } from "@/lib/api";
 
-type Student = {
+type StudentListItem = {
   _id: string;
+  admissionNumber?: string;
   name: string;
   email: string;
   class: string;
+  classSection?: string;
+  academicYear?: string;
   rollNumber: string;
   phone?: string;
-  address?: string;
-  dateOfBirth?: string;
   gender?: string;
+  photo?: string;
 };
 
 type SchoolClass = {
   _id: string;
   name: string;
-  section?: string;
-  stream?: string;
-  academicYear?: string;
 };
 
-const getClassLabel = (schoolClass: Pick<SchoolClass, "name" | "section">) =>
-  schoolClass.section ? `${schoolClass.name} - ${schoolClass.section}` : schoolClass.name;
+type StudentForm = {
+  formNumber: string;
+  admissionNumber: string;
+  name: string;
+  email: string;
+  class: string;
+  classSection: string;
+  academicYear: string;
+  rollNumber: string;
+  phone: string;
+  aadharNumber: string;
+  gender: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  state: string;
+  nationality: string;
+  religion: string;
+  caste: string;
+  pinCode: string;
+  motherTongue: string;
+  bloodGroup: string;
+  photo: string;
+  address: string;
+  identificationMarks: string;
+  previousAcademicRecord: string;
+  achievements: string;
+  generalBehaviour: string;
+  medicalHistory: string;
+  languagePreferences: string;
+};
+
+const emptyForm: StudentForm = {
+  formNumber: "",
+  admissionNumber: "",
+  name: "",
+  email: "",
+  class: "",
+  classSection: "",
+  academicYear: "",
+  rollNumber: "",
+  phone: "",
+  aadharNumber: "",
+  gender: "",
+  dateOfBirth: "",
+  placeOfBirth: "",
+  state: "",
+  nationality: "",
+  religion: "",
+  caste: "",
+  pinCode: "",
+  motherTongue: "",
+  bloodGroup: "",
+  photo: "",
+  address: "",
+  identificationMarks: "",
+  previousAcademicRecord: "",
+  achievements: "",
+  generalBehaviour: "",
+  medicalHistory: "",
+  languagePreferences: "",
+};
+
+const resizeImage = (file: File, maxPx: number): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.onload = (event) => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Invalid image"));
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scale = Math.min(maxPx / image.width, maxPx / image.height, 1);
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("Canvas unsupported"));
+          return;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      image.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+
+const toForm = (student: any): StudentForm => ({
+  formNumber: student.formNumber || "",
+  admissionNumber: student.admissionNumber || "",
+  name: student.name || "",
+  email: student.email || "",
+  class: student.class || "",
+  classSection: student.classSection || "",
+  academicYear: student.academicYear || "",
+  rollNumber: student.rollNumber || "",
+  phone: student.phone || "",
+  aadharNumber: student.aadharNumber || "",
+  gender: student.gender || "",
+  dateOfBirth: student.dateOfBirth || "",
+  placeOfBirth: student.placeOfBirth || "",
+  state: student.state || "",
+  nationality: student.nationality || "",
+  religion: student.religion || "",
+  caste: student.caste || "",
+  pinCode: student.pinCode || "",
+  motherTongue: student.motherTongue || "",
+  bloodGroup: student.bloodGroup || "",
+  photo: student.photo || "",
+  address: student.address || "",
+  identificationMarks: student.identificationMarks || "",
+  previousAcademicRecord: student.previousAcademicRecord || "",
+  achievements: student.achievements || "",
+  generalBehaviour: student.generalBehaviour || "",
+  medicalHistory: student.medicalHistory || "",
+  languagePreferences: Array.isArray(student.languagePreferences)
+    ? student.languagePreferences.join(", ")
+    : student.languagePreferences || "",
+});
 
 export default function StudentModule() {
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<StudentListItem[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedClass, setSelectedClass] = useState("All");
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editingId, setEditingId] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorLoading, setEditorLoading] = useState(false);
+  const [editorSaving, setEditorSaving] = useState(false);
+  const [editorError, setEditorError] = useState("");
+  const [form, setForm] = useState<StudentForm>(emptyForm);
+  const [photoPreview, setPhotoPreview] = useState("");
 
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    class: "",
-    rollNumber: "",
-    phone: "",
-    address: "",
-    dateOfBirth: "",
-    gender: "",
-  });
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchStudents = async () => {
     try {
       setLoading(true);
       setError("");
       const school = JSON.parse(localStorage.getItem("school") || "{}");
       if (!school?._id) {
-        setError("School not found. Please log in again.");
-        setStudents([]);
-        setClasses([]);
-        return;
+        throw new Error("School not found. Please log in again.");
       }
-
       const [studentsRes, classesRes] = await Promise.all([
-        fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`),
-        fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${school._id}`),
+        fetch(`${API_URL}/api/students/${school._id}`),
+        fetch(`${API_URL}/api/classes/${school._id}`),
       ]);
-
-      if (!studentsRes.ok) {
-        throw new Error(`Failed to load students (${studentsRes.status})`);
-      }
-
-      if (!classesRes.ok) {
-        throw new Error(`Failed to load classes (${classesRes.status})`);
-      }
-
-      const [studentsData, classesData] = await Promise.all([
-        studentsRes.json(),
-        classesRes.json(),
-      ]);
-
-      setStudents(Array.isArray(studentsData) ? studentsData : []);
-      setClasses(Array.isArray(classesData) ? classesData : []);
+      if (!studentsRes.ok) throw new Error(`Failed to load students (${studentsRes.status})`);
+      if (!classesRes.ok) throw new Error(`Failed to load classes (${classesRes.status})`);
+      setStudents(await studentsRes.json());
+      setClasses(await classesRes.json());
     } catch (err) {
-      console.error("Fetch student module data error:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch student data");
       setStudents([]);
       setClasses([]);
-      setError(err instanceof Error ? err.message : "Failed to fetch student data");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    void fetchStudents();
+  }, []);
 
-    try {
-      const school = JSON.parse(localStorage.getItem("school") || "{}");
-      if (!school?._id) return;
-
-      const url = editingStudent
-        ? `https://erp-portal-1-ftwe.onrender.com/api/students/${editingStudent._id}`
-        : "https://erp-portal-1-ftwe.onrender.com/api/students";
-
-      const method = editingStudent ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, schoolId: school._id }),
-      });
-
-      if (res.ok) {
-        await fetchData();
-        resetForm();
-      } else {
-        const data = await res.json().catch(() => null);
-        alert(data?.message || "Failed to save student");
-      }
-    } catch (err) {
-      console.error("Save student error:", err);
-      alert("Error saving student");
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this student?")) return;
-
-    try {
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        await fetchData();
-      } else {
-        const data = await res.json().catch(() => null);
-        alert(data?.message || "Failed to delete student");
-      }
-    } catch (err) {
-      console.error("Delete student error:", err);
-      alert("Error deleting student");
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      email: "",
-      class: "",
-      rollNumber: "",
-      phone: "",
-      address: "",
-      dateOfBirth: "",
-      gender: "",
-    });
-    setShowAddForm(false);
-    setEditingStudent(null);
-  };
-
-  const startEdit = (student: Student) => {
-    setFormData({
-      name: student.name,
-      email: student.email,
-      class: student.class,
-      rollNumber: student.rollNumber,
-      phone: student.phone || "",
-      address: student.address || "",
-      dateOfBirth: student.dateOfBirth || "",
-      gender: student.gender || "",
-    });
-    setEditingStudent(student);
-    setShowAddForm(true);
-  };
-
-  const sortedClasses = [...classes].sort((a, b) => a.name.localeCompare(b.name));
-
-  const groupedStudents = sortedClasses.reduce((acc, schoolClass) => {
-    const classLabel = getClassLabel(schoolClass);
-    acc[classLabel] = students
-      .filter((student) => student.class === classLabel)
-      .sort((a, b) => a.rollNumber.localeCompare(b.rollNumber));
-    return acc;
-  }, {} as Record<string, Student[]>);
-
-  const orphanStudents = students
-    .filter((student) => !sortedClasses.some((schoolClass) => getClassLabel(schoolClass) === student.class))
-    .sort((a, b) => a.class.localeCompare(b.class) || a.rollNumber.localeCompare(b.rollNumber));
-
-  if (orphanStudents.length > 0) {
-    const orphanGroups = orphanStudents.reduce((acc, student) => {
-      if (!acc[student.class]) {
-        acc[student.class] = [];
-      }
-      acc[student.class].push(student);
-      return acc;
-    }, {} as Record<string, Student[]>);
-
-    Object.assign(groupedStudents, orphanGroups);
-  }
-
-  // Filter students
-  const filteredClasses = Object.keys(groupedStudents).filter(cls =>
-    selectedClass === "All" || cls === selectedClass
-  );
-
-  const filteredStudents = filteredClasses.reduce((acc, cls) => {
-    const classStudents = groupedStudents[cls].filter(student =>
-      student.name.toLowerCase().includes(search.toLowerCase()) ||
-      student.rollNumber.includes(search) ||
-      student.email.toLowerCase().includes(search.toLowerCase())
+  const filteredStudents = useMemo(() => {
+    const query = search.toLowerCase();
+    return students.filter((student) =>
+      !query ||
+      student.name.toLowerCase().includes(query) ||
+      student.email.toLowerCase().includes(query) ||
+      student.rollNumber.toLowerCase().includes(query) ||
+      (student.admissionNumber || "").toLowerCase().includes(query)
     );
-    if (classStudents.length > 0) {
-      acc[cls] = classStudents;
+  }, [students, search]);
+
+  const openEditor = async (studentId: string) => {
+    try {
+      setEditorOpen(true);
+      setEditorLoading(true);
+      setEditorError("");
+      setEditingId(studentId);
+      const response = await fetch(`${API_URL}/api/students/${studentId}`);
+      if (!response.ok) throw new Error(`Failed to load student (${response.status})`);
+      const student = await response.json();
+      const nextForm = toForm(student);
+      setForm(nextForm);
+      setPhotoPreview(nextForm.photo);
+    } catch (err) {
+      setEditorError(err instanceof Error ? err.message : "Failed to load student");
+    } finally {
+      setEditorLoading(false);
     }
-    return acc;
-  }, {} as Record<string, Student[]>);
+  };
+
+  const closeEditor = () => {
+    setEditorOpen(false);
+    setEditorLoading(false);
+    setEditorSaving(false);
+    setEditorError("");
+    setEditingId("");
+    setForm(emptyForm);
+    setPhotoPreview("");
+  };
+
+  const saveStudent = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingId) return;
+    try {
+      setEditorSaving(true);
+      setEditorError("");
+      const response = await fetch(`${API_URL}/api/students/${editingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          languagePreferences: form.languagePreferences.split(",").map((value) => value.trim()).filter(Boolean),
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message || "Failed to update student");
+      await fetchStudents();
+      closeEditor();
+    } catch (err) {
+      setEditorError(err instanceof Error ? err.message : "Failed to update student");
+    } finally {
+      setEditorSaving(false);
+    }
+  };
+
+  const deleteStudent = async (studentId: string) => {
+    if (!confirm("Are you sure you want to delete this student?")) return;
+    try {
+      const response = await fetch(`${API_URL}/api/students/${studentId}`, { method: "DELETE" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message || "Failed to delete student");
+      await fetchStudents();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete student");
+    }
+  };
+
+  const handlePhotoSelect = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const image = await resizeImage(file, 320);
+      setPhotoPreview(image);
+      setForm((current) => ({ ...current, photo: image }));
+    } catch (err) {
+      setEditorError(err instanceof Error ? err.message : "Failed to process image");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const textAreaFields = [
+    ["address", "Residential Address"],
+    ["identificationMarks", "Identification Marks"],
+    ["previousAcademicRecord", "Previous Academic Record"],
+    ["achievements", "Achievements"],
+    ["generalBehaviour", "General Behaviour"],
+    ["medicalHistory", "Medical History"],
+  ] as const;
 
   return (
     <div className="space-y-6">
-
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Student Management</h2>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Student
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Student Management</h2>
+          <p className="text-sm text-muted-foreground">Edit existing admission records fetched from the backend.</p>
+        </div>
+        <button type="button" onClick={() => void fetchStudents()} className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+          <RefreshCw className="h-4 w-4" />
+          Refresh Records
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4">
-        <div className="flex-1">
-          <input
-            placeholder="Search students..."
-            className="border p-2 w-full rounded"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <select
-          className="border p-2 rounded"
-          value={selectedClass}
-          onChange={(e) => setSelectedClass(e.target.value)}
-        >
-          <option value="All">All Classes</option>
-          {Object.keys(groupedStudents).map(cls => (
-            <option key={cls} value={cls}>{cls}</option>
-          ))}
-        </select>
-      </div>
+      <input
+        className="w-full rounded border p-2"
+        placeholder="Search by name, admission number, roll number, or email"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+      />
 
-      {/* Add/Edit Form */}
-      {showAddForm && (
-        <div className="stat-card p-6">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingStudent ? "Edit Student" : "Add New Student"}
-          </h3>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                placeholder="Full Name"
-                className="border rounded p-2"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                className="border rounded p-2"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                required
-              />
-              <select
-                className="border rounded p-2"
-                value={formData.class}
-                onChange={(e) => setFormData({...formData, class: e.target.value})}
-                required
-              >
-                <option value="">Select Class</option>
-                {sortedClasses.map((schoolClass) => (
-                  <option key={schoolClass._id} value={getClassLabel(schoolClass)}>
-                    {getClassLabel(schoolClass)}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                placeholder="Roll Number"
-                className="border rounded p-2"
-                value={formData.rollNumber}
-                onChange={(e) => setFormData({...formData, rollNumber: e.target.value})}
-                required
-              />
-              <input
-                type="tel"
-                placeholder="Phone"
-                className="border rounded p-2"
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              />
-              <select
-                className="border rounded p-2"
-                value={formData.gender}
-                onChange={(e) => setFormData({...formData, gender: e.target.value})}
-              >
-                <option value="">Select Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-              <input
-                type="date"
-                placeholder="Date of Birth"
-                className="border rounded p-2"
-                value={formData.dateOfBirth}
-                onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
-              />
-            </div>
-            <textarea
-              placeholder="Address"
-              className="border rounded p-2 w-full"
-              rows={3}
-              value={formData.address}
-              onChange={(e) => setFormData({...formData, address: e.target.value})}
-            />
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-              >
-                {editingStudent ? "Update" : "Add"} Student
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-
-          {sortedClasses.length === 0 && (
-            <p className="mt-4 text-sm text-amber-600">
-              No classes have been created yet. Create a class first, then add students to it.
-            </p>
-          )}
+      {loading ? <p className="text-center text-gray-500">Loading students...</p> : error ? <p className="text-center text-red-600">{error}</p> : (
+        <div className="stat-card overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40">
+                <th className="p-3 text-left">Student</th>
+                <th className="p-3 text-left">Admission No</th>
+                <th className="p-3 text-left">Class</th>
+                <th className="p-3 text-left">Roll No</th>
+                <th className="p-3 text-left">Email</th>
+                <th className="p-3 text-left">Phone</th>
+                <th className="p-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStudents.map((student) => (
+                <tr key={student._id} className="border-b hover:bg-gray-50">
+                  <td className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 overflow-hidden rounded-full border bg-gray-100">
+                        {student.photo ? <img src={student.photo} alt={student.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-gray-500">{student.name.slice(0, 2).toUpperCase()}</div>}
+                      </div>
+                      <div>
+                        <p className="font-medium">{student.name}</p>
+                        <p className="text-xs text-muted-foreground">{student.gender || "-"}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-3">{student.admissionNumber || "-"}</td>
+                  <td className="p-3">{student.class}{student.classSection ? ` - ${student.classSection}` : ""}</td>
+                  <td className="p-3">{student.rollNumber}</td>
+                  <td className="p-3">{student.email}</td>
+                  <td className="p-3">{student.phone || "-"}</td>
+                  <td className="p-3">
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => void openEditor(student._id)} className="text-blue-600 hover:text-blue-800"><Edit className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => void deleteStudent(student._id)} className="text-red-600 hover:text-red-800"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Students by Class */}
-      {loading ? (
-        <p className="text-center text-gray-500">Loading students...</p>
-      ) : error ? (
-        <p className="text-center text-red-600">{error}</p>
-      ) : Object.keys(groupedStudents).length === 0 ? (
-        <p className="text-center text-gray-500">No classes found. Create a class first.</p>
-      ) : Object.keys(filteredStudents).length === 0 ? (
-        <p className="text-center text-gray-500">No students found for the selected filters.</p>
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(filteredStudents).map(([className, classStudents]) => (
-            <div key={className} className="stat-card p-6">
-              <h3 className="text-xl font-semibold mb-4 text-blue-600">
-                {className} ({classStudents.length} students)
-              </h3>
-
-              {classStudents.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No students are attached to this class yet.
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Roll No</th>
-                        <th className="text-left p-2">Name</th>
-                        <th className="text-left p-2">Email</th>
-                        <th className="text-left p-2">Phone</th>
-                        <th className="text-left p-2">Gender</th>
-                        <th className="text-left p-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {classStudents.map((student) => (
-                        <tr key={student._id} className="border-b hover:bg-gray-50">
-                          <td className="p-2">{student.rollNumber}</td>
-                          <td className="p-2 font-medium">{student.name}</td>
-                          <td className="p-2">{student.email}</td>
-                          <td className="p-2">{student.phone || "-"}</td>
-                          <td className="p-2">{student.gender || "-"}</td>
-                          <td className="p-2">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => startEdit(student)}
-                                className="text-blue-600 hover:text-blue-800"
-                                title="Edit"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(student._id)}
-                                className="text-red-600 hover:text-red-800"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+      {editorOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-4">
+              <div>
+                <h3 className="text-xl font-semibold">Edit Student Admission</h3>
+                <p className="text-sm text-muted-foreground">Auto-filled from backend data.</p>
+              </div>
+              <button type="button" onClick={closeEditor} className="rounded-full p-2 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-6">
+              {editorLoading ? <p className="text-center text-gray-500">Loading admission record...</p> : (
+                <form onSubmit={saveStudent} className="space-y-6">
+                  {editorError && <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{editorError}</div>}
+                  <div className="grid gap-6 xl:grid-cols-[260px_1fr]">
+                    <div className="rounded-xl border bg-slate-50 p-4">
+                      <p className="mb-3 text-sm font-semibold">Student Photo</p>
+                      <div className="mb-4 flex h-72 items-center justify-center overflow-hidden rounded-xl border bg-white">
+                        {photoPreview ? <img src={photoPreview} alt={form.name || "Student"} className="h-full w-full object-cover" /> : <span className="text-sm text-muted-foreground">No photo available</span>}
+                      </div>
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+                        <ImagePlus className="h-4 w-4" />
+                        Replace Photo
+                        <input type="file" accept="image/*" onChange={(event) => void handlePhotoSelect(event)} className="hidden" />
+                      </label>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="Form Number"><input className="w-full rounded border p-2" value={form.formNumber} onChange={(event) => setForm({ ...form, formNumber: event.target.value })} /></Field>
+                      <Field label="Admission Number"><input className="w-full rounded border p-2" value={form.admissionNumber} onChange={(event) => setForm({ ...form, admissionNumber: event.target.value })} /></Field>
+                      <Field label="Full Name"><input className="w-full rounded border p-2" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></Field>
+                      <Field label="Email"><input type="email" className="w-full rounded border p-2" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></Field>
+                      <Field label="Class"><div className="space-y-2"><select className="w-full rounded border p-2" value={classes.some((schoolClass) => schoolClass.name === form.class) ? form.class : ""} onChange={(event) => setForm({ ...form, class: event.target.value })}><option value="">Select class</option>{classes.map((schoolClass) => <option key={schoolClass._id} value={schoolClass.name}>{schoolClass.name}</option>)}</select><input className="w-full rounded border p-2" value={form.class} onChange={(event) => setForm({ ...form, class: event.target.value })} required /></div></Field>
+                      <Field label="Section"><input className="w-full rounded border p-2" value={form.classSection} onChange={(event) => setForm({ ...form, classSection: event.target.value })} /></Field>
+                      <Field label="Academic Year"><input className="w-full rounded border p-2" value={form.academicYear} onChange={(event) => setForm({ ...form, academicYear: event.target.value })} /></Field>
+                      <Field label="Roll Number"><input className="w-full rounded border p-2" value={form.rollNumber} onChange={(event) => setForm({ ...form, rollNumber: event.target.value })} required /></Field>
+                      <Field label="Phone"><input className="w-full rounded border p-2" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></Field>
+                      <Field label="Aadhar Number"><input className="w-full rounded border p-2" value={form.aadharNumber} onChange={(event) => setForm({ ...form, aadharNumber: event.target.value })} /></Field>
+                      <Field label="Gender"><select className="w-full rounded border p-2" value={form.gender} onChange={(event) => setForm({ ...form, gender: event.target.value })}><option value="">Select gender</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select></Field>
+                      <Field label="Date of Birth"><input type="date" className="w-full rounded border p-2" value={form.dateOfBirth} onChange={(event) => setForm({ ...form, dateOfBirth: event.target.value })} /></Field>
+                      <Field label="Place of Birth"><input className="w-full rounded border p-2" value={form.placeOfBirth} onChange={(event) => setForm({ ...form, placeOfBirth: event.target.value })} /></Field>
+                      <Field label="State"><input className="w-full rounded border p-2" value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} /></Field>
+                      <Field label="Nationality"><input className="w-full rounded border p-2" value={form.nationality} onChange={(event) => setForm({ ...form, nationality: event.target.value })} /></Field>
+                      <Field label="Religion"><input className="w-full rounded border p-2" value={form.religion} onChange={(event) => setForm({ ...form, religion: event.target.value })} /></Field>
+                      <Field label="Caste"><input className="w-full rounded border p-2" value={form.caste} onChange={(event) => setForm({ ...form, caste: event.target.value })} /></Field>
+                      <Field label="Pin Code"><input className="w-full rounded border p-2" value={form.pinCode} onChange={(event) => setForm({ ...form, pinCode: event.target.value })} /></Field>
+                      <Field label="Mother Tongue"><input className="w-full rounded border p-2" value={form.motherTongue} onChange={(event) => setForm({ ...form, motherTongue: event.target.value })} /></Field>
+                      <Field label="Blood Group"><input className="w-full rounded border p-2" value={form.bloodGroup} onChange={(event) => setForm({ ...form, bloodGroup: event.target.value })} /></Field>
+                      <Field label="Language Preferences"><input className="w-full rounded border p-2" value={form.languagePreferences} onChange={(event) => setForm({ ...form, languagePreferences: event.target.value })} placeholder="English, Hindi" /></Field>
+                      <div className="md:col-span-2">
+                        {textAreaFields.map(([key, label]) => (
+                          <Field key={key} label={label}>
+                            <textarea className="w-full rounded border p-2" rows={2} value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} />
+                          </Field>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 border-t pt-4">
+                    <button type="button" onClick={closeEditor} className="rounded border px-4 py-2 hover:bg-gray-50">Cancel</button>
+                    <button type="submit" disabled={editorSaving} className="rounded bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:opacity-70">{editorSaving ? "Saving..." : "Save Changes"}</button>
+                  </div>
+                </form>
               )}
             </div>
-          ))}
+          </div>
         </div>
       )}
-
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-2">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      {children}
+    </label>
   );
 }

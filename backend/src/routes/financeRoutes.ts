@@ -1,20 +1,18 @@
 import express from "express";
 import Finance from "../models/Finance";
+import School from "../models/School";
 import Student from "../models/Student";
 import Staff from "../models/Staff";
 import mongoose from "mongoose";
 import { createLog } from "../utils/createLog";
 import { sendStudentFeeReceiptEmail } from "../utils/sendEmail";
 import {
-  buildAnnualFeeComponents,
-  buildFeeStructureDocument,
-  DEFAULT_ACADEMIC_YEAR,
-  getCurrentDueDateForClass,
-  getFeeStructureGroupForClass,
-} from "../utils/feeStructure";
+  buildAppliedStudentFeeStructure,
+  findClassFeeStructure,
+  normalizeClassFeeStructure,
+} from "../utils/classFeeStructure";
 
 const router = express.Router();
-const DEFAULT_STUDENT_FEE_AMOUNT = 10000;
 
 const buildDefaultFeeComponents = (amount: number) => [
   { label: "Tuition Fee", amount },
@@ -22,7 +20,7 @@ const buildDefaultFeeComponents = (amount: number) => [
 
 const normalizeFeeComponents = (amount: number, feeComponents: unknown) => {
   if (!Array.isArray(feeComponents) || feeComponents.length === 0) {
-    return buildDefaultFeeComponents(amount);
+    return amount > 0 ? buildDefaultFeeComponents(amount) : [];
   }
 
   const normalized = feeComponents
@@ -36,7 +34,35 @@ const normalizeFeeComponents = (amount: number, feeComponents: unknown) => {
     })
     .filter(Boolean) as Array<{ label: string; amount: number }>;
 
-  return normalized.length > 0 ? normalized : buildDefaultFeeComponents(amount);
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return amount > 0 ? buildDefaultFeeComponents(amount) : [];
+};
+
+const getFeeComponentsTotal = (feeComponents: Array<{ label: string; amount: number }>) =>
+  feeComponents.reduce((sum, component) => sum + Number(component.amount || 0), 0);
+
+const getStudentFeeStatus = (amount: number, paidAmount: number) => {
+  if (amount > 0 && paidAmount >= amount) return "paid";
+  if (paidAmount > 0) return "partial";
+  return "pending";
+};
+
+const resolveStudentFeeValues = (amount: unknown, feeComponents: unknown) => {
+  let normalizedAmount = Number(amount || 0);
+  const normalizedFeeComponents = normalizeFeeComponents(normalizedAmount, feeComponents);
+  const derivedAmount = getFeeComponentsTotal(normalizedFeeComponents);
+
+  if (derivedAmount > 0) {
+    normalizedAmount = derivedAmount;
+  }
+
+  return {
+    normalizedAmount,
+    normalizedFeeComponents,
+  };
 };
 
 const makeReceiptNumber = () => `RCP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -45,9 +71,9 @@ const makeTransactionId = () => `TXN-${Date.now()}-${Math.floor(Math.random() * 
 const buildStudentFeeSummary = (
   student: any,
   finance: any,
-  fallbackDueDate: string
+  fallbackDueDate?: string | null
 ) => {
-  const totalFee = Number(finance?.amount || DEFAULT_STUDENT_FEE_AMOUNT);
+  const totalFee = Number(finance?.amount || 0);
   const paidAmount = Number(finance?.paidAmount || 0);
   const pendingBalance = Math.max(totalFee - paidAmount, 0);
   const feeComponents = normalizeFeeComponents(totalFee, finance?.feeComponents);
@@ -62,9 +88,9 @@ const buildStudentFeeSummary = (
     paidAmount,
     remainingAmount: pendingBalance,
     pendingBalance,
-    status: finance?.status || "pending",
-    paymentStatus: finance?.status || "pending",
-    dueDate: finance?.dueDate || fallbackDueDate,
+    status: finance?.status || getStudentFeeStatus(totalFee, paidAmount),
+    paymentStatus: finance?.status || getStudentFeeStatus(totalFee, paidAmount),
+    dueDate: finance?.dueDate || fallbackDueDate || null,
     academicYear: finance?.academicYear || null,
     feeComponents,
     latestReceipt,
@@ -72,73 +98,150 @@ const buildStudentFeeSummary = (
   };
 };
 
-const getDefaultFeeDueDate = () => {
-  const now = new Date();
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return lastDayOfMonth.toISOString().split("T")[0];
+const applyClassFeeStructureToStudents = async (schoolId: string, classFeeStructure: ReturnType<typeof normalizeClassFeeStructure>) => {
+  const students = await Student.find({
+    schoolId,
+    class: classFeeStructure.className,
+  }).select("_id name class needsTransport");
+
+  if (students.length === 0) {
+    return;
+  }
+
+  const existingFinances = await Finance.find({
+    schoolId,
+    type: "student_fee",
+    studentId: { $in: students.map((student) => student._id) },
+  }).select("_id studentId paidAmount paymentHistory paymentDate");
+
+  const financeByStudentId = new Map<string, any>();
+  existingFinances.forEach((finance) => {
+    financeByStudentId.set(String(finance.studentId), finance);
+  });
+
+  const bulkOperations = students.map((student) => {
+    const existingFinance = financeByStudentId.get(String(student._id));
+    const appliedStudentFee = buildAppliedStudentFeeStructure(
+      classFeeStructure,
+      Boolean((student as any).needsTransport)
+    );
+    const paidAmount = Number(existingFinance?.paidAmount || 0);
+    const nextStatus = getStudentFeeStatus(appliedStudentFee.totalAmount, paidAmount);
+    const basePayload = {
+      amount: appliedStudentFee.totalAmount,
+      dueDate: classFeeStructure.dueDate || undefined,
+      academicYear: classFeeStructure.academicYear || undefined,
+      feeComponents: appliedStudentFee.feeComponents,
+      description: `Common fee structure for ${classFeeStructure.className}`,
+      status: nextStatus,
+    };
+
+    if (existingFinance) {
+      return {
+        updateOne: {
+          filter: { _id: existingFinance._id },
+          update: basePayload,
+        },
+      };
+    }
+
+    return {
+      insertOne: {
+        document: {
+          type: "student_fee",
+          studentId: student._id,
+          paidAmount: 0,
+          paymentHistory: [],
+          schoolId,
+          ...basePayload,
+        },
+      },
+    };
+  });
+
+  if (bulkOperations.length > 0) {
+    await Finance.bulkWrite(bulkOperations);
+  }
 };
 
-router.get("/:schoolId/fee-structure", async (req, res) => {
+router.get("/:schoolId/class-fee-structures", async (req, res) => {
   try {
-    const academicYear = String(req.query.academicYear || DEFAULT_ACADEMIC_YEAR);
-    res.json(buildFeeStructureDocument(academicYear));
+    const school = await School.findById(req.params.schoolId).select("feeStructures");
+    res.json(Array.isArray((school as any)?.feeStructures) ? (school as any).feeStructures : []);
   } catch (error) {
-    console.error("GET FEE STRUCTURE ERROR:", error);
-    res.status(500).json({ message: "Failed to fetch fee structure" });
+    console.error("GET CLASS FEE STRUCTURES ERROR:", error);
+    res.status(500).json({ message: "Failed to fetch class fee structures" });
   }
 });
+
+router.put("/:schoolId/class-fee-structures", async (req, res) => {
+  try {
+    const school = await School.findById(req.params.schoolId);
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    const normalizedStructure = normalizeClassFeeStructure(req.body);
+
+    if (!normalizedStructure.className) {
+      return res.status(400).json({ message: "Class is required" });
+    }
+
+    if (normalizedStructure.amount <= 0 && normalizedStructure.transportFee <= 0) {
+      return res.status(400).json({ message: "Enter a valid fee amount" });
+    }
+
+    const existingStructures = Array.isArray((school as any).feeStructures) ? (school as any).feeStructures : [];
+    const nextStructures = existingStructures.filter(
+      (item: any) => String(item?.className || "").trim() !== normalizedStructure.className
+    );
+
+    nextStructures.push({
+      className: normalizedStructure.className,
+      amount: normalizedStructure.amount,
+      transportFee: normalizedStructure.transportFee,
+      academicYear: normalizedStructure.academicYear,
+      dueDate: normalizedStructure.dueDate,
+      feeComponents: normalizedStructure.feeComponents,
+    });
+
+    (school as any).feeStructures = nextStructures;
+    await school.save();
+
+    await applyClassFeeStructureToStudents(req.params.schoolId, normalizedStructure);
+
+    await createLog({
+      action: "UPDATE_CLASS_FEE_STRUCTURE",
+      message: `Common fee structure saved for ${normalizedStructure.className}`,
+      schoolId: school._id,
+    });
+
+    res.json(Array.isArray((school as any).feeStructures) ? (school as any).feeStructures : []);
+  } catch (error) {
+    console.error("UPDATE CLASS FEE STRUCTURES ERROR:", error);
+    res.status(500).json({ message: "Failed to save class fee structure" });
+  }
+});
+
 
 // ==========================
 // � GET STUDENT FEES SUMMARY
 // ==========================
 router.get("/:schoolId/students/summary", async (req, res) => {
   try {
-    const students = await Student.find({ schoolId: req.params.schoolId })
-        .select("name email class rollNumber phone address dateOfBirth gender")
-        .sort({ name: 1 });
-
-    let finances = await Finance.find({
+    const [students, finances, school] = await Promise.all([
+      Student.find({ schoolId: req.params.schoolId })
+        .select("name email class rollNumber phone address dateOfBirth gender needsTransport")
+        .sort({ name: 1 }),
+      Finance.find({
         schoolId: req.params.schoolId,
         type: "student_fee"
       })
-      .sort({ createdAt: -1 })
-      .populate("studentId", "name email class rollNumber phone address dateOfBirth gender");
-
-    const existingStudentFeeIds = new Set(
-      finances
-        .filter(finance => finance.studentId)
-        .map(finance =>
-          String((finance.studentId && typeof finance.studentId === "object" && "_id" in finance.studentId)
-            ? (finance.studentId as { _id: mongoose.Types.ObjectId })._id
-            : finance.studentId)
-        )
-    );
-
-    const missingStudentFees = students
-      .filter(student => !existingStudentFeeIds.has(String(student._id)))
-      .map(student => {
-        const group = getFeeStructureGroupForClass(String(student.class || ""));
-
-        return {
-          type: "student_fee" as const,
-          studentId: student._id,
-          amount: group.annualFee,
-          paidAmount: 0,
-          dueDate: getCurrentDueDateForClass(String(student.class || ""), 0),
-          status: "pending" as const,
-          description: `Default fee record for ${student.name}`,
-          feeComponents: buildAnnualFeeComponents(String(student.class || "")),
-          schoolId: req.params.schoolId,
-        };
-      });
-
-    if (missingStudentFees.length > 0) {
-      await Finance.insertMany(missingStudentFees);
-      finances = await Finance.find({
-        schoolId: req.params.schoolId,
-        type: "student_fee"
-      }).populate("studentId", "name email class rollNumber phone address dateOfBirth gender");
-    }
+        .sort({ createdAt: -1 })
+        .populate("studentId", "name email class rollNumber phone address dateOfBirth gender needsTransport"),
+      School.findById(req.params.schoolId).select("feeStructures"),
+    ]);
 
     const financeByStudentId = new Map();
     finances
@@ -155,22 +258,30 @@ router.get("/:schoolId/students/summary", async (req, res) => {
 
     const summary = students.map(student => {
       const finance = financeByStudentId.get(String(student._id));
-      const feeGroup = getFeeStructureGroupForClass(String(student.class || ""));
-      const totalFee = feeGroup.annualFee;
-      const paidAmount = Number(finance?.paidAmount || 0);
-      const dueDate = getCurrentDueDateForClass(String(student.class || ""), paidAmount);
-      const computedStatus = paidAmount >= totalFee ? "paid" : paidAmount > 0 ? "partial" : "pending";
+      const classFeeStructure = findClassFeeStructure(school, String(student.class || ""));
+      const normalizedClassFeeStructure = classFeeStructure
+        ? normalizeClassFeeStructure(classFeeStructure)
+        : null;
+      const appliedStudentFee = normalizedClassFeeStructure
+        ? buildAppliedStudentFeeStructure(normalizedClassFeeStructure, Boolean((student as any).needsTransport))
+        : null;
 
       return buildStudentFeeSummary(
         student,
-        {
-          ...finance?.toObject?.(),
-          amount: totalFee,
-          dueDate,
-          feeComponents: buildAnnualFeeComponents(String(student.class || "")),
-          status: computedStatus,
-        },
-        dueDate || getDefaultFeeDueDate()
+        finance?.toObject?.() || (
+          normalizedClassFeeStructure && appliedStudentFee
+            ? {
+                amount: appliedStudentFee.totalAmount,
+                dueDate: normalizedClassFeeStructure.dueDate || null,
+                academicYear: normalizedClassFeeStructure.academicYear || null,
+                feeComponents: appliedStudentFee.feeComponents,
+                status: "pending",
+                paidAmount: 0,
+                paymentHistory: [],
+              }
+            : null
+        ),
+        finance?.dueDate || normalizedClassFeeStructure?.dueDate || null
       );
     });
 
@@ -183,38 +294,47 @@ router.get("/:schoolId/students/summary", async (req, res) => {
 
 router.get("/:schoolId/students/:studentId/receipt-summary", async (req, res) => {
   try {
-    const [student, finance] = await Promise.all([
+    const [student, finance, school] = await Promise.all([
       Student.findOne({ _id: req.params.studentId, schoolId: req.params.schoolId })
-        .select("name email class rollNumber phone address dateOfBirth gender"),
+        .select("name email class rollNumber phone address dateOfBirth gender needsTransport"),
       Finance.findOne({
         schoolId: req.params.schoolId,
         type: "student_fee",
         studentId: req.params.studentId,
       })
-        .populate("studentId", "name email class rollNumber phone address dateOfBirth gender")
+        .populate("studentId", "name email class rollNumber phone address dateOfBirth gender needsTransport")
         .sort({ createdAt: -1 }),
+      School.findById(req.params.schoolId).select("feeStructures"),
     ]);
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const feeGroup = getFeeStructureGroupForClass(String((student as any).class || ""));
-    const totalFee = feeGroup.annualFee;
-    const paidAmount = Number((finance as any)?.paidAmount || 0);
-    const dueDate = getCurrentDueDateForClass(String((student as any).class || ""), paidAmount);
-    const computedStatus = paidAmount >= totalFee ? "paid" : paidAmount > 0 ? "partial" : "pending";
+    const classFeeStructure = findClassFeeStructure(school, String((student as any).class || ""));
+    const normalizedClassFeeStructure = classFeeStructure
+      ? normalizeClassFeeStructure(classFeeStructure)
+      : null;
+    const appliedStudentFee = normalizedClassFeeStructure
+      ? buildAppliedStudentFeeStructure(normalizedClassFeeStructure, Boolean((student as any).needsTransport))
+      : null;
 
     const summary = buildStudentFeeSummary(
       student,
-      {
-        ...(finance as any)?.toObject?.(),
-        amount: totalFee,
-        dueDate,
-        feeComponents: buildAnnualFeeComponents(String((student as any).class || "")),
-        status: computedStatus,
-      },
-      dueDate || getDefaultFeeDueDate()
+      (finance as any)?.toObject?.() || (
+        normalizedClassFeeStructure && appliedStudentFee
+          ? {
+              amount: appliedStudentFee.totalAmount,
+              dueDate: normalizedClassFeeStructure.dueDate || null,
+              academicYear: normalizedClassFeeStructure.academicYear || null,
+              feeComponents: appliedStudentFee.feeComponents,
+              status: "pending",
+              paidAmount: 0,
+              paymentHistory: [],
+            }
+          : null
+      ),
+      (finance as any)?.dueDate || normalizedClassFeeStructure?.dueDate || null
     );
     res.json(summary);
   } catch (error) {
@@ -311,10 +431,11 @@ router.post("/", async (req, res) => {
       schoolId,
       feeComponents,
       paymentDate: requestedPaymentDate,
+      paymentType: requestedPaymentType,
     } = req.body;
 
-    if (!type || !amount || !schoolId) {
-      return res.status(400).json({ message: "Required fields: type, amount, schoolId" });
+    if (!type || !schoolId) {
+      return res.status(400).json({ message: "Required fields: type, schoolId" });
     }
 
     // Validate type-specific requirements
@@ -327,24 +448,24 @@ router.post("/", async (req, res) => {
     if (type === "other" && (!category || !transactionType)) {
       return res.status(400).json({ message: "category and transactionType required for other type" });
     }
-    let normalizedAmount = Number(amount);
+    let normalizedAmount = Number(amount || 0);
     let normalizedPaidAmount = Number(paidAmount || 0);
     const paymentDate = String(requestedPaymentDate || new Date().toISOString().split("T")[0]);
+    const paymentType = String(requestedPaymentType || "cash").toLowerCase();
     let normalizedFeeComponents = type === "student_fee"
       ? normalizeFeeComponents(normalizedAmount, feeComponents)
       : [];
     let normalizedDueDate = dueDate;
 
     if (type === "student_fee") {
-      const student = await Student.findById(studentId).select("class name");
+      const student = await Student.findById(studentId).select("name");
       if (!student) {
         return res.status(404).json({ message: "Student not found" });
       }
 
-      const feeGroup = getFeeStructureGroupForClass(String((student as any).class || ""));
-      normalizedAmount = feeGroup.annualFee;
-      normalizedFeeComponents = buildAnnualFeeComponents(String((student as any).class || ""));
-      normalizedDueDate = getCurrentDueDateForClass(String((student as any).class || ""), normalizedPaidAmount);
+      const resolvedValues = resolveStudentFeeValues(normalizedAmount, feeComponents);
+      normalizedAmount = resolvedValues.normalizedAmount;
+      normalizedFeeComponents = resolvedValues.normalizedFeeComponents;
     }
 
     const finance = await Finance.create({
@@ -369,6 +490,7 @@ router.post("/", async (req, res) => {
                 transactionId: makeTransactionId(),
                 paymentDate,
                 amountPaid: normalizedPaidAmount,
+                paymentType,
                 sentToEmail: false,
               },
             ]
@@ -405,6 +527,7 @@ router.put("/:id", async (req, res) => {
       transactionType,
       feeComponents,
       paymentDate: requestedPaymentDate,
+      paymentType: requestedPaymentType,
     } = req.body;
 
     const existingFinance = await Finance.findById(req.params.id);
@@ -420,6 +543,7 @@ router.put("/:id", async (req, res) => {
     const nextPaymentDate = String(
       requestedPaymentDate || existingFinance.paymentDate || new Date().toISOString().split("T")[0]
     );
+    const nextPaymentType = String(requestedPaymentType || "cash").toLowerCase();
     let resolvedNextAmount = nextAmount;
     let resolvedDueDate = dueDate;
     let nextFeeComponents = existingFinance.type === "student_fee"
@@ -427,11 +551,10 @@ router.put("/:id", async (req, res) => {
       : existingFinance.feeComponents || [];
 
     if (existingFinance.type === "student_fee" && existingFinance.studentId) {
-      const student = await Student.findById(existingFinance.studentId).select("class");
-      const feeGroup = getFeeStructureGroupForClass(String((student as any)?.class || ""));
-      resolvedNextAmount = feeGroup.annualFee;
-      nextFeeComponents = buildAnnualFeeComponents(String((student as any)?.class || ""));
-      resolvedDueDate = getCurrentDueDateForClass(String((student as any)?.class || ""), nextPaidAmount);
+      const resolvedValues = resolveStudentFeeValues(nextAmount, feeComponents ?? existingFinance.feeComponents);
+      resolvedNextAmount = resolvedValues.normalizedAmount;
+      nextFeeComponents = resolvedValues.normalizedFeeComponents;
+      resolvedDueDate = dueDate ?? existingFinance.dueDate;
     }
     const nextPaymentHistory = Array.isArray(existingFinance.paymentHistory)
       ? existingFinance.paymentHistory.map((item: any) => ({
@@ -439,6 +562,7 @@ router.put("/:id", async (req, res) => {
           transactionId: item.transactionId,
           paymentDate: item.paymentDate,
           amountPaid: Number(item.amountPaid || 0),
+          paymentType: String(item.paymentType || "cash"),
           sentToEmail: Boolean(item.sentToEmail),
           createdAt: item.createdAt,
         }))
@@ -450,6 +574,7 @@ router.put("/:id", async (req, res) => {
         transactionId: makeTransactionId(),
         paymentDate: nextPaymentDate,
         amountPaid: paymentDelta,
+        paymentType: nextPaymentType,
         sentToEmail: false,
         createdAt: new Date().toISOString(),
       });
@@ -527,6 +652,7 @@ router.post("/:id/send-receipt", async (req, res) => {
       className: student.class,
       schoolName: (finance.schoolId as any)?.name || "School",
       paymentDate: receipt.paymentDate,
+      paymentType: receipt.paymentType || "cash",
       transactionId: receipt.transactionId,
       amountPaid: Number(receipt.amountPaid || 0),
       receiptNumber: receipt.receiptNumber,
