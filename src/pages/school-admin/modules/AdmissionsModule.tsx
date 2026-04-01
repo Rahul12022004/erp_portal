@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "r
 import { Download, FileSpreadsheet, IdCard, Printer, UserPlus, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
+import { API_URL } from "@/lib/api";
 
 type Student = {
   _id: string;
@@ -66,6 +67,58 @@ type ParsedAdmissionRow = {
   address: string;
   dateOfBirth: string;
   gender: string;
+};
+
+type SchoolClassSummary = {
+  _id: string;
+  name: string;
+  section?: string;
+};
+
+type SchoolImportClassPreview = {
+  name: string;
+  section: string;
+  label: string;
+};
+
+type SchoolDataImportRow = {
+  rowNumber: number;
+  formNumber: string;
+  formDate: string;
+  admissionNumber: string;
+  name: string;
+  email: string;
+  className: string;
+  classSection: string;
+  classLabel: string;
+  academicYear: string;
+  rollNumber: string;
+  phone: string;
+  address: string;
+  dateOfBirth: string;
+  gender: string;
+  aadharNumber: string;
+  religion: string;
+  caste: string;
+  needsTransport: boolean;
+  busConsent: boolean;
+};
+
+type InvalidSchoolDataImportRow = {
+  rowNumber: number;
+  reason: string;
+};
+
+type SchoolDataImportResult = {
+  totalRows: number;
+  validRows: number;
+  invalidRows: InvalidSchoolDataImportRow[];
+  classesCreated: string[];
+  importedCount: number;
+  duplicateCount: number;
+  duplicates: InvalidSchoolDataImportRow[];
+  failureCount: number;
+  failures: InvalidSchoolDataImportRow[];
 };
 
 const emptyForm: AdmissionForm = {
@@ -148,6 +201,130 @@ const parseAdmissionRows = (rows: Record<string, unknown>[]): ParsedAdmissionRow
     .filter((row) => row.name && row.email && row.class && row.rollNumber);
 };
 
+const normalizeTextValue = (value: unknown): string => String(value ?? "").trim();
+
+const normalizeUpperText = (value: unknown): string => normalizeTextValue(value).toUpperCase();
+
+const buildClassLabel = (className: string, classSection?: string) =>
+  classSection ? `${className} - ${classSection}` : className;
+
+const buildClassKey = (className: string, classSection?: string) =>
+  `${className.trim().toLowerCase()}::${(classSection || "").trim().toUpperCase()}`;
+
+const normalizeGenderValue = (value: unknown): string => {
+  const normalized = normalizeTextValue(value).toLowerCase();
+
+  if (!normalized) return "";
+  if (normalized.startsWith("m")) return "Male";
+  if (normalized.startsWith("f")) return "Female";
+  return "Other";
+};
+
+const buildCombinedAddress = (street: string, city: string) =>
+  [street.trim(), city.trim()].filter(Boolean).join(", ");
+
+const isTransportEnabled = (value: unknown) => {
+  const normalized = normalizeTextValue(value).toLowerCase();
+  return ["allot", "allotted", "yes", "true", "assigned"].includes(normalized);
+};
+
+const getFirstNonEmptySheet = (workbook: XLSX.WorkBook) => {
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+      defval: "",
+    });
+
+    if (rows.length > 0) {
+      return { sheetName, rows };
+    }
+  }
+
+  return null;
+};
+
+const parseSchoolDataImportRows = (rows: Record<string, unknown>[]) => {
+  const validRows: SchoolDataImportRow[] = [];
+  const invalidRows: InvalidSchoolDataImportRow[] = [];
+  const uniqueClasses = new Map<string, SchoolImportClassPreview>();
+
+  rows.forEach((row, index) => {
+    const rowNumber = index + 2;
+    const className = normalizeTextValue(
+      getRowValue(row, ["cname", "class", "classname", "class name"])
+    );
+    const classSection = normalizeUpperText(
+      getRowValue(row, ["stusection", "section", "class section", "classsection"])
+    );
+    const mappedRow: SchoolDataImportRow = {
+      rowNumber,
+      formNumber: normalizeTextValue(getRowValue(row, ["srno", "form number", "form no", "form_no"])),
+      formDate: normalizeDate(
+        getRowValue(row, ["admsn_date", "admission date", "form date", "formdate"])
+      ),
+      admissionNumber: normalizeTextValue(
+        getRowValue(row, ["reg_no", "reg no", "regno", "admission number", "admission no"])
+      ),
+      name: normalizeTextValue(getRowValue(row, ["s_name", "name", "full name", "student name"])),
+      email: normalizeTextValue(getRowValue(row, ["email", "email address"])),
+      className,
+      classSection,
+      classLabel: buildClassLabel(className, classSection),
+      academicYear: normalizeTextValue(
+        getRowValue(row, ["stsession", "academic year", "academicyear", "session"])
+      ),
+      rollNumber: normalizeTextValue(
+        getRowValue(row, ["roll_no", "roll number", "rollnumber", "roll no", "rollno"])
+      ),
+      phone:
+        normalizeTextValue(
+          getRowValue(row, ["mobile_no", "phone", "mobile", "phone number", "contact"])
+        ) ||
+        normalizeTextValue(getRowValue(row, ["mobile_no2", "alternate mobile", "phone 2"])),
+      address:
+        normalizeTextValue(getRowValue(row, ["address", "student address"])) ||
+        buildCombinedAddress(
+          normalizeTextValue(getRowValue(row, ["streetorvillage", "street", "village"])),
+          normalizeTextValue(getRowValue(row, ["city", "town"]))
+        ),
+      dateOfBirth: normalizeDate(getRowValue(row, ["d_birth", "date of birth", "dob", "birth date"])),
+      gender: normalizeGenderValue(getRowValue(row, ["sex", "gender"])),
+      aadharNumber: normalizeTextValue(getRowValue(row, ["adhar", "adhaar", "aadhar", "aadhaar"])),
+      religion: normalizeTextValue(getRowValue(row, ["stu_caste", "religion"])),
+      caste: normalizeTextValue(getRowValue(row, ["stu_category", "caste", "category"])),
+      needsTransport: isTransportEnabled(getRowValue(row, ["transport", "transport status"])),
+      busConsent: isTransportEnabled(getRowValue(row, ["transport", "transport status"])),
+    };
+
+    const missingFields: string[] = [];
+    if (!mappedRow.name) missingFields.push("name");
+    if (!mappedRow.className) missingFields.push("className");
+    if (!mappedRow.classSection) missingFields.push("classSection");
+    if (!mappedRow.rollNumber) missingFields.push("rollNumber");
+
+    if (missingFields.length > 0) {
+      invalidRows.push({
+        rowNumber,
+        reason: `Missing required fields: ${missingFields.join(", ")}`,
+      });
+      return;
+    }
+
+    validRows.push(mappedRow);
+    uniqueClasses.set(buildClassKey(mappedRow.className, mappedRow.classSection), {
+      name: mappedRow.className,
+      section: mappedRow.classSection,
+      label: mappedRow.classLabel,
+    });
+  });
+
+  return {
+    validRows,
+    invalidRows,
+    uniqueClasses: Array.from(uniqueClasses.values()),
+  };
+};
+
 const resizeImage = (file: File, maxPx: number): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -179,6 +356,14 @@ export default function AdmissionsModule() {
   const [excelFileName, setExcelFileName] = useState("");
   const [excelAdmissions, setExcelAdmissions] = useState<ParsedAdmissionRow[]>([]);
   const [excelTotalRows, setExcelTotalRows] = useState(0);
+  const [schoolDataImportLoading, setSchoolDataImportLoading] = useState(false);
+  const [schoolDataImportFileName, setSchoolDataImportFileName] = useState("");
+  const [schoolDataImportSheetName, setSchoolDataImportSheetName] = useState("");
+  const [schoolDataImportRows, setSchoolDataImportRows] = useState<SchoolDataImportRow[]>([]);
+  const [schoolDataImportTotalRows, setSchoolDataImportTotalRows] = useState(0);
+  const [schoolDataImportInvalidRows, setSchoolDataImportInvalidRows] = useState<InvalidSchoolDataImportRow[]>([]);
+  const [schoolDataImportClassesToCreate, setSchoolDataImportClassesToCreate] = useState<string[]>([]);
+  const [schoolDataImportResult, setSchoolDataImportResult] = useState<SchoolDataImportResult | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [photoPreview, setPhotoPreview] = useState("");
@@ -190,6 +375,16 @@ export default function AdmissionsModule() {
   useEffect(() => {
     void fetchAdmissions();
   }, []);
+
+  const clearSchoolDataImportPreview = () => {
+    setSchoolDataImportFileName("");
+    setSchoolDataImportSheetName("");
+    setSchoolDataImportRows([]);
+    setSchoolDataImportTotalRows(0);
+    setSchoolDataImportInvalidRows([]);
+    setSchoolDataImportClassesToCreate([]);
+    setSchoolDataImportResult(null);
+  };
 
   const fetchAdmissions = async () => {
     try {
@@ -203,7 +398,7 @@ export default function AdmissionsModule() {
         return;
       }
 
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`);
+      const res = await fetch(`${API_URL}/api/students/${school._id}`);
       if (!res.ok) {
         throw new Error(`Failed to load admissions (${res.status})`);
       }
@@ -281,7 +476,7 @@ export default function AdmissionsModule() {
         schoolId: school._id,
       };
 
-      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/students", {
+      const res = await fetch(`${API_URL}/api/students`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -371,7 +566,7 @@ export default function AdmissionsModule() {
       }
 
       const requests = excelAdmissions.map((student) =>
-        fetch("https://erp-portal-1-ftwe.onrender.com/api/students", {
+        fetch(`${API_URL}/api/students`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...student, schoolId: school._id }),
@@ -414,6 +609,137 @@ export default function AdmissionsModule() {
       setError(err instanceof Error ? err.message : "Failed to process Excel admissions");
     } finally {
       setExcelSaving(false);
+    }
+  };
+
+  const handleSchoolDataFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSchoolDataImportLoading(true);
+      setError("");
+      setSuccess("");
+      setSchoolDataImportResult(null);
+      clearSchoolDataImportPreview();
+
+      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      if (!school?._id) {
+        setError("School not found. Please log in again.");
+        return;
+      }
+
+      const fileBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(fileBuffer, { type: "array", cellDates: true });
+      const selectedSheet = getFirstNonEmptySheet(workbook);
+
+      if (!selectedSheet) {
+        setError("Excel file is empty.");
+        return;
+      }
+
+      const { validRows, invalidRows, uniqueClasses } = parseSchoolDataImportRows(selectedSheet.rows);
+      setSchoolDataImportFileName(file.name);
+      setSchoolDataImportSheetName(selectedSheet.sheetName);
+      setSchoolDataImportRows(validRows);
+      setSchoolDataImportTotalRows(selectedSheet.rows.length);
+      setSchoolDataImportInvalidRows(invalidRows);
+
+      if (validRows.length === 0) {
+        setError("No valid rows found for school data import.");
+        return;
+      }
+
+      let classesToCreate = uniqueClasses.map((schoolClass) => schoolClass.label);
+
+      try {
+        const classRes = await fetch(`${API_URL}/api/classes/${school._id}`);
+        if (classRes.ok) {
+          const classData = (await classRes.json()) as SchoolClassSummary[];
+          const existingClassKeys = new Set(
+            (Array.isArray(classData) ? classData : []).map((schoolClass) =>
+              buildClassKey(schoolClass.name || "", schoolClass.section || "")
+            )
+          );
+
+          classesToCreate = uniqueClasses
+            .filter((schoolClass) => !existingClassKeys.has(buildClassKey(schoolClass.name, schoolClass.section)))
+            .map((schoolClass) => schoolClass.label);
+        }
+      } catch (classError) {
+        console.warn("Failed to fetch existing classes for preview:", classError);
+      }
+
+      setSchoolDataImportClassesToCreate(classesToCreate);
+      setSuccess(
+        `School data preview ready. ${validRows.length} valid student row(s) found in ${selectedSheet.sheetName}.`
+      );
+    } catch (err) {
+      console.error("School data import preview error:", err);
+      setError(err instanceof Error ? err.message : "Failed to read school data file");
+    } finally {
+      e.target.value = "";
+      setSchoolDataImportLoading(false);
+    }
+  };
+
+  const handleSchoolDataImport = async () => {
+    if (schoolDataImportRows.length === 0) {
+      setError("Please upload a school data file and preview rows first.");
+      return;
+    }
+
+    try {
+      setSchoolDataImportLoading(true);
+      setError("");
+      setSuccess("");
+      setSchoolDataImportResult(null);
+
+      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      if (!school?._id) {
+        setError("School not found. Please log in again.");
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/students/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schoolId: school._id,
+          rows: schoolDataImportRows,
+          duplicateMode: "skip",
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success || !data?.data) {
+        throw new Error(data?.message || "Failed to import school data");
+      }
+
+      const result = data.data as SchoolDataImportResult;
+      setSchoolDataImportResult(result);
+
+      const summaryParts = [
+        `${result.importedCount} student(s) imported`,
+        `${result.classesCreated.length} class(es) created`,
+        `${result.duplicateCount} duplicate(s) skipped`,
+      ];
+
+      if (result.failureCount > 0) {
+        summaryParts.push(`${result.failureCount} failed`);
+      }
+
+      if (result.invalidRows.length > 0) {
+        summaryParts.push(`${result.invalidRows.length} invalid row(s)`);
+      }
+
+      setSuccess(`School data import finished: ${summaryParts.join(", ")}.`);
+      await fetchAdmissions();
+    } catch (err) {
+      console.error("School data import error:", err);
+      setError(err instanceof Error ? err.message : "Failed to import school data");
+    } finally {
+      setSchoolDataImportLoading(false);
     }
   };
 
@@ -995,6 +1321,184 @@ export default function AdmissionsModule() {
             >
               {excelSaving ? "Enrolling..." : "Enroll Students from Excel"}
             </button>
+          </div>
+        )}
+      </div>
+
+      <div className="stat-card p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">School Data Import</h3>
+        </div>
+
+        <p className="mb-3 text-xs text-muted-foreground">
+          Upload a student master workbook for this school. The importer will map rows, create missing
+          classes/sections automatically, generate placeholder emails when missing, and skip duplicates.
+        </p>
+
+        <p className="mb-3 text-xs text-muted-foreground">
+          Supported columns include: S_name, Reg_no, srno, cname, stuSection, roll_no, StSession,
+          d_birth, Admsn_Date, Mobile_No, Mobile_No2, StreetOrVillage, city, ADHAR, sex, Stu_Caste,
+          Stu_Category, TRANSPORT.
+        </p>
+
+        <input
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={handleSchoolDataFileSelect}
+          disabled={schoolDataImportLoading}
+          className="mb-4 block w-full rounded border bg-white p-2 text-sm"
+        />
+
+        {schoolDataImportFileName && (
+          <div className="mb-4 rounded border bg-slate-50 p-4 text-sm text-slate-700">
+            <p><span className="font-medium">File:</span> {schoolDataImportFileName}</p>
+            <p><span className="font-medium">Detected sheet:</span> {schoolDataImportSheetName || "-"}</p>
+            <p><span className="font-medium">Total rows read:</span> {schoolDataImportTotalRows}</p>
+            <p><span className="font-medium">Valid student rows:</span> {schoolDataImportRows.length}</p>
+            <p><span className="font-medium">Skipped rows:</span> {schoolDataImportInvalidRows.length}</p>
+            <p><span className="font-medium">Classes to auto-create:</span> {schoolDataImportClassesToCreate.length}</p>
+          </div>
+        )}
+
+        {schoolDataImportFileName && (
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-slate-700">Class / section preview</p>
+              <button
+                type="button"
+                onClick={clearSchoolDataImportPreview}
+                className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+              >
+                Clear preview
+              </button>
+            </div>
+
+            {schoolDataImportClassesToCreate.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {schoolDataImportClassesToCreate.map((classLabel) => (
+                  <span
+                    key={classLabel}
+                    className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700"
+                  >
+                    {classLabel}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No new classes need to be created from this file.
+              </p>
+            )}
+          </div>
+        )}
+
+        {schoolDataImportInvalidRows.length > 0 && (
+          <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-4">
+            <p className="mb-2 text-sm font-medium text-amber-900">
+              Skipped preview rows: {schoolDataImportInvalidRows.length}
+            </p>
+            <div className="space-y-1 text-xs text-amber-900">
+              {schoolDataImportInvalidRows.slice(0, 5).map((row) => (
+                <p key={`${row.rowNumber}-${row.reason}`}>
+                  Row {row.rowNumber}: {row.reason}
+                </p>
+              ))}
+              {schoolDataImportInvalidRows.length > 5 && (
+                <p>Showing first 5 skipped rows.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {schoolDataImportRows.length > 0 && (
+          <div className="space-y-3">
+            <div className="overflow-x-auto rounded border">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr className="border-b">
+                    <th className="p-2 text-left">Row</th>
+                    <th className="p-2 text-left">Name</th>
+                    <th className="p-2 text-left">Class</th>
+                    <th className="p-2 text-left">Section</th>
+                    <th className="p-2 text-left">Roll No</th>
+                    <th className="p-2 text-left">Admission No</th>
+                    <th className="p-2 text-left">Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schoolDataImportRows.slice(0, 10).map((student) => (
+                    <tr key={`${student.rowNumber}-${student.rollNumber}-${student.name}`} className="border-b">
+                      <td className="p-2">{student.rowNumber}</td>
+                      <td className="p-2 font-medium">{student.name}</td>
+                      <td className="p-2">{student.className}</td>
+                      <td className="p-2">{student.classSection}</td>
+                      <td className="p-2">{student.rollNumber}</td>
+                      <td className="p-2">{student.admissionNumber || "-"}</td>
+                      <td className="p-2">{student.phone || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {schoolDataImportRows.length > 10 && (
+              <p className="text-xs text-muted-foreground">Showing first 10 rows in preview.</p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void handleSchoolDataImport()}
+              disabled={schoolDataImportLoading}
+              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {schoolDataImportLoading ? "Importing..." : "Import School Data"}
+            </button>
+          </div>
+        )}
+
+        {schoolDataImportResult && (
+          <div className="mt-4 rounded border bg-slate-50 p-4 text-sm text-slate-700">
+            <p className="font-medium">Last import summary</p>
+            <p>Total rows submitted: {schoolDataImportResult.totalRows}</p>
+            <p>Valid rows: {schoolDataImportResult.validRows}</p>
+            <p>Imported: {schoolDataImportResult.importedCount}</p>
+            <p>Duplicate rows skipped: {schoolDataImportResult.duplicateCount}</p>
+            <p>Failed rows: {schoolDataImportResult.failureCount}</p>
+            <p>Classes created: {schoolDataImportResult.classesCreated.length}</p>
+
+            {schoolDataImportResult.classesCreated.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {schoolDataImportResult.classesCreated.map((classLabel) => (
+                  <span
+                    key={classLabel}
+                    className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700"
+                  >
+                    {classLabel}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {schoolDataImportResult.duplicates.length > 0 && (
+              <div className="mt-3 text-xs text-slate-600">
+                {schoolDataImportResult.duplicates.slice(0, 5).map((row) => (
+                  <p key={`duplicate-${row.rowNumber}-${row.reason}`}>
+                    Row {row.rowNumber}: {row.reason}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {schoolDataImportResult.failures.length > 0 && (
+              <div className="mt-3 text-xs text-red-600">
+                {schoolDataImportResult.failures.slice(0, 5).map((row) => (
+                  <p key={`failure-${row.rowNumber}-${row.reason}`}>
+                    Row {row.rowNumber}: {row.reason}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
