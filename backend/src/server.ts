@@ -130,12 +130,19 @@ app.use("/api/data-import", authenticateToken, dataImportRoutes);
 // ==========================
 app.get("/api/health", (req, res) => {
   const db = getDatabaseStatus();
+  const hasSuperAdminEmail = Boolean((process.env.SUPER_ADMIN_EMAIL || "").trim());
+  const hasSuperAdminPassword = Boolean((process.env.SUPER_ADMIN_PASSWORD || "").trim());
 
   res.json({
     ok: true,
     dbConnected: db.connected,
     dbReadyState: db.readyState,
     dbLastError: db.lastError,
+    superAdminConfigured: hasSuperAdminEmail && hasSuperAdminPassword,
+    superAdminEnv: {
+      email: hasSuperAdminEmail,
+      password: hasSuperAdminPassword,
+    },
   });
 });
 

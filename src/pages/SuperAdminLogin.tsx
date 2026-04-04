@@ -24,13 +24,21 @@ export default function SuperAdminLogin() {
     setLoading(true);
 
     try {
-      if (!email || !password) {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (!normalizedEmail || !password) {
         setError("Please enter both email and password");
         setLoading(false);
         return;
       }
 
-      const auth = await loginSuperAdmin(email, password);
+      if (!/^[^\s@]+@gmail\.com$/.test(normalizedEmail)) {
+        setError("Super admin login requires a gmail.com email address");
+        setLoading(false);
+        return;
+      }
+
+      const auth = await loginSuperAdmin(normalizedEmail, password);
       clearStoredSessions();
 
       if (auth.token) {
@@ -39,7 +47,7 @@ export default function SuperAdminLogin() {
 
       login({
         id: auth.user?.id || "super_admin_001",
-        email: auth.user?.email || email,
+        email: auth.user?.email || normalizedEmail,
         name: auth.user?.name || "Super Admin",
         role: "super-admin",
       });
@@ -96,7 +104,9 @@ export default function SuperAdminLogin() {
                   disabled={loading}
                   className="h-10"
                   autoComplete="email"
+                  pattern="^[^\s@]+@gmail\.com$"
                 />
+                <p className="text-xs text-slate-500">Use your gmail.com super admin email.</p>
               </div>
 
               <div className="space-y-2">

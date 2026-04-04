@@ -37,6 +37,11 @@ import { authenticateToken } from "../middleware/auth";
 
 const router = express.Router();
 
+const isGmailAddress = (email: string) => {
+  const normalized = String(email || "").trim().toLowerCase();
+  return /^[^\s@]+@gmail\.com$/.test(normalized);
+};
+
 
 // ==========================
 // 🔥 HELPER FUNCTION
@@ -224,13 +229,19 @@ router.post("/login", async (req, res) => {
 router.post("/super-admin-login", async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    if (!isGmailAddress(normalizedEmail)) {
+      return res.status(400).json({ message: "Super admin login requires a gmail.com email address" });
     }
 
     const expectedEmail = process.env.SUPER_ADMIN_EMAIL;
     const expectedPassword = process.env.SUPER_ADMIN_PASSWORD;
+    const normalizedExpectedEmail = String(expectedEmail || "").trim().toLowerCase();
 
     if (!expectedEmail || !expectedPassword) {
       return res.status(500).json({
@@ -238,13 +249,19 @@ router.post("/super-admin-login", async (req, res) => {
       });
     }
 
-    if (email !== expectedEmail || password !== expectedPassword) {
+    if (!isGmailAddress(normalizedExpectedEmail)) {
+      return res.status(500).json({
+        message: "Super admin email on server must be a gmail.com address",
+      });
+    }
+
+    if (normalizedEmail !== normalizedExpectedEmail || password !== expectedPassword) {
       return res.status(401).json({ message: "Invalid super admin credentials" });
     }
 
     const token = signAuthToken({
       userId: "super-admin",
-      email,
+      email: normalizedEmail,
       role: "super-admin",
     });
 
@@ -253,7 +270,7 @@ router.post("/super-admin-login", async (req, res) => {
       token,
       user: {
         id: "super_admin_001",
-        email,
+        email: normalizedEmail,
         name: "Super Admin",
         role: "super-admin",
       },
@@ -279,9 +296,14 @@ router.post("/super-admin/clear-database", authenticateToken, async (req, res) =
       password?: string;
       confirmationText?: string;
     };
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ message: "Super admin email and password are required" });
+    }
+
+    if (!isGmailAddress(normalizedEmail)) {
+      return res.status(400).json({ message: "Super admin operations require a gmail.com email address" });
     }
 
     if (confirmationText !== "CLEAR DATABASE") {
@@ -290,6 +312,7 @@ router.post("/super-admin/clear-database", authenticateToken, async (req, res) =
 
     const expectedEmail = process.env.SUPER_ADMIN_EMAIL;
     const expectedPassword = process.env.SUPER_ADMIN_PASSWORD;
+    const normalizedExpectedEmail = String(expectedEmail || "").trim().toLowerCase();
 
     if (!expectedEmail || !expectedPassword) {
       return res.status(500).json({
@@ -297,7 +320,13 @@ router.post("/super-admin/clear-database", authenticateToken, async (req, res) =
       });
     }
 
-    if (email !== expectedEmail || password !== expectedPassword) {
+    if (!isGmailAddress(normalizedExpectedEmail)) {
+      return res.status(500).json({
+        message: "Super admin email on server must be a gmail.com address",
+      });
+    }
+
+    if (normalizedEmail !== normalizedExpectedEmail || password !== expectedPassword) {
       return res.status(401).json({ message: "Invalid super admin credentials" });
     }
 

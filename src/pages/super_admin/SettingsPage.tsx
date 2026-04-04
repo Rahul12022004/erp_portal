@@ -125,9 +125,15 @@ export default function SettingsPage() {
   const clearDatabase = async () => {
     setClearDbError("");
     setClearDbSuccess("");
+    const normalizedAdminEmail = adminEmail.trim().toLowerCase();
 
-    if (!adminEmail || !adminPassword) {
+    if (!normalizedAdminEmail || !adminPassword) {
       setClearDbError("Enter super admin email and password.");
+      return;
+    }
+
+    if (!/^[^\s@]+@gmail\.com$/.test(normalizedAdminEmail)) {
+      setClearDbError("Super admin email must be a gmail.com address.");
       return;
     }
 
@@ -146,7 +152,7 @@ export default function SettingsPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          email: adminEmail,
+          email: normalizedAdminEmail,
           password: adminPassword,
           confirmationText,
         }),
