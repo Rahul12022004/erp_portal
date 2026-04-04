@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { readStoredRoleUser, readStoredSchoolSession } from "@/lib/auth";
 
 type Announcement = {
   _id: string;
@@ -20,8 +21,8 @@ export default function CommunicationModule() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const school = JSON.parse(localStorage.getItem("school") || "{}");
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const school = readStoredSchoolSession();
+  const currentUser = readStoredRoleUser();
   const userRole = currentUser?.role || "Principal";
 
   const fetchAnnouncements = async () => {

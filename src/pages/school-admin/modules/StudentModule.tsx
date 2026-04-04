@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { Edit, ImagePlus, RefreshCw, Trash2, X } from "lucide-react";
 import { API_URL } from "@/lib/api";
+import { readStoredSchoolSession } from "@/lib/auth";
 
 type StudentListItem = {
   _id: string;
@@ -16,9 +17,93 @@ type StudentListItem = {
   photo?: string;
 };
 
+type StudentRecord = StudentListItem & {
+  formNumber?: string;
+  aadharNumber?: string;
+  dateOfBirth?: string;
+  placeOfBirth?: string;
+  state?: string;
+  nationality?: string;
+  religion?: string;
+  caste?: string;
+  pinCode?: string;
+  motherTongue?: string;
+  bloodGroup?: string;
+  address?: string;
+  identificationMarks?: string;
+  previousAcademicRecord?: string;
+  achievements?: string;
+  generalBehaviour?: string;
+  medicalHistory?: string;
+  languagePreferences?: string[] | string;
+};
+
+const asText = (value: unknown): string => String(value ?? "").trim();
+
+const toStudentListItem = (student: Partial<StudentRecord>): StudentListItem => ({
+  _id: asText(student._id),
+  admissionNumber: asText(student.admissionNumber) || undefined,
+  name: asText(student.name) || "Student",
+  email: asText(student.email),
+  class: asText(student.class),
+  classSection: asText(student.classSection) || undefined,
+  academicYear: asText(student.academicYear) || undefined,
+  rollNumber: asText(student.rollNumber),
+  phone: asText(student.phone) || undefined,
+  gender: asText(student.gender) || undefined,
+  photo: asText(student.photo) || undefined,
+});
+
 type SchoolClass = {
   _id: string;
   name: string;
+};
+
+const toSchoolClass = (schoolClass: Partial<SchoolClass>): SchoolClass => ({
+  _id: asText(schoolClass._id),
+  name: asText(schoolClass.name),
+});
+
+type PaymentStatus = "pending" | "partial" | "paid" | "overdue";
+
+type FeeComponent = {
+  label: string;
+  amount: number;
+};
+
+type PaymentReceipt = {
+  receiptNumber: string;
+  transactionId: string;
+  paymentDate: string;
+  amountPaid: number;
+  paymentType?: "upi" | "card" | "cash" | "cheque";
+};
+
+type StudentFeeSummary = {
+  financeId?: string | null;
+  totalFee: number;
+  totalAssignedAmount?: number;
+  paidAmount: number;
+  totalPaidAmount?: number;
+  remainingAmount: number;
+  pendingBalance?: number;
+  currentDueAmount?: number;
+  olderPendingAmount?: number;
+  status: PaymentStatus;
+  paymentStatus?: PaymentStatus;
+  dueDate?: string | null;
+  effectiveDueDate?: string | null;
+  academicYear?: string | null;
+  feeComponents?: FeeComponent[];
+  latestReceipt?: PaymentReceipt | null;
+  paymentHistory?: PaymentReceipt[];
+  isOverdue?: boolean;
+  extensionGranted?: boolean;
+  extensionGrantedAt?: string | null;
+  extensionExpiresAt?: string | null;
+  extensionGrantedBy?: string | null;
+  extensionReason?: string | null;
+  extensionEligible?: boolean;
 };
 
 type StudentForm = {
@@ -83,6 +168,26 @@ const emptyForm: StudentForm = {
   languagePreferences: "",
 };
 
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0));
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "2-digit" });
+};
+
+const getDisplayDueDate = (summary: StudentFeeSummary | null) =>
+  summary?.effectiveDueDate || summary?.dueDate || null;
+
+const getStatusBadgeClass = (status?: string) => {
+  if (status === "paid") return "bg-green-100 text-green-700";
+  if (status === "partial") return "bg-amber-100 text-amber-700";
+  if (status === "overdue") return "bg-red-100 text-red-700";
+  return "bg-slate-100 text-slate-700";
+};
+
 const resizeImage = (file: File, maxPx: number): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -108,7 +213,7 @@ const resizeImage = (file: File, maxPx: number): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
-const toForm = (student: any): StudentForm => ({
+const toForm = (student: Partial<StudentRecord>): StudentForm => ({
   formNumber: student.formNumber || "",
   admissionNumber: student.admissionNumber || "",
   name: student.name || "",
@@ -154,12 +259,15 @@ export default function StudentModule() {
   const [editorError, setEditorError] = useState("");
   const [form, setForm] = useState<StudentForm>(emptyForm);
   const [photoPreview, setPhotoPreview] = useState("");
+  const [feeSummary, setFeeSummary] = useState<StudentFeeSummary | null>(null);
+  const [feeSummaryError, setFeeSummaryError] = useState("");
+  const [grantingExtension, setGrantingExtension] = useState(false);
 
   const fetchStudents = async () => {
     try {
       setLoading(true);
       setError("");
-      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      const school = readStoredSchoolSession();
       if (!school?._id) {
         throw new Error("School not found. Please log in again.");
       }
@@ -169,8 +277,19 @@ export default function StudentModule() {
       ]);
       if (!studentsRes.ok) throw new Error(`Failed to load students (${studentsRes.status})`);
       if (!classesRes.ok) throw new Error(`Failed to load classes (${classesRes.status})`);
-      setStudents(await studentsRes.json());
-      setClasses(await classesRes.json());
+      const studentData = await studentsRes.json().catch(() => []);
+      const classData = await classesRes.json().catch(() => []);
+
+      setStudents(
+        Array.isArray(studentData)
+          ? studentData.map((student) => toStudentListItem((student ?? {}) as Partial<StudentRecord>))
+          : []
+      );
+      setClasses(
+        Array.isArray(classData)
+          ? classData.map((schoolClass) => toSchoolClass((schoolClass ?? {}) as Partial<SchoolClass>)).filter((schoolClass) => schoolClass._id && schoolClass.name)
+          : []
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch student data");
       setStudents([]);
@@ -188,25 +307,49 @@ export default function StudentModule() {
     const query = search.toLowerCase();
     return students.filter((student) =>
       !query ||
-      student.name.toLowerCase().includes(query) ||
-      student.email.toLowerCase().includes(query) ||
-      student.rollNumber.toLowerCase().includes(query) ||
-      (student.admissionNumber || "").toLowerCase().includes(query)
+      asText(student.name).toLowerCase().includes(query) ||
+      asText(student.email).toLowerCase().includes(query) ||
+      asText(student.rollNumber).toLowerCase().includes(query) ||
+      asText(student.admissionNumber).toLowerCase().includes(query)
     );
   }, [students, search]);
+
+  const fetchStudentFeeSummary = async (schoolId: string, studentId: string) => {
+    const response = await fetch(`${API_URL}/api/finance/${schoolId}/students/${studentId}/summary`);
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.message || "Failed to load student fee summary");
+    }
+    return data as StudentFeeSummary;
+  };
 
   const openEditor = async (studentId: string) => {
     try {
       setEditorOpen(true);
       setEditorLoading(true);
       setEditorError("");
+      setFeeSummary(null);
+      setFeeSummaryError("");
       setEditingId(studentId);
-      const response = await fetch(`${API_URL}/api/students/${studentId}`);
-      if (!response.ok) throw new Error(`Failed to load student (${response.status})`);
-      const student = await response.json();
+      const school = readStoredSchoolSession();
+      if (!school?._id) {
+        throw new Error("School not found. Please log in again.");
+      }
+
+      const [studentResponse, summary] = await Promise.all([
+        fetch(`${API_URL}/api/students/${studentId}`),
+        fetchStudentFeeSummary(school._id, studentId).catch((error) => {
+          setFeeSummaryError(error instanceof Error ? error.message : "Failed to load fee summary");
+          return null;
+        }),
+      ]);
+
+      if (!studentResponse.ok) throw new Error(`Failed to load student (${studentResponse.status})`);
+      const student = await studentResponse.json();
       const nextForm = toForm(student);
       setForm(nextForm);
       setPhotoPreview(nextForm.photo);
+      setFeeSummary(summary);
     } catch (err) {
       setEditorError(err instanceof Error ? err.message : "Failed to load student");
     } finally {
@@ -222,6 +365,9 @@ export default function StudentModule() {
     setEditingId("");
     setForm(emptyForm);
     setPhotoPreview("");
+    setFeeSummary(null);
+    setFeeSummaryError("");
+    setGrantingExtension(false);
   };
 
   const saveStudent = async (event: FormEvent<HTMLFormElement>) => {
@@ -275,6 +421,35 @@ export default function StudentModule() {
     }
   };
 
+  const grantFeeExtension = async () => {
+    if (!editingId) return;
+
+    const school = readStoredSchoolSession();
+    if (!school?._id) {
+      setFeeSummaryError("School not found. Please log in again.");
+      return;
+    }
+
+    try {
+      setGrantingExtension(true);
+      setFeeSummaryError("");
+      const response = await fetch(`${API_URL}/api/finance/${school._id}/students/${editingId}/extension`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to grant fee extension");
+      }
+      setFeeSummary((data?.data || null) as StudentFeeSummary | null);
+    } catch (err) {
+      setFeeSummaryError(err instanceof Error ? err.message : "Failed to grant fee extension");
+    } finally {
+      setGrantingExtension(false);
+    }
+  };
+
   const textAreaFields = [
     ["address", "Residential Address"],
     ["identificationMarks", "Identification Marks"],
@@ -324,7 +499,7 @@ export default function StudentModule() {
                   <td className="p-3">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 overflow-hidden rounded-full border bg-gray-100">
-                        {student.photo ? <img src={student.photo} alt={student.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-gray-500">{student.name.slice(0, 2).toUpperCase()}</div>}
+                        {student.photo ? <img src={student.photo} alt={student.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-gray-500">{asText(student.name).slice(0, 2).toUpperCase() || "ST"}</div>}
                       </div>
                       <div>
                         <p className="font-medium">{student.name}</p>
@@ -364,7 +539,7 @@ export default function StudentModule() {
               {editorLoading ? <p className="text-center text-gray-500">Loading admission record...</p> : (
                 <form onSubmit={saveStudent} className="space-y-6">
                   {editorError && <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{editorError}</div>}
-                  <div className="grid gap-6 xl:grid-cols-[260px_1fr]">
+                  <div className="grid gap-6 xl:grid-cols-[260px_320px_1fr]">
                     <div className="rounded-xl border bg-slate-50 p-4">
                       <p className="mb-3 text-sm font-semibold">Student Photo</p>
                       <div className="mb-4 flex h-72 items-center justify-center overflow-hidden rounded-xl border bg-white">
@@ -375,6 +550,103 @@ export default function StudentModule() {
                         Replace Photo
                         <input type="file" accept="image/*" onChange={(event) => void handlePhotoSelect(event)} className="hidden" />
                       </label>
+                    </div>
+                    <div className="rounded-xl border bg-slate-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Fee Summary</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Current fee, old pending balance, and one-time extension status.</p>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(feeSummary?.paymentStatus || feeSummary?.status)}`}>
+                          {String(feeSummary?.paymentStatus || feeSummary?.status || "pending").toUpperCase()}
+                        </span>
+                      </div>
+
+                      {feeSummaryError && (
+                        <div className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                          {feeSummaryError}
+                        </div>
+                      )}
+
+                      {feeSummary ? (
+                        <div className="mt-4 space-y-3 text-sm">
+                          <div className="rounded-xl border bg-white p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">Current Fee Due</span>
+                              <span className="font-semibold text-slate-900">{formatCurrency(feeSummary.currentDueAmount ?? feeSummary.pendingBalance ?? feeSummary.remainingAmount)}</span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-slate-500">Past Fee Pending</span>
+                              <span className="font-semibold text-rose-700">{formatCurrency(feeSummary.olderPendingAmount ?? 0)}</span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-slate-500">Total Paid</span>
+                              <span className="font-semibold text-emerald-700">{formatCurrency(feeSummary.totalPaidAmount ?? feeSummary.paidAmount)}</span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-slate-500">Total Assigned</span>
+                              <span className="font-semibold text-slate-900">{formatCurrency(feeSummary.totalAssignedAmount ?? feeSummary.totalFee)}</span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-slate-500">Effective Due Date</span>
+                              <span className="font-semibold text-slate-900">{formatDate(getDisplayDueDate(feeSummary))}</span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-slate-500">Original Due Date</span>
+                              <span className="font-semibold text-slate-900">{formatDate(feeSummary.dueDate)}</span>
+                            </div>
+                          </div>
+
+                          {feeSummary.feeComponents && feeSummary.feeComponents.length > 0 && (
+                            <div className="rounded-xl border bg-white p-3">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fee Components</p>
+                              <div className="mt-3 space-y-2">
+                                {feeSummary.feeComponents.map((component) => (
+                                  <div key={`${component.label}-${component.amount}`} className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-600">{component.label}</span>
+                                    <span className="font-semibold text-slate-900">{formatCurrency(component.amount)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {feeSummary.isOverdue ? (
+                            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
+                              This fee is overdue. If it has stayed pending for more than one month, you can grant one extra month from here.
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-700">
+                              No overdue action is needed right now.
+                            </div>
+                          )}
+
+                          {feeSummary.extensionGranted ? (
+                            <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-700">
+                              <p className="font-semibold">One-month extension granted</p>
+                              <p className="mt-1">Valid until {formatDate(feeSummary.extensionExpiresAt)}.</p>
+                              <p className="mt-1">Approved by {feeSummary.extensionGrantedBy || "School Admin"} on {formatDate(feeSummary.extensionGrantedAt)}.</p>
+                            </div>
+                          ) : feeSummary.extensionEligible ? (
+                            <button
+                              type="button"
+                              onClick={() => void grantFeeExtension()}
+                              disabled={grantingExtension}
+                              className="w-full rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-70"
+                            >
+                              {grantingExtension ? "Granting Extension..." : "Grant 1-Month Extension"}
+                            </button>
+                          ) : (
+                            <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600">
+                              Extension becomes available only when the unpaid fee stays pending for more than one month.
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-4 rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
+                          Fee summary is not available for this student yet.
+                        </div>
+                      )}
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <Field label="Form Number"><input className="w-full rounded border p-2" value={form.formNumber} onChange={(event) => setForm({ ...form, formNumber: event.target.value })} /></Field>

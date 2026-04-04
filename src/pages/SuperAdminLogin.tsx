@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { clearStoredSessions } from "@/lib/auth";
+import { clearStoredSessions, loginSuperAdmin, persistAuthToken } from "@/lib/auth";
 
 export default function SuperAdminLogin() {
   const navigate = useNavigate();
@@ -30,13 +30,17 @@ export default function SuperAdminLogin() {
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const auth = await loginSuperAdmin(email, password);
       clearStoredSessions();
 
+      if (auth.token) {
+        persistAuthToken(auth.token);
+      }
+
       login({
-        id: "super_admin_001",
-        email,
-        name: "Super Admin",
+        id: auth.user?.id || "super_admin_001",
+        email: auth.user?.email || email,
+        name: auth.user?.name || "Super Admin",
         role: "super-admin",
       });
 
@@ -86,7 +90,7 @@ export default function SuperAdminLogin() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@eduadmin.com"
+                  placeholder="Enter super admin email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
@@ -149,7 +153,7 @@ export default function SuperAdminLogin() {
 
         <div className="mt-6 rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
           <p className="text-xs text-blue-700 dark:text-blue-300">
-            <strong>Demo:</strong> Super admin still uses demo credentials, but it now starts from a clean session state
+            Super admin credentials are configured securely on the backend environment.
           </p>
         </div>
       </div>

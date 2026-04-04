@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { readStoredSchoolSession } from "@/lib/auth";
 
 type TeacherAttendance = {
   attendanceId: string | null;
@@ -23,7 +24,7 @@ export default function TeacherAttendanceModule() {
   const [schoolId, setSchoolId] = useState("");
 
   useEffect(() => {
-    const school = JSON.parse(localStorage.getItem("school") || "{}");
+    const school = readStoredSchoolSession();
     setSchoolId(school?._id || "");
   }, []);
 

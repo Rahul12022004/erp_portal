@@ -667,14 +667,24 @@ export default function ExamsModule() {
       });
 
       // Marks table
-      const tableData = data.marks.map((m: any, index: number) => [
+      const tableData = data.marks.map((
+        mark: {
+          rollNumber?: string;
+          studentName?: string;
+          email?: string;
+          obtainedMarks?: number | string;
+          maxMarks?: number | string;
+          remarks?: string;
+        },
+        index: number
+      ) => [
         index + 1,
-        m.rollNumber,
-        m.studentName,
-        m.email,
-        m.obtainedMarks,
-        m.maxMarks,
-        m.remarks || "-",
+        mark.rollNumber,
+        mark.studentName,
+        mark.email,
+        mark.obtainedMarks,
+        mark.maxMarks,
+        mark.remarks || "-",
       ]);
 
       autoTable(doc, {

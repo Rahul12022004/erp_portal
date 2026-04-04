@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Download, FileSpreadsheet, IdCard, Printer, UserPlus, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Download, IdCard, Printer, UserPlus, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 import { API_URL } from "@/lib/api";
+import { readStoredSchoolSession } from "@/lib/auth";
 
 type Student = {
   _id: string;
@@ -56,6 +57,8 @@ type AdmissionForm = {
   needsTransport: boolean;
   busConsent: boolean;
   photo: string;
+  rteDocument: string;
+  bodCertificate: string;
 };
 
 type ParsedAdmissionRow = {
@@ -79,6 +82,13 @@ type SchoolImportClassPreview = {
   name: string;
   section: string;
   label: string;
+};
+
+type SchoolNameSession = {
+  name?: string;
+  schoolInfo?: {
+    name?: string;
+  };
 };
 
 type SchoolDataImportRow = {
@@ -154,6 +164,8 @@ const emptyForm: AdmissionForm = {
   needsTransport: false,
   busConsent: false,
   photo: "",
+  rteDocument: "",
+  bodCertificate: "",
 };
 
 const getRowValue = (row: Record<string, unknown>, keys: string[]): string => {
@@ -325,6 +337,21 @@ const parseSchoolDataImportRows = (rows: Record<string, unknown>[]) => {
   };
 };
 
+const buildGeneratedImportEmail = (
+  schoolId: string,
+  row: Pick<SchoolDataImportRow, "admissionNumber" | "rollNumber">,
+  rowIndex: number
+) => {
+  const seed = normalizeTextValue(row.admissionNumber) || normalizeTextValue(row.rollNumber) || String(rowIndex + 1);
+  const safeSeed = seed.replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase() || `row-${rowIndex + 1}`;
+  return `student-${schoolId}-${safeSeed}@import.local`;
+};
+
+const buildImportDuplicateReason = (row: SchoolDataImportRow) =>
+  row.admissionNumber
+    ? `Student with admission number ${row.admissionNumber} already exists`
+    : `Student ${row.name} already exists in ${row.classLabel} with roll number ${row.rollNumber}`;
+
 const resizeImage = (file: File, maxPx: number): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -367,8 +394,13 @@ export default function AdmissionsModule() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [photoPreview, setPhotoPreview] = useState("");
+  const [rteDocumentName, setRteDocumentName] = useState("");
+  const [bodCertificateName, setBodyCertificateName] = useState("");
   const [idCardStudent, setIdCardStudent] = useState<Student | null>(null);
+  const [selectedClassFilter, setSelectedClassFilter] = useState("all");
   const [showTransportTerms, setShowTransportTerms] = useState(false);
+  const schoolSession = readStoredSchoolSession() as SchoolNameSession | null;
+  const schoolDisplayName = schoolSession?.schoolInfo?.name ?? schoolSession?.name ?? "School";
   // ref kept for potential future use
   const _idCardRef = useRef<HTMLDivElement>(null);
 
@@ -391,7 +423,7 @@ export default function AdmissionsModule() {
       setLoading(true);
       setError("");
 
-      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      const school = readStoredSchoolSession();
       if (!school?._id) {
         setError("School not found. Please log in again.");
         setRecentAdmissions([]);
@@ -414,6 +446,19 @@ export default function AdmissionsModule() {
     }
   };
 
+  const classFilterOptions = useMemo(() => {
+    const unique = Array.from(new Set(recentAdmissions.map((student) => student.class).filter(Boolean)));
+    return unique.sort((a, b) => a.localeCompare(b));
+  }, [recentAdmissions]);
+
+  const filteredAdmissions = useMemo(() => {
+    if (selectedClassFilter === "all") {
+      return recentAdmissions;
+    }
+
+    return recentAdmissions.filter((student) => student.class === selectedClassFilter);
+  }, [recentAdmissions, selectedClassFilter]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -431,7 +476,7 @@ export default function AdmissionsModule() {
       setError("");
       setSuccess("");
 
-      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      const school = readStoredSchoolSession();
       if (!school?._id) {
         setError("School not found. Please log in again.");
         return;
@@ -473,6 +518,8 @@ export default function AdmissionsModule() {
         needsTransport: formData.needsTransport,
         busConsent: formData.busConsent,
         photo: formData.photo || undefined,
+        rteDocument: formData.rteDocument || undefined,
+        bodCertificate: formData.bodCertificate || undefined,
         schoolId: school._id,
       };
 
@@ -559,7 +606,7 @@ export default function AdmissionsModule() {
       setError("");
       setSuccess("");
 
-      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      const school = readStoredSchoolSession();
       if (!school?._id) {
         setError("School not found. Please log in again.");
         return;
@@ -623,7 +670,7 @@ export default function AdmissionsModule() {
       setSchoolDataImportResult(null);
       clearSchoolDataImportPreview();
 
-      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      const school = readStoredSchoolSession();
       if (!school?._id) {
         setError("School not found. Please log in again.");
         return;
@@ -695,28 +742,194 @@ export default function AdmissionsModule() {
       setSuccess("");
       setSchoolDataImportResult(null);
 
-      const school = JSON.parse(localStorage.getItem("school") || "{}");
+      const school = readStoredSchoolSession();
       if (!school?._id) {
         setError("School not found. Please log in again.");
         return;
       }
 
-      const res = await fetch(`${API_URL}/api/students/import`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          schoolId: school._id,
-          rows: schoolDataImportRows,
-          duplicateMode: "skip",
-        }),
-      });
+      let result: SchoolDataImportResult | null = null;
+      let shouldTryLegacyFallback = false;
 
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success || !data?.data) {
-        throw new Error(data?.message || "Failed to import school data");
+      try {
+        const res = await fetch(`${API_URL}/api/students/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            schoolId: school._id,
+            rows: schoolDataImportRows,
+            duplicateMode: "skip",
+          }),
+        });
+
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.success && data?.data) {
+          result = data.data as SchoolDataImportResult;
+        } else if (res.status === 404) {
+          shouldTryLegacyFallback = true;
+        } else {
+          throw new Error(data?.message || "Failed to import school data");
+        }
+      } catch (bulkImportError) {
+        if (
+          bulkImportError instanceof Error &&
+          /Cannot POST|404|Failed to fetch|NetworkError/i.test(bulkImportError.message)
+        ) {
+          shouldTryLegacyFallback = true;
+        } else {
+          throw bulkImportError;
+        }
       }
 
-      const result = data.data as SchoolDataImportResult;
+      if (!result && shouldTryLegacyFallback) {
+        const [classRes, studentRes] = await Promise.all([
+          fetch(`${API_URL}/api/classes/${school._id}`),
+          fetch(`${API_URL}/api/students/${school._id}`),
+        ]);
+
+        if (!classRes.ok) {
+          throw new Error(`Failed to load classes (${classRes.status})`);
+        }
+
+        if (!studentRes.ok) {
+          throw new Error(`Failed to load students (${studentRes.status})`);
+        }
+
+        const existingClasses = (await classRes.json()) as SchoolClassSummary[];
+        const existingStudents = (await studentRes.json()) as Student[];
+        const existingClassKeys = new Set(
+          (Array.isArray(existingClasses) ? existingClasses : []).map((schoolClass) =>
+            buildClassKey(schoolClass.name || "", schoolClass.section || "")
+          )
+        );
+
+        const existingStudentsByAdmission = new Set(
+          (Array.isArray(existingStudents) ? existingStudents : [])
+            .map((student) => normalizeTextValue(student.admissionNumber))
+            .filter(Boolean)
+        );
+
+        const existingStudentsByComposite = new Set(
+          (Array.isArray(existingStudents) ? existingStudents : []).map((student) =>
+            [
+              normalizeTextValue(student.class),
+              normalizeTextValue(student.rollNumber),
+              normalizeTextValue(student.name).toLowerCase(),
+            ].join("::")
+          )
+        );
+
+        const classesCreated: string[] = [];
+        const duplicates: InvalidSchoolDataImportRow[] = [];
+        const failures: InvalidSchoolDataImportRow[] = [];
+        let importedCount = 0;
+
+        for (const row of schoolDataImportRows) {
+          const classKey = buildClassKey(row.className, row.classSection);
+          if (!existingClassKeys.has(classKey)) {
+            const createClassRes = await fetch(`${API_URL}/api/classes`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: row.className,
+                section: row.classSection,
+                academicYear: row.academicYear,
+                schoolId: school._id,
+              }),
+            });
+
+            const createClassData = await createClassRes.json().catch(() => null);
+            if (!createClassRes.ok && createClassData?.message !== "This class and section already exist") {
+              failures.push({
+                rowNumber: row.rowNumber,
+                reason: createClassData?.message || `Failed to create class ${row.classLabel}`,
+              });
+              continue;
+            }
+
+            existingClassKeys.add(classKey);
+            if (!classesCreated.includes(row.classLabel)) {
+              classesCreated.push(row.classLabel);
+            }
+          }
+
+          const normalizedAdmissionNumber = normalizeTextValue(row.admissionNumber);
+          const compositeKey = [
+            normalizeTextValue(row.classLabel),
+            normalizeTextValue(row.rollNumber),
+            normalizeTextValue(row.name).toLowerCase(),
+          ].join("::");
+
+          if (
+            (normalizedAdmissionNumber && existingStudentsByAdmission.has(normalizedAdmissionNumber)) ||
+            existingStudentsByComposite.has(compositeKey)
+          ) {
+            duplicates.push({
+              rowNumber: row.rowNumber,
+              reason: buildImportDuplicateReason(row),
+            });
+            continue;
+          }
+
+          const createStudentRes = await fetch(`${API_URL}/api/students`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              formNumber: row.formNumber,
+              formDate: row.formDate,
+              admissionNumber: row.admissionNumber,
+              name: row.name,
+              email: row.email || buildGeneratedImportEmail(school._id, row, row.rowNumber - 2),
+              class: row.classLabel,
+              classSection: row.classSection,
+              academicYear: row.academicYear,
+              rollNumber: row.rollNumber,
+              phone: row.phone,
+              aadharNumber: row.aadharNumber,
+              gender: row.gender,
+              dateOfBirth: row.dateOfBirth,
+              religion: row.religion,
+              caste: row.caste,
+              address: row.address,
+              needsTransport: row.needsTransport,
+              busConsent: row.busConsent,
+              schoolId: school._id,
+            }),
+          });
+
+          const createStudentData = await createStudentRes.json().catch(() => null);
+          if (!createStudentRes.ok) {
+            failures.push({
+              rowNumber: row.rowNumber,
+              reason: createStudentData?.message || "Failed to import student",
+            });
+            continue;
+          }
+
+          importedCount += 1;
+          if (normalizedAdmissionNumber) {
+            existingStudentsByAdmission.add(normalizedAdmissionNumber);
+          }
+          existingStudentsByComposite.add(compositeKey);
+        }
+
+        result = {
+          totalRows: schoolDataImportRows.length,
+          validRows: schoolDataImportRows.length,
+          invalidRows: schoolDataImportInvalidRows,
+          classesCreated,
+          importedCount,
+          duplicateCount: duplicates.length,
+          duplicates,
+          failureCount: failures.length,
+          failures,
+        };
+      }
+
+      if (!result) {
+        throw new Error("Failed to import school data");
+      }
+
       setSchoolDataImportResult(result);
 
       const summaryParts = [
@@ -756,8 +969,41 @@ export default function AdmissionsModule() {
     e.target.value = "";
   };
 
+  const handleRteDocumentSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToBase64(file);
+      setRteDocumentName(file.name);
+      setFormData((prev) => ({ ...prev, rteDocument: dataUrl }));
+    } catch {
+      setError("Failed to process RTE document. Please try again.");
+    }
+    e.target.value = "";
+  };
+
+  const handleBodCertificateSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToBase64(file);
+      setBodyCertificateName(file.name);
+      setFormData((prev) => ({ ...prev, bodCertificate: dataUrl }));
+    } catch {
+      setError("Failed to process BOD Certificate. Please try again.");
+    }
+    e.target.value = "";
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
   const downloadTransportConsentForm = () => {
-    const school = JSON.parse(localStorage.getItem("school") || "{}");
+    const school = readStoredSchoolSession();
     const schoolName =
       school?.schoolInfo?.name ||
       school?.name ||
@@ -837,8 +1083,8 @@ export default function AdmissionsModule() {
 
   const printIdCard = () => {
     if (!idCardStudent) return;
-    const sch = JSON.parse(localStorage.getItem("school") ?? "{}") as { name?: string };
-    const schoolName = sch?.name ?? "School";
+    const sch = readStoredSchoolSession() as SchoolNameSession | null;
+    const schoolName = sch?.schoolInfo?.name ?? sch?.name ?? "School";
     const photoHtml = idCardStudent.photo
       ? `<img src="${idCardStudent.photo}" style="width:80px;height:100px;object-fit:cover;border-radius:6px;" />`
       : `<div style="width:80px;height:100px;background:#e5e7eb;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:36px;">&#128100;</div>`;
@@ -872,8 +1118,88 @@ export default function AdmissionsModule() {
   </div>
   <div class="ft"><p>If found, please return to the school office</p></div>
 </div>
-<script>window.onload=function(){window.print();};<\/script>
+<script>window.onload=function(){window.print();};</script>
 </body></html>`);
+    win.document.close();
+  };
+
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const renderCardHtml = (student: Student, schoolName: string) => {
+    const photoHtml = student.photo
+      ? `<img src="${student.photo}" style="width:64px;height:80px;object-fit:cover;border-radius:6px;" />`
+      : `<div style="width:64px;height:80px;background:#e5e7eb;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">&#128100;</div>`;
+
+    return `
+      <article class="card">
+        <div class="hd"><h2>Student Identity Card</h2><p>${escapeHtml(schoolName)}</p></div>
+        <div class="bd">
+          <div>${photoHtml}</div>
+          <div class="info">
+            <p class="name">${escapeHtml(student.name)}</p>
+            <p>Class: ${escapeHtml(student.class)}${student.classSection ? ` ${escapeHtml(student.classSection)}` : ""}</p>
+            <p>Roll No: ${escapeHtml(student.rollNumber)}</p>
+            <p>Admission No: ${escapeHtml(student.admissionNumber ?? "-")}</p>
+            <p>DOB: ${escapeHtml(student.dateOfBirth ?? "-")}</p>
+            <p>Blood Group: ${escapeHtml(student.bloodGroup ?? "-")}</p>
+          </div>
+        </div>
+        <div class="ft"><p>If found, please return to school office</p></div>
+      </article>
+    `;
+  };
+
+  const printFilteredIdCards = () => {
+    if (filteredAdmissions.length === 0) {
+      setError("No students available to print for the selected class filter.");
+      return;
+    }
+
+    const schoolName = schoolDisplayName;
+    const win = window.open("", "_blank", "width=960,height=760");
+    if (!win) return;
+
+    const cardsHtml = filteredAdmissions.map((student) => renderCardHtml(student, schoolName)).join("");
+
+    win.document.write(`<!DOCTYPE html><html><head><title>Student ID Cards</title>
+      <style>
+        @page { size: A4 portrait; margin: 10mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; }
+        .sheet {
+          width: 100%;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10mm;
+        }
+        .card {
+          border: 2px solid #1d4ed8;
+          border-radius: 10px;
+          overflow: hidden;
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .hd { background: #1d4ed8; color: white; text-align: center; padding: 6px 10px; }
+        .hd h2 { margin: 0; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+        .hd p { margin: 2px 0 0; font-size: 9px; opacity: 0.85; }
+        .bd { display: flex; gap: 10px; padding: 10px; align-items: flex-start; min-height: 100px; }
+        .info .name { margin: 0 0 4px; font-size: 12px; font-weight: 700; }
+        .info p { margin: 2px 0; font-size: 9px; color: #374151; }
+        .ft { background: #eff6ff; border-top: 1px solid #bfdbfe; text-align: center; padding: 4px; }
+        .ft p { margin: 0; font-size: 8px; color: #6b7280; }
+        .card:nth-of-type(4n) { break-after: page; page-break-after: always; }
+        .card:last-of-type { break-after: auto; page-break-after: auto; }
+      </style>
+    </head><body>
+      <section class="sheet">${cardsHtml}</section>
+      <script>window.onload=function(){window.print();};</script>
+    </body></html>`);
     win.document.close();
   };
 
@@ -890,158 +1216,221 @@ export default function AdmissionsModule() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Form Number"
-              className="border rounded p-2"
-              value={formData.formNumber}
-              onChange={(e) => setFormData({ ...formData, formNumber: e.target.value })}
-            />
-            <input
-              type="date"
-              className="border rounded p-2"
-              value={formData.formDate}
-              onChange={(e) => setFormData({ ...formData, formDate: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Admission Number"
-              className="border rounded p-2"
-              value={formData.admissionNumber}
-              onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Full Name"
-              className="border rounded p-2"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              className="border rounded p-2"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-            />
-            <input
-              type="text"
-              placeholder="Class"
-              className="border rounded p-2"
-              value={formData.class}
-              onChange={(e) => setFormData({ ...formData, class: e.target.value })}
-              required
-            />
-            <input
-              type="text"
-              placeholder="Section"
-              className="border rounded p-2"
-              value={formData.classSection}
-              onChange={(e) => setFormData({ ...formData, classSection: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Academic Year (e.g. 2026-2027)"
-              className="border rounded p-2"
-              value={formData.academicYear}
-              onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Roll Number"
-              className="border rounded p-2"
-              value={formData.rollNumber}
-              onChange={(e) => setFormData({ ...formData, rollNumber: e.target.value })}
-              required
-            />
-            <input
-              type="tel"
-              placeholder="Phone"
-              className="border rounded p-2"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Aadhar Number"
-              className="border rounded p-2"
-              value={formData.aadharNumber}
-              onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value })}
-            />
-            <select
-              className="border rounded p-2"
-              value={formData.gender}
-              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-            >
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
-            <input
-              type="date"
-              className="border rounded p-2"
-              value={formData.dateOfBirth}
-              onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Place of Birth"
-              className="border rounded p-2"
-              value={formData.placeOfBirth}
-              onChange={(e) => setFormData({ ...formData, placeOfBirth: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="State"
-              className="border rounded p-2"
-              value={formData.state}
-              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Nationality"
-              className="border rounded p-2"
-              value={formData.nationality}
-              onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Religion"
-              className="border rounded p-2"
-              value={formData.religion}
-              onChange={(e) => setFormData({ ...formData, religion: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Caste"
-              className="border rounded p-2"
-              value={formData.caste}
-              onChange={(e) => setFormData({ ...formData, caste: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Pin Code"
-              className="border rounded p-2"
-              value={formData.pinCode}
-              onChange={(e) => setFormData({ ...formData, pinCode: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Mother Tongue"
-              className="border rounded p-2"
-              value={formData.motherTongue}
-              onChange={(e) => setFormData({ ...formData, motherTongue: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Blood Group"
-              className="border rounded p-2"
-              value={formData.bloodGroup}
-              onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
-            />
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Form Number</span>
+              <input
+                type="text"
+                placeholder="Form Number"
+                className="w-full border rounded p-2"
+                value={formData.formNumber}
+                onChange={(e) => setFormData({ ...formData, formNumber: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Form Date</span>
+              <input
+                type="date"
+                className="w-full border rounded p-2"
+                value={formData.formDate}
+                onChange={(e) => setFormData({ ...formData, formDate: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Admission Number</span>
+              <input
+                type="text"
+                placeholder="Admission Number"
+                className="w-full border rounded p-2"
+                value={formData.admissionNumber}
+                onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Full Name</span>
+              <input
+                type="text"
+                placeholder="Full Name"
+                className="w-full border rounded p-2"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Email</span>
+              <input
+                type="email"
+                placeholder="Email"
+                className="w-full border rounded p-2"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Class</span>
+              <input
+                type="text"
+                placeholder="Class"
+                className="w-full border rounded p-2"
+                value={formData.class}
+                onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                required
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Section</span>
+              <input
+                type="text"
+                placeholder="Section"
+                className="w-full border rounded p-2"
+                value={formData.classSection}
+                onChange={(e) => setFormData({ ...formData, classSection: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Academic Year</span>
+              <input
+                type="text"
+                placeholder="Academic Year (e.g. 2026-2027)"
+                className="w-full border rounded p-2"
+                value={formData.academicYear}
+                onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Roll Number</span>
+              <input
+                type="text"
+                placeholder="Roll Number"
+                className="w-full border rounded p-2"
+                value={formData.rollNumber}
+                onChange={(e) => setFormData({ ...formData, rollNumber: e.target.value })}
+                required
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Phone</span>
+              <input
+                type="tel"
+                placeholder="Phone"
+                className="w-full border rounded p-2"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Aadhar Number</span>
+              <input
+                type="text"
+                placeholder="Aadhar Number"
+                className="w-full border rounded p-2"
+                value={formData.aadharNumber}
+                onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Gender</span>
+              <select
+                className="w-full border rounded p-2"
+                value={formData.gender}
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+              >
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Date Of Birth</span>
+              <input
+                type="date"
+                className="w-full border rounded p-2"
+                value={formData.dateOfBirth}
+                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Place Of Birth</span>
+              <input
+                type="text"
+                placeholder="Place of Birth"
+                className="w-full border rounded p-2"
+                value={formData.placeOfBirth}
+                onChange={(e) => setFormData({ ...formData, placeOfBirth: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">State</span>
+              <input
+                type="text"
+                placeholder="State"
+                className="w-full border rounded p-2"
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Nationality</span>
+              <input
+                type="text"
+                placeholder="Nationality"
+                className="w-full border rounded p-2"
+                value={formData.nationality}
+                onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Religion</span>
+              <input
+                type="text"
+                placeholder="Religion"
+                className="w-full border rounded p-2"
+                value={formData.religion}
+                onChange={(e) => setFormData({ ...formData, religion: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Caste</span>
+              <input
+                type="text"
+                placeholder="Caste"
+                className="w-full border rounded p-2"
+                value={formData.caste}
+                onChange={(e) => setFormData({ ...formData, caste: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Pin Code</span>
+              <input
+                type="text"
+                placeholder="Pin Code"
+                className="w-full border rounded p-2"
+                value={formData.pinCode}
+                onChange={(e) => setFormData({ ...formData, pinCode: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Mother Tongue</span>
+              <input
+                type="text"
+                placeholder="Mother Tongue"
+                className="w-full border rounded p-2"
+                value={formData.motherTongue}
+                onChange={(e) => setFormData({ ...formData, motherTongue: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Blood Group</span>
+              <input
+                type="text"
+                placeholder="Blood Group"
+                className="w-full border rounded p-2"
+                value={formData.bloodGroup}
+                onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+              />
+            </label>
           </div>
 
           {/* Student Photo */}
@@ -1076,61 +1465,134 @@ export default function AdmissionsModule() {
             </div>
           </div>
 
-          <textarea
-            placeholder="Residential Address"
-            className="border rounded p-2 w-full"
-            rows={3}
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          />
+          {/* RTE Document Upload */}
+          <div className="border rounded p-3 bg-gray-50">
+            <p className="text-sm font-medium mb-2">RTE (Right to Education) Document</p>
+            <div>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                onChange={(e) => void handleRteDocumentSelect(e)}
+                className="block text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {rteDocumentName && (
+                <div className="mt-3 flex items-center justify-between bg-blue-50 p-2 rounded">
+                  <p className="text-xs text-gray-700">✓ {rteDocumentName}</p>
+                  <button
+                    type="button"
+                    className="text-xs text-red-500 hover:underline"
+                    onClick={() => { setRteDocumentName(""); setFormData((p) => ({ ...p, rteDocument: "" })); }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, JPG, or PNG</p>
+            </div>
+          </div>
 
-          <textarea
-            placeholder="Identification Marks"
-            className="border rounded p-2 w-full"
-            rows={2}
-            value={formData.identificationMarks}
-            onChange={(e) => setFormData({ ...formData, identificationMarks: e.target.value })}
-          />
+          {/* BOD Certificate Upload */}
+          <div className="border rounded p-3 bg-gray-50">
+            <p className="text-sm font-medium mb-2">BOD Certificate</p>
+            <div>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                onChange={(e) => void handleBodCertificateSelect(e)}
+                className="block text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {bodCertificateName && (
+                <div className="mt-3 flex items-center justify-between bg-blue-50 p-2 rounded">
+                  <p className="text-xs text-gray-700">✓ {bodCertificateName}</p>
+                  <button
+                    type="button"
+                    className="text-xs text-red-500 hover:underline"
+                    onClick={() => { setBodyCertificateName(""); setFormData((p) => ({ ...p, bodCertificate: "" })); }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, JPG, or PNG</p>
+            </div>
+          </div>
 
-          <textarea
-            placeholder="Previous Academic Record"
-            className="border rounded p-2 w-full"
-            rows={2}
-            value={formData.previousAcademicRecord}
-            onChange={(e) => setFormData({ ...formData, previousAcademicRecord: e.target.value })}
-          />
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="text-xs font-medium">Residential Address</span>
+            <textarea
+              placeholder="Residential Address"
+              className="border rounded p-2 w-full"
+              rows={3}
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            />
+          </label>
 
-          <textarea
-            placeholder="Achievements"
-            className="border rounded p-2 w-full"
-            rows={2}
-            value={formData.achievements}
-            onChange={(e) => setFormData({ ...formData, achievements: e.target.value })}
-          />
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="text-xs font-medium">Identification Marks</span>
+            <textarea
+              placeholder="Identification Marks"
+              className="border rounded p-2 w-full"
+              rows={2}
+              value={formData.identificationMarks}
+              onChange={(e) => setFormData({ ...formData, identificationMarks: e.target.value })}
+            />
+          </label>
 
-          <textarea
-            placeholder="General Behaviour"
-            className="border rounded p-2 w-full"
-            rows={2}
-            value={formData.generalBehaviour}
-            onChange={(e) => setFormData({ ...formData, generalBehaviour: e.target.value })}
-          />
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="text-xs font-medium">Previous Academic Record</span>
+            <textarea
+              placeholder="Previous Academic Record"
+              className="border rounded p-2 w-full"
+              rows={2}
+              value={formData.previousAcademicRecord}
+              onChange={(e) => setFormData({ ...formData, previousAcademicRecord: e.target.value })}
+            />
+          </label>
 
-          <textarea
-            placeholder="Medical History"
-            className="border rounded p-2 w-full"
-            rows={2}
-            value={formData.medicalHistory}
-            onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })}
-          />
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="text-xs font-medium">Achievements</span>
+            <textarea
+              placeholder="Achievements"
+              className="border rounded p-2 w-full"
+              rows={2}
+              value={formData.achievements}
+              onChange={(e) => setFormData({ ...formData, achievements: e.target.value })}
+            />
+          </label>
 
-          <input
-            type="text"
-            placeholder="Language Preferences (comma separated)"
-            className="border rounded p-2 w-full"
-            value={formData.languagePreferences}
-            onChange={(e) => setFormData({ ...formData, languagePreferences: e.target.value })}
-          />
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="text-xs font-medium">General Behaviour</span>
+            <textarea
+              placeholder="General Behaviour"
+              className="border rounded p-2 w-full"
+              rows={2}
+              value={formData.generalBehaviour}
+              onChange={(e) => setFormData({ ...formData, generalBehaviour: e.target.value })}
+            />
+          </label>
+
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="text-xs font-medium">Medical History</span>
+            <textarea
+              placeholder="Medical History"
+              className="border rounded p-2 w-full"
+              rows={2}
+              value={formData.medicalHistory}
+              onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })}
+            />
+          </label>
+
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="text-xs font-medium">Language Preferences</span>
+            <input
+              type="text"
+              placeholder="Language Preferences (comma separated)"
+              className="border rounded p-2 w-full"
+              value={formData.languagePreferences}
+              onChange={(e) => setFormData({ ...formData, languagePreferences: e.target.value })}
+            />
+          </label>
 
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -1255,266 +1717,41 @@ export default function AdmissionsModule() {
       </div>
 
       <div className="stat-card p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5 text-blue-600" />
-          <h3 className="text-lg font-semibold">Excel Admission Import</h3>
-        </div>
-
-        <p className="mb-3 text-xs text-muted-foreground">
-          Upload .xlsx or .xls with columns: name, email, class, rollNumber (required). Optional:
-          phone, address, dateOfBirth, gender.
-        </p>
-
-        <input
-          type="file"
-          accept=".xlsx,.xls"
-          onChange={handleExcelFileSelect}
-          disabled={excelSaving}
-          className="mb-4 block w-full rounded border bg-white p-2 text-sm"
-        />
-
-        {excelFileName && (
-          <p className="mb-3 text-sm text-muted-foreground">
-            File: {excelFileName} | Preview rows: {excelAdmissions.length}
-            {excelTotalRows > excelAdmissions.length
-              ? ` (${excelTotalRows - excelAdmissions.length} skipped due to missing required fields)`
-              : ""}
-          </p>
-        )}
-
-        {excelAdmissions.length > 0 && (
-          <div className="space-y-3">
-            <div className="overflow-x-auto rounded border">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50">
-                  <tr className="border-b">
-                    <th className="p-2 text-left">Name</th>
-                    <th className="p-2 text-left">Class</th>
-                    <th className="p-2 text-left">Roll No</th>
-                    <th className="p-2 text-left">Email</th>
-                    <th className="p-2 text-left">Phone</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {excelAdmissions.slice(0, 10).map((student, index) => (
-                    <tr key={`${student.email}-${student.rollNumber}-${index}`} className="border-b">
-                      <td className="p-2 font-medium">{student.name}</td>
-                      <td className="p-2">{student.class}</td>
-                      <td className="p-2">{student.rollNumber}</td>
-                      <td className="p-2">{student.email}</td>
-                      <td className="p-2">{student.phone || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {excelAdmissions.length > 10 && (
-              <p className="text-xs text-muted-foreground">Showing first 10 rows in preview.</p>
-            )}
-
-            <button
-              type="button"
-              onClick={() => void handleExcelEnroll()}
-              disabled={excelSaving}
-              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold">Recent Admissions</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={selectedClassFilter}
+              onChange={(e) => setSelectedClassFilter(e.target.value)}
+              className="rounded border px-3 py-2 text-sm"
             >
-              {excelSaving ? "Enrolling..." : "Enroll Students from Excel"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="stat-card p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5 text-blue-600" />
-          <h3 className="text-lg font-semibold">School Data Import</h3>
-        </div>
-
-        <p className="mb-3 text-xs text-muted-foreground">
-          Upload a student master workbook for this school. The importer will map rows, create missing
-          classes/sections automatically, generate placeholder emails when missing, and skip duplicates.
-        </p>
-
-        <p className="mb-3 text-xs text-muted-foreground">
-          Supported columns include: S_name, Reg_no, srno, cname, stuSection, roll_no, StSession,
-          d_birth, Admsn_Date, Mobile_No, Mobile_No2, StreetOrVillage, city, ADHAR, sex, Stu_Caste,
-          Stu_Category, TRANSPORT.
-        </p>
-
-        <input
-          type="file"
-          accept=".xlsx,.xls"
-          onChange={handleSchoolDataFileSelect}
-          disabled={schoolDataImportLoading}
-          className="mb-4 block w-full rounded border bg-white p-2 text-sm"
-        />
-
-        {schoolDataImportFileName && (
-          <div className="mb-4 rounded border bg-slate-50 p-4 text-sm text-slate-700">
-            <p><span className="font-medium">File:</span> {schoolDataImportFileName}</p>
-            <p><span className="font-medium">Detected sheet:</span> {schoolDataImportSheetName || "-"}</p>
-            <p><span className="font-medium">Total rows read:</span> {schoolDataImportTotalRows}</p>
-            <p><span className="font-medium">Valid student rows:</span> {schoolDataImportRows.length}</p>
-            <p><span className="font-medium">Skipped rows:</span> {schoolDataImportInvalidRows.length}</p>
-            <p><span className="font-medium">Classes to auto-create:</span> {schoolDataImportClassesToCreate.length}</p>
-          </div>
-        )}
-
-        {schoolDataImportFileName && (
-          <div className="mb-4">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-slate-700">Class / section preview</p>
-              <button
-                type="button"
-                onClick={clearSchoolDataImportPreview}
-                className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
-              >
-                Clear preview
-              </button>
-            </div>
-
-            {schoolDataImportClassesToCreate.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {schoolDataImportClassesToCreate.map((classLabel) => (
-                  <span
-                    key={classLabel}
-                    className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700"
-                  >
-                    {classLabel}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No new classes need to be created from this file.
-              </p>
-            )}
-          </div>
-        )}
-
-        {schoolDataImportInvalidRows.length > 0 && (
-          <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-4">
-            <p className="mb-2 text-sm font-medium text-amber-900">
-              Skipped preview rows: {schoolDataImportInvalidRows.length}
-            </p>
-            <div className="space-y-1 text-xs text-amber-900">
-              {schoolDataImportInvalidRows.slice(0, 5).map((row) => (
-                <p key={`${row.rowNumber}-${row.reason}`}>
-                  Row {row.rowNumber}: {row.reason}
-                </p>
+              <option value="all">All Classes</option>
+              {classFilterOptions.map((className) => (
+                <option key={className} value={className}>
+                  {className}
+                </option>
               ))}
-              {schoolDataImportInvalidRows.length > 5 && (
-                <p>Showing first 5 skipped rows.</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {schoolDataImportRows.length > 0 && (
-          <div className="space-y-3">
-            <div className="overflow-x-auto rounded border">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50">
-                  <tr className="border-b">
-                    <th className="p-2 text-left">Row</th>
-                    <th className="p-2 text-left">Name</th>
-                    <th className="p-2 text-left">Class</th>
-                    <th className="p-2 text-left">Section</th>
-                    <th className="p-2 text-left">Roll No</th>
-                    <th className="p-2 text-left">Admission No</th>
-                    <th className="p-2 text-left">Phone</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {schoolDataImportRows.slice(0, 10).map((student) => (
-                    <tr key={`${student.rowNumber}-${student.rollNumber}-${student.name}`} className="border-b">
-                      <td className="p-2">{student.rowNumber}</td>
-                      <td className="p-2 font-medium">{student.name}</td>
-                      <td className="p-2">{student.className}</td>
-                      <td className="p-2">{student.classSection}</td>
-                      <td className="p-2">{student.rollNumber}</td>
-                      <td className="p-2">{student.admissionNumber || "-"}</td>
-                      <td className="p-2">{student.phone || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {schoolDataImportRows.length > 10 && (
-              <p className="text-xs text-muted-foreground">Showing first 10 rows in preview.</p>
-            )}
-
+            </select>
             <button
               type="button"
-              onClick={() => void handleSchoolDataImport()}
-              disabled={schoolDataImportLoading}
-              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+              onClick={printFilteredIdCards}
+              className="inline-flex items-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
-              {schoolDataImportLoading ? "Importing..." : "Import School Data"}
+              <Printer className="h-4 w-4" />
+              Print ID Cards (4/Page)
             </button>
           </div>
-        )}
-
-        {schoolDataImportResult && (
-          <div className="mt-4 rounded border bg-slate-50 p-4 text-sm text-slate-700">
-            <p className="font-medium">Last import summary</p>
-            <p>Total rows submitted: {schoolDataImportResult.totalRows}</p>
-            <p>Valid rows: {schoolDataImportResult.validRows}</p>
-            <p>Imported: {schoolDataImportResult.importedCount}</p>
-            <p>Duplicate rows skipped: {schoolDataImportResult.duplicateCount}</p>
-            <p>Failed rows: {schoolDataImportResult.failureCount}</p>
-            <p>Classes created: {schoolDataImportResult.classesCreated.length}</p>
-
-            {schoolDataImportResult.classesCreated.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {schoolDataImportResult.classesCreated.map((classLabel) => (
-                  <span
-                    key={classLabel}
-                    className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700"
-                  >
-                    {classLabel}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {schoolDataImportResult.duplicates.length > 0 && (
-              <div className="mt-3 text-xs text-slate-600">
-                {schoolDataImportResult.duplicates.slice(0, 5).map((row) => (
-                  <p key={`duplicate-${row.rowNumber}-${row.reason}`}>
-                    Row {row.rowNumber}: {row.reason}
-                  </p>
-                ))}
-              </div>
-            )}
-
-            {schoolDataImportResult.failures.length > 0 && (
-              <div className="mt-3 text-xs text-red-600">
-                {schoolDataImportResult.failures.slice(0, 5).map((row) => (
-                  <p key={`failure-${row.rowNumber}-${row.reason}`}>
-                    Row {row.rowNumber}: {row.reason}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="stat-card p-6">
-        <h3 className="text-lg font-semibold mb-4">Recent Admissions</h3>
+        </div>
 
         {loading ? (
           <p className="text-gray-500">Loading admissions...</p>
-        ) : recentAdmissions.length === 0 ? (
+        ) : filteredAdmissions.length === 0 ? (
           <p className="text-gray-500">No admissions yet.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="max-h-[520px] overflow-y-auto overflow-x-auto rounded border border-slate-200">
             <table className="w-full">
-              <thead>
-                <tr className="border-b">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b bg-slate-50">
                   <th className="text-left p-2">Name</th>
                   <th className="text-left p-2">Class</th>
                   <th className="text-left p-2">Roll No</th>
@@ -1524,7 +1761,7 @@ export default function AdmissionsModule() {
                 </tr>
               </thead>
               <tbody>
-                {recentAdmissions.map((student) => (
+                {filteredAdmissions.map((student) => (
                   <tr key={student._id} className="border-b hover:bg-gray-50">
                     <td className="p-2 font-medium">{student.name}</td>
                     <td className="p-2">{student.class}</td>
@@ -1573,7 +1810,7 @@ export default function AdmissionsModule() {
               <div className="bg-blue-700 text-white text-center py-2 px-3">
                 <p className="text-xs font-bold tracking-widest uppercase">Student Identity Card</p>
                 <p className="text-xs opacity-80">
-                  {(JSON.parse(localStorage.getItem("school") ?? "{}") as { name?: string }).name ?? "School"}
+                  {schoolDisplayName}
                 </p>
               </div>
               <div className="flex p-3 gap-3 bg-white items-start">

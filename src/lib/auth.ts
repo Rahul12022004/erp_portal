@@ -3,19 +3,47 @@ import { API_URL } from "@/lib/api";
 
 type SchoolAdminSession = {
   _id?: string;
+  token?: string;
   modules?: string[];
   adminInfo?: {
     name?: string;
     email?: string;
+    phone?: string;
+    image?: string;
     password?: string;
+    status?: string;
   };
   schoolInfo?: {
     name?: string;
     logo?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    website?: string;
+  };
+  systemInfo?: {
+    schoolType?: string;
+    subscriptionPlan?: string;
+    subscriptionEndDate?: string;
   };
 };
 
+function readJsonStorage<T>(key: string): T | null {
+  const rawValue = localStorage.getItem(key);
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawValue) as T;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
+}
+
 type TeacherSessionResponse = {
+  token?: string;
   teacher: {
     _id?: string;
     name?: string;
@@ -35,7 +63,19 @@ type TeacherSessionResponse = {
   };
 };
 
+type SuperAdminSessionResponse = {
+  success: boolean;
+  token?: string;
+  user?: {
+    id?: string;
+    email?: string;
+    name?: string;
+    role?: "super-admin";
+  };
+};
+
 export function clearStoredSessions() {
+  localStorage.removeItem("authToken");
   localStorage.removeItem("user");
   localStorage.removeItem("role");
   localStorage.removeItem("teacher");
@@ -52,8 +92,19 @@ export function persistRoleUser(user: User) {
   localStorage.setItem("role", user.role);
 }
 
+export function persistAuthToken(token: string) {
+  localStorage.setItem("authToken", token);
+}
+
+export function readAuthToken() {
+  return localStorage.getItem("authToken") || "";
+}
+
 export function persistSchoolAdminSession(session: SchoolAdminSession, user: User) {
   clearStoredSessions();
+  if (session.token) {
+    persistAuthToken(session.token);
+  }
   persistRoleUser(user);
   localStorage.setItem("school", JSON.stringify(session));
   window.dispatchEvent(new Event("school-session-updated"));
@@ -65,6 +116,9 @@ export function persistTeacherSession(
   teacherPermissions: TeacherPermissions,
 ) {
   clearStoredSessions();
+  if (session.token) {
+    persistAuthToken(session.token);
+  }
   persistRoleUser(user);
   localStorage.setItem("teacher", JSON.stringify(session.teacher));
   localStorage.setItem("school", JSON.stringify(session.school));
@@ -96,11 +150,11 @@ export async function loginSchoolAdmin(email: string, password: string) {
   }
 }
 
-export async function loginTeacher(name: string, email: string) {
+export async function loginTeacher(email: string, password: string) {
   const response = await fetch(`${API_URL}/api/staff/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email }),
+    body: JSON.stringify({ email, password }),
   });
 
   const data = await response.json();
@@ -110,4 +164,42 @@ export async function loginTeacher(name: string, email: string) {
   }
 
   return data as TeacherSessionResponse;
+}
+
+export async function loginSuperAdmin(email: string, password: string) {
+  const response = await fetch(`${API_URL}/api/schools/super-admin-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json().catch(() => ({ message: "Invalid server response" }));
+
+  if (!response.ok) {
+    throw new Error((data as { message?: string }).message || "Super admin login failed");
+  }
+
+  return data as SuperAdminSessionResponse;
+}
+
+export function readStoredSchoolSession() {
+  return readJsonStorage<SchoolAdminSession>("school");
+}
+
+export function readStoredTeacherSession() {
+  return readJsonStorage<TeacherSessionResponse["teacher"]>("teacher");
+}
+
+export function readStoredRoleUser() {
+  return readJsonStorage<User>("user");
+}
+
+export function readStoredTeacherPermissions() {
+  const stored = readJsonStorage<TeacherPermissions>("teacherPermissions");
+
+  if (Array.isArray(stored?.modules) && stored.modules.length > 0) {
+    return stored;
+  }
+
+  return { modules: [] };
 }

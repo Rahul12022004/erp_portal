@@ -6,6 +6,8 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { type DateClickArg, type EventInput, type EventClickArg } from "@fullcalendar/core";
 import { StatCard } from "@/components/StatCard";
+import { readStoredSchoolSession } from "@/lib/auth";
+import { API_URL } from "@/lib/api";
 import {
   PieChart,
   Pie,
@@ -68,9 +70,7 @@ type CalendarFeedItem = {
   meta: string;
 };
 
-const API_BASE =
-  (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL ||
-  "https://erp-portal-1-ftwe.onrender.com";
+const API_BASE = API_URL;
 
 const getDismissedAnnouncementsKey = (schoolId: string) =>
   `school-dashboard-dismissed-announcements:${schoolId}`;
@@ -139,7 +139,7 @@ export default function SchoolAdminDashboard() {
       try {
         setLoading(true);
         setError("");
-        const school = JSON.parse(localStorage.getItem("school") || "{}");
+        const school = readStoredSchoolSession();
 
         if (!school?._id) {
           setError("School not found. Please log in again.");

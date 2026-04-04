@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RoleProvider, useRole } from "@/contexts/RoleContext";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 import DashboardLayout from "./layouts/DashboardLayout";
 import SchoolAdminLayout from "./layouts/SchoolAdminLayout";
@@ -39,6 +40,19 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function getRoleHome(role: ReturnType<typeof useRole>["role"]) {
+  switch (role) {
+    case "super-admin":
+      return "/dashboard";
+    case "school-admin":
+      return "/school";
+    case "teacher":
+      return "/teacher";
+    default:
+      return "/";
+  }
+}
+
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useRole();
@@ -61,13 +75,7 @@ function AppRoutes() {
         element={
           isAuthenticated ? (
             <Navigate
-              to={
-                role === "super-admin"
-                  ? "/dashboard"
-                  : role === "school-admin"
-                  ? "/school"
-                  : "/teacher"
-              }
+              to={getRoleHome(role)}
               replace
             />
           ) : (
@@ -118,13 +126,7 @@ function AppRoutes() {
         element={
           isAuthenticated ? (
             <Navigate
-              to={
-                role === "super-admin"
-                  ? "/dashboard"
-                  : role === "school-admin"
-                  ? "/school"
-                  : "/teacher"
-              }
+              to={getRoleHome(role)}
               replace
             />
           ) : (
@@ -139,14 +141,16 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
+      <AppErrorBoundary>
+        <Toaster />
+        <Sonner />
 
-      <RoleProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </RoleProvider>
+        <RoleProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </RoleProvider>
+      </AppErrorBoundary>
 
     </TooltipProvider>
   </QueryClientProvider>

@@ -234,7 +234,7 @@ export function TopNavbar() {
       ? schoolData?.adminInfo?.email || "school-admin@mail.com"
       : role === "teacher"
         ? teacherData?.email || "teacher@mail.com"
-        : "admin@eduadmin.com";
+        : "";
 
   const adminImage = schoolData?.adminInfo?.image;
   const schoolLogo = schoolData?.schoolInfo?.logo;

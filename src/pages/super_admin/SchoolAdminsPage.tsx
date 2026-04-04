@@ -1,9 +1,24 @@
 import { useState, useEffect } from "react";
-import { Search, Edit, Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
+
+type SchoolAdminSource = {
+  _id: string;
+  adminInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    status?: string;
+    lastLogin?: string;
+  };
+  schoolInfo?: {
+    name?: string;
+    logo?: string;
+  };
+};
 
 export default function SchoolAdminsPage() {
   const [search, setSearch] = useState("");
-  const [schools, setSchools] = useState<any[]>([]);
+  const [schools, setSchools] = useState<SchoolAdminSource[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,8 +28,8 @@ export default function SchoolAdminsPage() {
   const fetchSchools = async () => {
     try {
       const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/schools");
-      const data = await res.json();
-      setSchools(data);
+      const data: unknown = await res.json();
+      setSchools(Array.isArray(data) ? (data as SchoolAdminSource[]) : []);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -135,7 +150,7 @@ export default function SchoolAdminsPage() {
 
                 const initials = admin.name
                   ?.split(" ")
-                  .map((n: string) => n[0])
+                  .map((namePart) => namePart[0])
                   .join("");
 
                 return (

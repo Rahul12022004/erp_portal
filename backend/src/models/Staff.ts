@@ -4,6 +4,7 @@ const staffSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true },
+    password: { type: String, select: false },
     phone: { type: String, required: true },
     position: { type: String, required: true }, // e.g., "Teacher", "Principal", "HOD", "Librarian"
     department: String, // e.g., "Science", "Arts", "Math"
@@ -13,6 +14,10 @@ const staffSchema = new mongoose.Schema(
     gender: { type: String, enum: ["Male", "Female", "Other"] },
     joinDate: String,
     status: { type: String, enum: ["Active", "Inactive", "On Leave"], default: "Active" },
+    bankName: String,
+    accountNumber: String,
+    ifscCode: String,
+    accountHolderName: String,
     ossId: String,             // CBSE OSS ID (teachers)
     workHistoryDoc: String,   // base64 — past working history document
     offerLetterDoc: String,   // base64 — previous school offer letter (teachers)

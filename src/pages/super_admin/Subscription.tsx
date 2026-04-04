@@ -1,15 +1,32 @@
 import { useEffect, useState } from "react";
 
-const PLAN_PRICE: any = {
+type PlanName = "Basic" | "Standard" | "Premium";
+
+type SchoolSubscriptionRecord = {
+  _id: string;
+  schoolInfo?: {
+    name?: string;
+    email?: string;
+    logo?: string;
+  };
+  systemInfo?: {
+    subscriptionPlan?: PlanName;
+    subscriptionEndDate?: string;
+  };
+};
+
+const PLAN_PRICE: Record<PlanName, number> = {
   Basic: 0,
   Standard: 999,
   Premium: 1999,
 };
 
+const PLAN_OPTIONS: PlanName[] = ["Basic", "Standard", "Premium"];
+
 export default function SubscriptionsPage() {
-  const [schools, setSchools] = useState<any[]>([]);
-  const [selectedSchool, setSelectedSchool] = useState<any>(null);
-  const [selectedPlan, setSelectedPlan] = useState("Standard");
+  const [schools, setSchools] = useState<SchoolSubscriptionRecord[]>([]);
+  const [selectedSchool, setSelectedSchool] = useState<SchoolSubscriptionRecord | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanName>("Standard");
   const [actionType, setActionType] = useState<"upgrade" | "renew" | null>(null);
 
   useEffect(() => {
@@ -19,14 +36,14 @@ export default function SubscriptionsPage() {
   const fetchSchools = async () => {
     try {
       const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/schools");
-      const data = await res.json();
-      setSchools(data);
+      const data: unknown = await res.json();
+      setSchools(Array.isArray(data) ? (data as SchoolSubscriptionRecord[]) : []);
     } catch (err) {
       console.error("Fetch error:", err);
     }
   };
 
-  const openModal = (school: any, type: "upgrade" | "renew") => {
+  const openModal = (school: SchoolSubscriptionRecord, type: "upgrade" | "renew") => {
     setSelectedSchool(school);
     setSelectedPlan(school.systemInfo?.subscriptionPlan || "Standard");
     setActionType(type);
@@ -203,7 +220,7 @@ export default function SubscriptionsPage() {
             {/* ONLY SHOW PLAN SELECT FOR UPGRADE */}
             {actionType === "upgrade" && (
               <div className="space-y-2 mb-4">
-                {["Basic", "Standard", "Premium"].map((plan) => (
+                {PLAN_OPTIONS.map((plan) => (
                   <div
                     key={plan}
                     onClick={() => setSelectedPlan(plan)}

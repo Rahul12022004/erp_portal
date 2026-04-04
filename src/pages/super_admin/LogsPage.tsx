@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 
+type LogEntry = {
+  _id: string;
+  action: string;
+  message: string;
+  user?: string;
+  createdAt: string;
+};
+
 export default function LogsPage() {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     fetchLogs();
@@ -9,8 +17,8 @@ export default function LogsPage() {
 
   const fetchLogs = async () => {
     const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/logs");
-    const data = await res.json();
-    setLogs(data);
+    const data: unknown = await res.json();
+    setLogs(Array.isArray(data) ? (data as LogEntry[]) : []);
   };
 
   return (

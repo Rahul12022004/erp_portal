@@ -12,8 +12,8 @@ import { loginTeacher, persistTeacherSession } from "@/lib/auth";
 export default function TeacherLogin() {
   const navigate = useNavigate();
   const { login, setTeacherPermissions } = useRole();
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,17 +24,17 @@ export default function TeacherLogin() {
     setLoading(true);
 
     try {
-      if (!name || !email) {
-        setError("Please enter both teacher name and email");
+      if (!email || !password) {
+        setError("Please enter both teacher email and password");
         setLoading(false);
         return;
       }
 
-      const session = await loginTeacher(name, email);
+      const session = await loginTeacher(email, password);
       const user = {
         id: session.teacher._id || "teacher_001",
         email,
-        name: session.teacher.name || name,
+        name: session.teacher.name || email.split("@")[0],
         role: "teacher" as const,
       };
 
@@ -131,22 +131,6 @@ export default function TeacherLogin() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Name
-                </label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={loading}
-                  className="h-9 rounded-lg"
-                  autoComplete="name"
-                />
-              </div>
-
-              <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Email
                 </label>
@@ -159,6 +143,22 @@ export default function TeacherLogin() {
                   disabled={loading}
                   className="h-9 rounded-lg"
                   autoComplete="email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Password
+                </label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  className="h-9 rounded-lg"
+                  autoComplete="current-password"
                 />
               </div>
 
@@ -193,20 +193,20 @@ export default function TeacherLogin() {
             </div>
 
             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-center text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                <div>
+              <div className="space-y-1 text-center text-xs text-slate-600 dark:text-slate-400">
+                <p>
                   Not a teacher?{" "}
                   <Link to="/school-admin-login" className="text-green-600 dark:text-green-400 font-semibold hover:underline">
                     School Admin Login
                   </Link>
-                </div>
-                <div>
+                </p>
+                <p>
                   Need access?{" "}
                   <Link to="/super-admin-login" className="font-semibold text-green-600 dark:text-green-400 hover:underline">
                     Super Admin
                   </Link>
-                </div>
-              </p>
+                </p>
+              </div>
             </div>
 
             {/* Action Buttons at bottom */}

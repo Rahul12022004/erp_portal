@@ -22,6 +22,7 @@ import SportsModule from "./modules/SportsModule";
 import HouseModule from "./modules/HouseModule";
 import SocialMediaModule from "./modules/SocialMediaModule";
 import VisitorModule from "./modules/VisitorModule";
+import DataImportModule from "./modules/DataImportModule";
 
 const moduleNames: Record<string, string> = {
   communication: "Communication",
@@ -48,6 +49,7 @@ const moduleNames: Record<string, string> = {
   sports: "Sports",
   "social-media": "Social Media",
   visitor: "Visitor",
+  "data-import": "Data Import",
 };
 
 export default function SchoolModulePage() {
@@ -104,6 +106,8 @@ export default function SchoolModulePage() {
         return <SupportModule />;
       case "visitor":
         return <VisitorModule />;
+      case "data-import":
+        return <DataImportModule />;
       default:
         return (
           <div className="stat-card flex h-64 items-center justify-center">

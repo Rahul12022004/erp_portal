@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useRole, UserRole, DEFAULT_TEACHER_MODULES } from "@/contexts/RoleContext";
 import { loginSchoolAdmin, loginTeacher } from "@/lib/auth";
-import { Shield, School, GraduationCap } from "lucide-react";
+import { Shield, School, GraduationCap, type LucideIcon } from "lucide-react";
 
-const roles: { value: UserRole; label: string; icon: any }[] = [
+const roles: { value: UserRole; label: string; icon: LucideIcon }[] = [
   { value: "super-admin", label: "Super Admin", icon: Shield },
   { value: "school-admin", label: "School Admin", icon: School },
   { value: "teacher", label: "Teacher", icon: GraduationCap },

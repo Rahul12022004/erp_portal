@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, FileText, X } from "lucide-react";
+import { readStoredSchoolSession } from "@/lib/auth";
 
 type TeacherInfo = {
   _id: string;
@@ -34,7 +35,7 @@ export default function ApprovalsModule() {
 
   useEffect(() => {
     const fetchLeaves = async () => {
-      const school = JSON.parse(localStorage.getItem("school") || "null");
+      const school = readStoredSchoolSession();
 
       if (!school?._id) {
         setError("School not found. Please log in again.");

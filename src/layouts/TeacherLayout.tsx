@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { TeacherSidebar } from "@/components/TeacherSidebar";
 import { TopNavbar } from "@/components/TopNavbar";
 import { useRole } from "@/contexts/RoleContext";
+import { readStoredSchoolSession, readStoredTeacherSession } from "@/lib/auth";
 
 export default function TeacherLayout() {
   const { logout } = useRole();
@@ -18,8 +19,8 @@ export default function TeacherLayout() {
     };
 
     const validateTeacherSession = async () => {
-      const school = JSON.parse(localStorage.getItem("school") || "null");
-      const teacher = JSON.parse(localStorage.getItem("teacher") || "null");
+      const school = readStoredSchoolSession();
+      const teacher = readStoredTeacherSession();
 
       if (!school?._id || !teacher?._id) {
         forceLogout();

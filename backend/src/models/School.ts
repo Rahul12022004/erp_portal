@@ -34,7 +34,7 @@ const schoolSchema = new mongoose.Schema(
     adminInfo: {
       name: String,
       email: String,
-      password: String,
+      password: { type: String, select: false },
       phone: String,
       image: String,
       status: {

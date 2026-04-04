@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import { clearStoredSessions, persistRoleUser } from "@/lib/auth";
+import { clearStoredSessions, persistRoleUser, readAuthToken } from "@/lib/auth";
 
 export type UserRole = "super-admin" | "school-admin" | "teacher";
 
@@ -32,14 +32,60 @@ export const DEFAULT_TEACHER_MODULES = [
   "exams", "digital-classroom", "timetable", "communication","leave"
 ];
 
+function isUserRole(value: string | null): value is UserRole {
+  return value === "super-admin" || value === "school-admin" || value === "teacher";
+}
+
+function readInitialUser() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const savedUser = localStorage.getItem("user");
+  if (!savedUser) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(savedUser) as User | null;
+    if (parsed && isUserRole(parsed.role)) {
+      const token = readAuthToken();
+      if (!token) {
+        clearStoredSessions();
+        return null;
+      }
+      return parsed;
+    }
+  } catch {
+    // Ignore invalid localStorage value and fallback.
+  }
+
+  localStorage.removeItem("user");
+  return null;
+}
+
 export function RoleProvider({ children }: { children: ReactNode }) {
+  const initialUser = readInitialUser();
+
   const [roleState, setRoleState] = useState<UserRole>(() => {
     if (typeof window === "undefined") {
       return "super-admin";
     }
 
-    const savedRole = localStorage.getItem("role") as UserRole | null;
-    return savedRole || "super-admin";
+    if (initialUser?.role) {
+      return initialUser.role;
+    }
+
+    const savedRole = localStorage.getItem("role");
+    if (isUserRole(savedRole)) {
+      return savedRole;
+    }
+
+    if (savedRole) {
+      localStorage.removeItem("role");
+    }
+
+    return "super-admin";
   });
 
   const [teacherPermissionsState, setTeacherPermissionsState] = useState<TeacherPermissions>(() => {
@@ -64,14 +110,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return { modules: DEFAULT_TEACHER_MODULES };
   });
 
-  const [userState, setUserState] = useState<User | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    const savedUser = localStorage.getItem("user");
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const [userState, setUserState] = useState<User | null>(initialUser);
 
   const setTeacherPermissions = (perms: TeacherPermissions) => {
     const nextPermissions = {

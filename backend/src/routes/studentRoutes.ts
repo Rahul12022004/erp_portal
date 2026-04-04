@@ -1,8 +1,11 @@
 import express from "express";
+import mongoose from "mongoose";
 import Class from "../models/Class";
 import Finance from "../models/Finance";
 import School from "../models/School";
 import Student from "../models/Student";
+import Transport from "../models/Transport";
+import { getDatabaseStatus } from "../config/db";
 import { createLog } from "../utils/createLog";
 import {
   buildAppliedStudentFeeStructure,
@@ -13,6 +16,43 @@ import {
 const router = express.Router();
 
 type StudentSource = Record<string, unknown>;
+
+type FeeComponent = {
+  label: string;
+  amount: number;
+};
+
+type ClassFeeStructureTemplate = {
+  className?: string;
+  amount?: number;
+  transportFee?: number;
+  academicYear?: string;
+  dueDate?: string;
+  feeComponents?: FeeComponent[];
+};
+
+type SyncStudentFeeAssignmentArgs = {
+  studentId: string | mongoose.Types.ObjectId;
+  schoolId: string;
+  transportActiveOverride?: boolean;
+  session?: mongoose.ClientSession;
+};
+
+type SyncStudentFeeAssignmentResult = {
+  created: boolean;
+  financeId: string | null;
+  studentId: string;
+  schoolId: string;
+  academicFee: number;
+  transportFee: number;
+  totalFee: number;
+  paidAmount: number;
+  dueAmount: number;
+  dueDate: string;
+  academicYear: string;
+  status: string;
+  transportActive: boolean;
+};
 
 type ImportedStudentRow = {
   rowNumber?: number;
@@ -89,6 +129,8 @@ const studentFieldNames = [
   "motherTongue",
   "bloodGroup",
   "photo",
+  "rteDocument",
+  "bodCertificate",
   "address",
   "identificationMarks",
   "previousAcademicRecord",
@@ -116,6 +158,304 @@ const normalizeSection = (section?: string | null) => section?.trim().toUpperCas
 
 const normalizeText = (value: unknown) => String(value ?? "").trim();
 
+const normalizeNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeClassKey = (value: string) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const todayDateInput = () => new Date().toISOString().split("T")[0];
+
+const getLatestFeeStructureForClass = (
+  feeStructures: unknown,
+  className: string,
+  academicYear?: string | null
+) => {
+  const normalizedClassKey = normalizeClassKey(className);
+  const structures = Array.isArray(feeStructures)
+    ? (feeStructures as ClassFeeStructureTemplate[])
+    : [];
+
+  const matchingStructures = structures.filter((structure) => {
+    const structureClassKey = normalizeClassKey(String(structure?.className || ""));
+    if (structureClassKey !== normalizedClassKey) {
+      return false;
+    }
+
+    if (!academicYear) {
+      return true;
+    }
+
+    return normalizeText(structure?.academicYear) === normalizeText(academicYear);
+  });
+
+  return matchingStructures.length > 0
+    ? matchingStructures[matchingStructures.length - 1]
+    : null;
+};
+
+const buildFeeComponents = (academicFee: number, transportFee: number): FeeComponent[] => {
+  const components: FeeComponent[] = [];
+
+  if (academicFee > 0) {
+    components.push({ label: "Academic Fee", amount: academicFee });
+  }
+
+  if (transportFee > 0) {
+    components.push({ label: "Transport Fee", amount: transportFee });
+  }
+
+  return components;
+};
+
+const getComponentAmountByLabel = (feeComponents: unknown, labelMatcher: RegExp) => {
+  if (!Array.isArray(feeComponents)) {
+    return 0;
+  }
+
+  return (feeComponents as Array<{ label?: string; amount?: number }>).reduce((sum, component) => {
+    if (labelMatcher.test(String(component?.label || ""))) {
+      return sum + normalizeNumber(component?.amount);
+    }
+
+    return sum;
+  }, 0);
+};
+
+const getLatestPaymentDate = (paymentHistory: unknown) => {
+  if (!Array.isArray(paymentHistory) || paymentHistory.length === 0) {
+    return null;
+  }
+
+  const lastItem = paymentHistory[paymentHistory.length - 1] as { paymentDate?: string };
+  return normalizeText(lastItem?.paymentDate) || null;
+};
+
+const getFeeStatus = (totalFee: number, paidAmount: number, dueDate?: string | null) => {
+  const dueAmount = Math.max(totalFee - paidAmount, 0);
+
+  if (dueAmount <= 0) {
+    return "paid";
+  }
+
+  if (paidAmount > 0) {
+    return "partial";
+  }
+
+  if (dueDate) {
+    const dueTime = new Date(dueDate).getTime();
+    if (Number.isFinite(dueTime) && dueTime < Date.now()) {
+      return "overdue";
+    }
+  }
+
+  return "pending";
+};
+
+const resolveTransportActive = (source: StudentSource) => {
+  const transportStatus = normalizeText(source.transportStatus || source.transport_status).toUpperCase();
+  const transportRouteId = normalizeText(source.transportRouteId || source.transport_route_id);
+
+  if (transportStatus === "ACTIVE") {
+    return true;
+  }
+
+  if (transportStatus === "INACTIVE" || transportStatus === "NO TRANSPORT") {
+    return false;
+  }
+
+  if (typeof source.needsTransport === "boolean") {
+    return Boolean(source.needsTransport);
+  }
+
+  if (transportRouteId) {
+    return true;
+  }
+
+  return null;
+};
+
+const getStudentTransportActiveFromRoutes = async (studentId: string, schoolId: string) => {
+  const transportExists = await Transport.exists({
+    schoolId,
+    assignedStudents: studentId,
+  });
+
+  return Boolean(transportExists);
+};
+
+const buildNormalizedFeeStructure = (
+  school: any,
+  student: any,
+  existingFinance: any,
+  transportActive: boolean
+) => {
+  const latestStructure = getLatestFeeStructureForClass(
+    school?.feeStructures,
+    String(student?.class || ""),
+    student?.academicYear || existingFinance?.academicYear || null
+  );
+
+  const existingFeeComponents = Array.isArray(existingFinance?.feeComponents)
+    ? existingFinance.feeComponents
+    : [];
+
+  const academicFee = latestStructure
+    ? normalizeNumber(latestStructure.amount)
+    : Math.max(
+        normalizeNumber(existingFinance?.amount) - getComponentAmountByLabel(existingFeeComponents, /transport/i),
+        0
+      );
+
+  const templateTransportFee = latestStructure
+    ? normalizeNumber(latestStructure.transportFee)
+    : getComponentAmountByLabel(existingFeeComponents, /transport/i);
+
+  const transportFee = transportActive ? templateTransportFee : 0;
+  const feeComponents = buildFeeComponents(academicFee, transportFee);
+  const totalFee = feeComponents.reduce((sum, component) => sum + component.amount, 0);
+  const paidAmount = normalizeNumber(existingFinance?.paidAmount);
+  const dueAmount = Math.max(totalFee - paidAmount, 0);
+  const dueDate =
+    normalizeText(latestStructure?.dueDate) ||
+    normalizeText(existingFinance?.dueDate) ||
+    todayDateInput();
+  const academicYear =
+    normalizeText(latestStructure?.academicYear) ||
+    normalizeText(student?.academicYear) ||
+    normalizeText(existingFinance?.academicYear) ||
+    "";
+  const status = getFeeStatus(totalFee, paidAmount, dueDate);
+  const paymentDate =
+    getLatestPaymentDate(existingFinance?.paymentHistory) ||
+    normalizeText(existingFinance?.paymentDate) ||
+    (paidAmount > 0 ? todayDateInput() : "");
+
+  return {
+    academicFee,
+    transportFee,
+    feeComponents,
+    totalFee,
+    paidAmount,
+    dueAmount,
+    dueDate,
+    academicYear,
+    status,
+    paymentDate,
+  };
+};
+
+async function syncStudentFeeAssignmentForStudent({
+  studentId,
+  schoolId,
+  transportActiveOverride,
+  session,
+}: SyncStudentFeeAssignmentArgs): Promise<SyncStudentFeeAssignmentResult | null> {
+  const studentQuery = Student.findOne({ _id: studentId, schoolId }).select(
+    "name class academicYear needsTransport schoolId"
+  );
+  const schoolQuery = School.findById(schoolId).select("feeStructures");
+  const existingFinanceQuery = Finance.findOne({
+    schoolId,
+    type: "student_fee",
+    studentId,
+  }).sort({ createdAt: -1 });
+
+  if (session) {
+    studentQuery.session(session);
+    schoolQuery.session(session);
+    existingFinanceQuery.session(session);
+  }
+
+  const [student, school, existingFinance] = await Promise.all([
+    studentQuery,
+    schoolQuery,
+    existingFinanceQuery,
+  ]);
+
+  if (!student || !school) {
+    return null;
+  }
+
+  const transportActive =
+    typeof transportActiveOverride === "boolean"
+      ? transportActiveOverride
+      : Boolean(student.needsTransport) || (await getStudentTransportActiveFromRoutes(String(student._id), schoolId));
+
+  const normalized = buildNormalizedFeeStructure(school, student, existingFinance, transportActive);
+
+  if (!existingFinance && normalized.totalFee <= 0) {
+    return null;
+  }
+
+  const payload = {
+    type: "student_fee" as const,
+    studentId: student._id,
+    amount: normalized.totalFee,
+    paidAmount: normalized.paidAmount,
+    dueDate: normalized.dueDate,
+    paymentDate: normalized.paymentDate || undefined,
+    status: normalized.status,
+    description: `Common fee structure for ${student.class}`,
+    academicYear: normalized.academicYear,
+    feeComponents: normalized.feeComponents,
+    schoolId,
+  };
+
+  if (existingFinance) {
+    const updatedFinance = await Finance.findByIdAndUpdate(existingFinance._id, payload, {
+      new: true,
+      session,
+    });
+
+    return {
+      created: false,
+      financeId: updatedFinance?._id ? String(updatedFinance._id) : String(existingFinance._id),
+      studentId: String(student._id),
+      schoolId,
+      academicFee: normalized.academicFee,
+      transportFee: normalized.transportFee,
+      totalFee: normalized.totalFee,
+      paidAmount: normalized.paidAmount,
+      dueAmount: normalized.dueAmount,
+      dueDate: normalized.dueDate,
+      academicYear: normalized.academicYear,
+      status: normalized.status,
+      transportActive,
+    };
+  }
+
+  const createdFinance = await Finance.create([
+    {
+      ...payload,
+      paymentHistory: [],
+    },
+  ], session ? { session } : undefined);
+
+  const financeDoc = createdFinance[0];
+
+  return {
+    created: true,
+    financeId: financeDoc?._id ? String(financeDoc._id) : null,
+    studentId: String(student._id),
+    schoolId,
+    academicFee: normalized.academicFee,
+    transportFee: normalized.transportFee,
+    totalFee: normalized.totalFee,
+    paidAmount: normalized.paidAmount,
+    dueAmount: normalized.dueAmount,
+    dueDate: normalized.dueDate,
+    academicYear: normalized.academicYear,
+    status: normalized.status,
+    transportActive,
+  };
+}
+
 const normalizeGender = (value: unknown) => {
   const normalized = normalizeText(value).toLowerCase();
 
@@ -135,6 +475,17 @@ const normalizeGender = (value: unknown) => {
 };
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function ensureDatabaseReady() {
+  const dbStatus = getDatabaseStatus();
+  if (!dbStatus.connected) {
+    throw new Error(
+      dbStatus.lastError
+        ? `Database unavailable: ${dbStatus.lastError}`
+        : "Database unavailable. Please connect MongoDB and try again."
+    );
+  }
+}
 
 function buildStudentPayload(source: StudentSource) {
   const payload: Record<string, unknown> = {};
@@ -175,38 +526,24 @@ async function createStudentRecord(source: StudentSource) {
   const studentClass = normalizeText(source.class);
   const rollNumber = normalizeText(source.rollNumber);
   const schoolId = normalizeText(source.schoolId);
+  const transportActive = resolveTransportActive(source);
 
   if (!name || !email || !studentClass || !rollNumber || !schoolId) {
     throw new Error("Required fields: name, email, class, rollNumber, schoolId");
   }
 
   const studentPayload = buildStudentPayload(source);
-  const student = await Student.create(studentPayload as any);
-  const studentId = (student as any)._id;
-
-  const school = await School.findById(schoolId).select("feeStructures");
-  const classFeeStructure = findClassFeeStructure(school, studentClass);
-
-  if (classFeeStructure) {
-    const normalizedClassFeeStructure = normalizeClassFeeStructure(classFeeStructure);
-    const appliedStudentFee = buildAppliedStudentFeeStructure(
-      normalizedClassFeeStructure,
-      Boolean((student as any).needsTransport)
-    );
-
-    await Finance.create({
-      type: "student_fee",
-      studentId,
-      amount: appliedStudentFee.totalAmount,
-      paidAmount: 0,
-      dueDate: normalizedClassFeeStructure.dueDate || getDefaultFeeDueDate(),
-      academicYear: normalizedClassFeeStructure.academicYear,
-      status: "pending",
-      description: `Common fee structure for ${studentClass}`,
-      feeComponents: appliedStudentFee.feeComponents,
-      schoolId,
-    });
+  if (transportActive !== null) {
+    studentPayload.needsTransport = transportActive;
   }
+
+  const student = await Student.create(studentPayload as any);
+
+  await syncStudentFeeAssignmentForStudent({
+    studentId: student._id,
+    schoolId,
+    transportActiveOverride: transportActive ?? undefined,
+  });
 
   await createLog({
     action: "CREATE_STUDENT",
@@ -277,6 +614,25 @@ function normalizeImportedStudentRow(
   return {
     valid: true as const,
     row: normalizedRow,
+  };
+}
+
+async function syncStudentTransportStatusAndFee(studentId: string, schoolId: string, transportActive: boolean) {
+  const updatedStudent = await Student.findOneAndUpdate(
+    { _id: studentId, schoolId },
+    { needsTransport: transportActive },
+    { new: true }
+  );
+
+  const feeSync = await syncStudentFeeAssignmentForStudent({
+    studentId,
+    schoolId,
+    transportActiveOverride: transportActive,
+  });
+
+  return {
+    student: updatedStudent,
+    feeSync,
   };
 }
 
@@ -359,6 +715,8 @@ router.get("/:id", async (req, res) => {
 // ==========================
 router.post("/import", async (req, res) => {
   try {
+    ensureDatabaseReady();
+
     const schoolId = normalizeText(req.body.schoolId);
     const duplicateMode = normalizeText(req.body.duplicateMode || "skip").toLowerCase();
     const rawRows = Array.isArray(req.body.rows) ? (req.body.rows as ImportedStudentRow[]) : [];
@@ -483,10 +841,53 @@ router.post("/import", async (req, res) => {
 });
 
 // ==========================
+// UPDATE STUDENT TRANSPORT STATUS
+// ==========================
+router.patch("/:id/transport-status", async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const transportActive = resolveTransportActive(req.body);
+    const nextTransportStatus =
+      transportActive !== null
+        ? transportActive
+        : Boolean(req.body?.transportStatus || req.body?.needsTransport);
+
+    const syncResult = await syncStudentTransportStatusAndFee(
+      String(student._id),
+      String(student.schoolId),
+      nextTransportStatus
+    );
+
+    await createLog({
+      action: "UPDATE_STUDENT_TRANSPORT",
+      message: `Transport status updated for ${student.name}: ${nextTransportStatus ? "ACTIVE" : "INACTIVE"}`,
+      schoolId: student.schoolId,
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        student: syncResult.student,
+        feeSync: syncResult.feeSync,
+      },
+    });
+  } catch (error) {
+    console.error("UPDATE STUDENT TRANSPORT ERROR:", error);
+    return res.status(500).json({ message: "Failed to update student transport status" });
+  }
+});
+
+// ==========================
 // CREATE STUDENT
 // ==========================
 router.post("/", async (req, res) => {
   try {
+    ensureDatabaseReady();
     const student = await createStudentRecord(req.body as StudentSource);
     return res.json({ success: true, data: student });
   } catch (error) {
@@ -503,6 +904,11 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const studentPayload = buildStudentPayload(req.body);
+    const transportActive = resolveTransportActive(req.body);
+    if (transportActive !== null) {
+      studentPayload.needsTransport = transportActive;
+    }
+
     const updated = await Student.findByIdAndUpdate(
       req.params.id,
       studentPayload,
@@ -513,36 +919,11 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const school = await School.findById(updated.schoolId).select("feeStructures");
-    const classFeeStructure = findClassFeeStructure(school, String(updated.class || ""));
-
-    if (classFeeStructure) {
-      const normalizedClassFeeStructure = normalizeClassFeeStructure(classFeeStructure);
-      const appliedStudentFee = buildAppliedStudentFeeStructure(
-        normalizedClassFeeStructure,
-        Boolean(updated.needsTransport)
-      );
-
-      await Finance.findOneAndUpdate(
-        {
-          schoolId: updated.schoolId,
-          type: "student_fee",
-          studentId: updated._id,
-        },
-        {
-          amount: appliedStudentFee.totalAmount,
-          dueDate: normalizedClassFeeStructure.dueDate || getDefaultFeeDueDate(),
-          academicYear: normalizedClassFeeStructure.academicYear,
-          feeComponents: appliedStudentFee.feeComponents,
-          description: `Common fee structure for ${updated.class}`,
-        },
-        {
-          new: true,
-          upsert: true,
-          setDefaultsOnInsert: true,
-        }
-      );
-    }
+    await syncStudentFeeAssignmentForStudent({
+      studentId: updated._id,
+      schoolId: String(updated.schoolId),
+      transportActiveOverride: transportActive ?? undefined,
+    });
 
     await createLog({
       action: "UPDATE_STUDENT",

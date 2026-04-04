@@ -1,8 +1,39 @@
 import express from "express";
+import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 import School from "../models/School";
 import Staff from "../models/Staff";
+import Student from "../models/Student";
+import Announcement from "../models/Announcement";
+import Assignment from "../models/Assignment";
+import Attendance from "../models/Attendance";
+import ClassModel from "../models/Class";
+import ClassFeeStructure from "../models/ClassFeeStructure";
+import DataImportBatch from "../models/DataImportBatch";
+import Exam from "../models/Exam";
+import Finance from "../models/Finance";
+import Hostel from "../models/Hostel";
+import InventoryItem from "../models/InventoryItem";
+import InvestorLedger from "../models/InvestorLedger";
+import LeaveApplication from "../models/LeaveApplication";
+import LibraryAssignment from "../models/LibraryAssignment";
+import LibraryBook from "../models/LibraryBook";
+import Log from "../models/Logs";
+import Maintenance from "../models/Maintenance";
+import Mark from "../models/Mark";
+import SalaryRole from "../models/SalaryRole";
+import SocialMedia from "../models/SocialMedia";
+import StudentFeeAssignment from "../models/StudentFeeAssignment";
+import StudentFeePayment from "../models/StudentFeePayment";
+import Survey from "../models/Survey";
+import TeacherRoleAssignment from "../models/TeacherRoleAssignment";
+import Transport from "../models/Transport";
+import Visitor from "../models/Visitor";
 import { createLog } from "../utils/createLog";
 import { sendSchoolAdminCredentialsEmail } from "../utils/sendEmail";
+import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../utils/loginThrottle";
+import { signAuthToken } from "../utils/jwt";
+import { authenticateToken } from "../middleware/auth";
 
 const router = express.Router();
 
@@ -84,6 +115,45 @@ const getRequestedModules = (subscriptionPlan: string, modules?: unknown): strin
   return getModulesByPlan(subscriptionPlan);
 };
 
+const toSchoolSessionResponse = (school: any) => ({
+  _id: school._id,
+  modules: school.modules,
+  adminInfo: {
+    name: school.adminInfo?.name,
+    email: school.adminInfo?.email,
+    phone: school.adminInfo?.phone,
+    image: school.adminInfo?.image,
+    status: school.adminInfo?.status,
+  },
+  schoolInfo: {
+    name: school.schoolInfo?.name,
+    logo: school.schoolInfo?.logo,
+    email: school.schoolInfo?.email,
+    phone: school.schoolInfo?.phone,
+    address: school.schoolInfo?.address,
+    website: school.schoolInfo?.website,
+  },
+  systemInfo: {
+    schoolType: school.systemInfo?.schoolType,
+    subscriptionPlan: school.systemInfo?.subscriptionPlan,
+    subscriptionEndDate: school.systemInfo?.subscriptionEndDate,
+  },
+});
+
+function toSchoolSessionWithToken(school: any) {
+  const token = signAuthToken({
+    userId: String(school._id),
+    email: String(school.adminInfo?.email || school.schoolInfo?.email || ""),
+    role: "school-admin",
+    schoolId: String(school._id),
+  });
+
+  return {
+    ...toSchoolSessionResponse(school),
+    token,
+  };
+}
+
 
 // ==========================
 // 🔐 SCHOOL ADMIN LOGIN
@@ -91,6 +161,15 @@ const getRequestedModules = (subscriptionPlan: string, modules?: unknown): strin
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+    const throttleKey = getLoginThrottleKey(req.ip, String(email || ""));
+    const blockInfo = getLoginBlockInfo(throttleKey);
+
+    if (blockInfo.blocked) {
+      return res.status(429).json({
+        message: "Too many failed login attempts. Please try again later.",
+        retryAfterSeconds: blockInfo.retryAfterSeconds,
+      });
+    }
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
@@ -101,9 +180,10 @@ router.post("/login", async (req, res) => {
         { "adminInfo.email": email },
         { "schoolInfo.email": email },
       ],
-    });
+    }).select("+adminInfo.password");
 
     if (!school) {
+      recordLoginFailure(throttleKey);
       return res.status(404).json({ message: "Admin not found" });
     }
 
@@ -111,17 +191,139 @@ router.post("/login", async (req, res) => {
       return res.status(403).json({ message: "Account disabled" });
     }
 
-    if (school.adminInfo?.password !== password) {
+    const storedPassword = String(school.adminInfo?.password || "");
+    const passwordValid = storedPassword.startsWith("$2")
+      ? await bcrypt.compare(password, storedPassword)
+      : storedPassword === password;
+
+    if (!passwordValid) {
+      recordLoginFailure(throttleKey);
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    res.json(school);
+    if (!storedPassword.startsWith("$2")) {
+      const upgradedHash = await bcrypt.hash(password, 12);
+      await School.updateOne({ _id: school._id }, { $set: { "adminInfo.password": upgradedHash } });
+    }
+
+    clearLoginFailures(throttleKey);
+
+    res.json(toSchoolSessionWithToken(school));
   } catch (error) {
     console.error("SCHOOL LOGIN ERROR:", error);
     res.status(500).json({
       message: "School admin login failed",
       error: error instanceof Error ? error.message : String(error),
     });
+  }
+});
+
+// ==========================
+// 🔐 SUPER ADMIN LOGIN
+// ==========================
+router.post("/super-admin-login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const expectedEmail = process.env.SUPER_ADMIN_EMAIL;
+    const expectedPassword = process.env.SUPER_ADMIN_PASSWORD;
+
+    if (!expectedEmail || !expectedPassword) {
+      return res.status(500).json({
+        message: "Super admin credentials are not configured on server",
+      });
+    }
+
+    if (email !== expectedEmail || password !== expectedPassword) {
+      return res.status(401).json({ message: "Invalid super admin credentials" });
+    }
+
+    const token = signAuthToken({
+      userId: "super-admin",
+      email,
+      role: "super-admin",
+    });
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: "super_admin_001",
+        email,
+        name: "Super Admin",
+        role: "super-admin",
+      },
+    });
+  } catch (error) {
+    console.error("SUPER ADMIN LOGIN ERROR:", error);
+    return res.status(500).json({ message: "Super admin login failed" });
+  }
+});
+
+// ==========================
+// 🧨 SUPER ADMIN CLEAR DATABASE (DANGER ZONE)
+// ==========================
+router.post("/super-admin/clear-database", authenticateToken, async (req, res) => {
+  try {
+    const authUser = (req as express.Request & { user?: { role?: string } }).user;
+    if (authUser?.role !== "super-admin") {
+      return res.status(403).json({ message: "Only super admin can clear the database" });
+    }
+
+    const { email, password, confirmationText } = req.body as {
+      email?: string;
+      password?: string;
+      confirmationText?: string;
+    };
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Super admin email and password are required" });
+    }
+
+    if (confirmationText !== "CLEAR DATABASE") {
+      return res.status(400).json({ message: "Type CLEAR DATABASE to confirm" });
+    }
+
+    const expectedEmail = process.env.SUPER_ADMIN_EMAIL;
+    const expectedPassword = process.env.SUPER_ADMIN_PASSWORD;
+
+    if (!expectedEmail || !expectedPassword) {
+      return res.status(500).json({
+        message: "Super admin credentials are not configured on server",
+      });
+    }
+
+    if (email !== expectedEmail || password !== expectedPassword) {
+      return res.status(401).json({ message: "Invalid super admin credentials" });
+    }
+
+    const database = mongoose.connection.db;
+    if (!database) {
+      return res.status(500).json({ message: "Database connection not ready" });
+    }
+
+    const collections = await database.listCollections({}, { nameOnly: true }).toArray();
+    const collectionNames = collections
+      .map((item) => item.name)
+      .filter((name) => !name.startsWith("system."));
+
+    await Promise.all(
+      collectionNames.map((collectionName) => database.collection(collectionName).deleteMany({}))
+    );
+
+    return res.json({
+      success: true,
+      message: "Database cleared successfully",
+      collectionsCleared: collectionNames.length,
+      clearedCollections: collectionNames,
+    });
+  } catch (error) {
+    console.error("CLEAR DATABASE ERROR:", error);
+    return res.status(500).json({ message: "Failed to clear database" });
   }
 });
 
@@ -142,7 +344,7 @@ router.get("/admin/:email", async (req, res) => {
       return res.status(403).json({ message: "Account disabled" });
     }
 
-    res.json(school);
+    res.json(toSchoolSessionResponse(school));
 
   } catch (error) {
     console.error("LOGIN ERROR:", error);
@@ -177,6 +379,7 @@ router.post("/register", async (req, res) => {
 
     // Generate random password
     const generatedPassword = generateRandomPassword();
+    const hashedPassword = await bcrypt.hash(generatedPassword, 12);
 
     // Create school with auto-generated credentials
     const newSchool = await School.create({
@@ -191,7 +394,7 @@ router.post("/register", async (req, res) => {
       adminInfo: {
         name: adminName,
         email: adminEmail,
-        password: generatedPassword,
+        password: hashedPassword,
         phone: adminPhone,
         image: req.body.adminImage || "",
         status: "Active",
@@ -233,7 +436,6 @@ router.post("/register", async (req, res) => {
         _id: newSchool._id,
         schoolName: newSchool.schoolInfo?.name,
         adminEmail: newSchool.adminInfo?.email,
-        adminPassword: generatedPassword,
         subscriptionPlan: newSchool.systemInfo?.subscriptionPlan,
         modules: newSchool.modules,
       },
@@ -245,6 +447,8 @@ router.post("/register", async (req, res) => {
   }
 });
 
+router.use(authenticateToken);
+
 
 // ==========================
 // ✅ CREATE SCHOOL
@@ -252,6 +456,8 @@ router.post("/register", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const subscriptionPlan = req.body.subscriptionPlan || "Basic";
+    const adminPasswordRaw = String(req.body.adminPassword || generateRandomPassword());
+    const hashedAdminPassword = await bcrypt.hash(adminPasswordRaw, 12);
     const newSchoolData = {
       schoolInfo: {
         name: req.body.schoolName,
@@ -264,7 +470,7 @@ router.post("/", async (req, res) => {
       adminInfo: {
         name: req.body.adminName,
         email: req.body.adminEmail,
-        password: req.body.adminPassword,
+        password: hashedAdminPassword,
         phone: req.body.adminPhone,
         image: req.body.adminImage || "",
         status: "Active",
@@ -360,16 +566,49 @@ router.put("/:id", async (req, res) => {
 // ==========================
 router.delete("/:id", async (req, res) => {
   try {
-    const school = await School.findByIdAndDelete(req.params.id);
+    const schoolId = req.params.id;
+    const school = await School.findById(schoolId);
 
     if (!school) {
       return res.status(404).json({ message: "School not found" });
     }
 
+    // Cascade delete all school-scoped data across ERP modules.
+    await Promise.all([
+      Announcement.deleteMany({ schoolId }),
+      Assignment.deleteMany({ schoolId }),
+      Attendance.deleteMany({ schoolId }),
+      ClassModel.deleteMany({ schoolId }),
+      ClassFeeStructure.deleteMany({ school_id: schoolId }),
+      DataImportBatch.deleteMany({ school_id: schoolId }),
+      Exam.deleteMany({ schoolId }),
+      Finance.deleteMany({ schoolId }),
+      Hostel.deleteMany({ schoolId }),
+      InventoryItem.deleteMany({ schoolId }),
+      InvestorLedger.deleteMany({ schoolId }),
+      LeaveApplication.deleteMany({ schoolId }),
+      LibraryAssignment.deleteMany({ schoolId }),
+      LibraryBook.deleteMany({ schoolId }),
+      Maintenance.deleteMany({ schoolId }),
+      Mark.deleteMany({ schoolId }),
+      SalaryRole.deleteMany({ schoolId }),
+      SocialMedia.deleteMany({ schoolId }),
+      Staff.deleteMany({ schoolId }),
+      Student.deleteMany({ schoolId }),
+      StudentFeeAssignment.deleteMany({ school_id: schoolId }),
+      StudentFeePayment.deleteMany({ school_id: schoolId }),
+      Survey.deleteMany({ schoolId }),
+      TeacherRoleAssignment.deleteMany({ schoolId }),
+      Transport.deleteMany({ schoolId }),
+      Visitor.deleteMany({ schoolId }),
+      Log.deleteMany({ schoolId: String(schoolId) }),
+    ]);
+
+    await School.findByIdAndDelete(schoolId);
+
     await createLog({
       action: "DELETE_SCHOOL",
-      message: `${school.schoolInfo?.name} deleted`,
-      schoolId: school._id,
+      message: `${school.schoolInfo?.name} deleted with all related records`,
     });
 
     res.json({ success: true });
@@ -427,7 +666,7 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    res.json(school);
+    res.json(toSchoolSessionResponse(school));
   } catch (error) {
     console.error("FETCH SCHOOL ERROR:", error);
     res.status(500).json({ error: "Failed to fetch school" });
@@ -440,7 +679,7 @@ router.get("/:id", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const schools = await School.find();
-    res.json(schools);
+    res.json(schools.map((school) => toSchoolSessionResponse(school)));
   } catch (error) {
     console.error("FETCH ERROR:", error);
     res.status(500).json({ error: "Failed to fetch schools" });
@@ -536,6 +775,9 @@ router.post("/seed-dummy", async (req, res) => {
   try {
     const stamp = Date.now().toString().slice(-6);
 
+    const adminPassword = "admin123";
+    const hashedAdminPassword = await bcrypt.hash(adminPassword, 12);
+
     const school = await School.create({
       schoolInfo: {
         name: `Demo Public School ${stamp}`,
@@ -548,7 +790,7 @@ router.post("/seed-dummy", async (req, res) => {
       adminInfo: {
         name: "Demo Admin",
         email: `admin.${stamp}@example.com`,
-        password: "admin123",
+        password: hashedAdminPassword,
         phone: "+91-9000000002",
         image: "",
         status: "Active",
@@ -624,7 +866,7 @@ router.post("/seed-dummy", async (req, res) => {
       success: true,
       message: "Dummy school and teacher data created",
       data: {
-        school,
+        school: toSchoolSessionResponse(school),
         teachers,
       },
     });

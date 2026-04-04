@@ -113,7 +113,8 @@ export const sendSchoolAdminCredentialsEmail = async (
 export const sendTeacherCredentialsEmail = async (
   teacherName: string,
   teacherEmail: string,
-  schoolName: string
+  schoolName: string,
+  generatedPassword: string,
 ): Promise<void> => {
   try {
     // Create transporter for email
@@ -146,7 +147,7 @@ export const sendTeacherCredentialsEmail = async (
             <h3>Your Login Credentials:</h3>
             <div class="credentials">
               <p><strong>Email:</strong> ${teacherEmail}</p>
-              <p><strong>Name:</strong> ${teacherName}</p>
+              <p><strong>Password:</strong> <code>${generatedPassword}</code></p>
               <p><strong>Access URL:</strong> <a href="http://localhost:8081">http://localhost:8081</a></p>
             </div>
             
@@ -154,8 +155,8 @@ export const sendTeacherCredentialsEmail = async (
             <ol>
               <li>Visit the login page</li>
               <li>Select "Teacher" as the role</li>
-              <li>Enter your name: <strong>${teacherName}</strong></li>
               <li>Enter your email: <strong>${teacherEmail}</strong></li>
+              <li>Enter your generated password</li>
               <li>Click "Login"</li>
             </ol>
             

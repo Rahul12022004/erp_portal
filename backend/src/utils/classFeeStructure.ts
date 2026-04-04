@@ -26,6 +26,10 @@ export type AppliedStudentFeeStructure = {
   totalAmount: number;
 };
 
+type FeeStructureCarrier = {
+  feeStructures?: Array<{ className?: unknown }>;
+};
+
 export const buildClassFeeComponents = (amount: number, transportFee: number): FeeComponent[] => {
   const normalizedAmount = Math.max(Number(amount || 0), 0);
   const normalizedTransportFee = Math.max(Number(transportFee || 0), 0);
@@ -65,12 +69,12 @@ export const normalizeClassFeeStructure = (
   };
 };
 
-export const findClassFeeStructure = (school: any, className: string) => {
+export const findClassFeeStructure = (school: FeeStructureCarrier | null | undefined, className: string) => {
   const normalizedClassName = String(className || "").trim();
   const feeStructures = Array.isArray(school?.feeStructures) ? school.feeStructures : [];
 
   return feeStructures.find(
-    (item: any) => String(item?.className || "").trim() === normalizedClassName
+    (item) => String(item?.className || "").trim() === normalizedClassName
   ) || null;
 };
 

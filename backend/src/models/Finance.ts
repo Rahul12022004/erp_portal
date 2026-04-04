@@ -58,6 +58,10 @@ const financeSchema = new mongoose.Schema(
     academicYear: String,
     feeComponents: { type: [feeComponentSchema], default: [] },
     paymentHistory: { type: [paymentHistorySchema], default: [] },
+    extensionGrantedAt: String,
+    extensionExpiresAt: String,
+    extensionGrantedBy: String,
+    extensionReason: String,
     // For other expenses/income
     category: String, // e.g., "Maintenance", "Equipment", "Events", "Miscellaneous"
     transactionType: {

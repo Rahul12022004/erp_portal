@@ -454,7 +454,9 @@ export default function VisitorModule() {
     if (school?.schoolInfo?.logo?.startsWith("data:image")) {
       try {
         doc.addImage(school.schoolInfo.logo, "PNG", 38, 28, 52, 52);
-      } catch {}
+      } catch (error) {
+        console.warn("Unable to add school logo to visitor pass PDF", error);
+      }
     }
     doc.setFillColor(12, 74, 110);
     doc.roundedRect(100, 28, 459, 54, 16, 16, "F");

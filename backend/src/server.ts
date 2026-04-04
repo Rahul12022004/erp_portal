@@ -26,7 +26,9 @@ import inventoryRoutes from "./routes/inventoryRoutes";
 import teacherRoleRoutes from "./routes/teacherRoleRoutes";
 import socialMediaRoutes from "./routes/socialMediaRoutes";
 import visitorRoutes from "./routes/visitorRoutes";
+import dataImportRoutes from "./routes/dataImportRoutes";
 import { seedDatabase } from "./seed";
+import { authenticateToken } from "./middleware/auth";
 
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
@@ -100,27 +102,28 @@ initializeDatabase();
 // 🚀 ROUTES
 // ==========================
 app.use("/api/schools", schoolRoutes);
-app.use("/api/logs", logRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/announcements", announcementRoutes);
-app.use("/api/attendance", attendanceRoutes);
-app.use("/api/assignments", assignmentRoutes);
-app.use("/api/exams", examRoutes);
-app.use("/api/marks", markRoutes);
-app.use("/api/leaves", leaveRoutes);
-app.use("/api/maintenance", maintenanceRoutes);
-app.use("/api/surveys", surveyRoutes);
-app.use("/api/students", studentRoutes);
+app.use("/api/logs", authenticateToken, logRoutes);
+app.use("/api/dashboard", authenticateToken, dashboardRoutes);
+app.use("/api/announcements", authenticateToken, announcementRoutes);
+app.use("/api/attendance", authenticateToken, attendanceRoutes);
+app.use("/api/assignments", authenticateToken, assignmentRoutes);
+app.use("/api/exams", authenticateToken, examRoutes);
+app.use("/api/marks", authenticateToken, markRoutes);
+app.use("/api/leaves", authenticateToken, leaveRoutes);
+app.use("/api/maintenance", authenticateToken, maintenanceRoutes);
+app.use("/api/surveys", authenticateToken, surveyRoutes);
+app.use("/api/students", authenticateToken, studentRoutes);
 app.use("/api/staff", staffRoutes);
-app.use("/api/classes", classRoutes);
-app.use("/api/finance", financeRoutes);
-app.use("/api/transport", transportRoutes);
-app.use("/api/hostels", hostelRoutes);
-app.use("/api/library", libraryRoutes);
-app.use("/api/inventory", inventoryRoutes);
-app.use("/api/teacher-roles", teacherRoleRoutes);
-app.use("/api/social-media", socialMediaRoutes);
-app.use("/api/visitors", visitorRoutes);
+app.use("/api/classes", authenticateToken, classRoutes);
+app.use("/api/finance", authenticateToken, financeRoutes);
+app.use("/api/transport", authenticateToken, transportRoutes);
+app.use("/api/hostels", authenticateToken, hostelRoutes);
+app.use("/api/library", authenticateToken, libraryRoutes);
+app.use("/api/inventory", authenticateToken, inventoryRoutes);
+app.use("/api/teacher-roles", authenticateToken, teacherRoleRoutes);
+app.use("/api/social-media", authenticateToken, socialMediaRoutes);
+app.use("/api/visitors", authenticateToken, visitorRoutes);
+app.use("/api/data-import", authenticateToken, dataImportRoutes);
 
 // ==========================
 // 🧪 TEST ROUTE
@@ -141,8 +144,12 @@ app.get("/", (req, res) => {
 });
 
 // Handle large payload errors (e.g., base64 file uploads)
-app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (error?.type === "entity.too.large") {
+type PayloadTooLargeError = {
+  type?: string;
+};
+
+app.use((error: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if ((error as PayloadTooLargeError | null)?.type === "entity.too.large") {
     return res.status(413).json({
       message: "Uploaded file is too large. Please upload a smaller file.",
     });

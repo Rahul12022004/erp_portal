@@ -5,6 +5,7 @@ import {
   Library, HeadphonesIcon, Bus, Package, ShoppingCart, UtensilsCrossed,
   CheckSquare, ScrollText, Shield, Wrench, Settings,
   Trophy, Video, BarChart3, Store, Clock, GraduationCap, Menu, X, Share2, UserCheck,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -45,13 +46,14 @@ const iconMap: Record<string, LucideIcon> = {
   Settings: Settings,
   "Social Media": Share2,
   Visitor: UserCheck,
+  "Data Import": Database,
 };
 
 // 🔥 SAME GROUP STRUCTURE (NO UI CHANGE)
 const menuGroups = [
   { label: "Overview", items: ["Dashboard"] },
   { label: "Academics", items: ["Communication", "Academics", "Attendance", "Classes", "Students", "Staff", "Exams", "Time Table"] },
-  { label: "Administration", items: ["Finance", "Admissions", "Visitor", "HR", "Transport", "Hostel", "Library", "Inventory", "Social Media"] },
+  { label: "Administration", items: ["Finance", "Admissions", "Visitor", "HR", "Transport", "Hostel", "Library", "Inventory", "Social Media", "Data Import"] },
   { label: "Services", items: ["Sports", "House"] },
   { label: "Management", items: ["Approvals", "Maintenance", "Survey", "Downloads", "Support", "Logs", "Settings"] },
 ];
@@ -112,6 +114,8 @@ const portalModulesByNormalizedSource: Record<string, string[]> = {
   settings: ["Settings"],
   visitor: ["Visitor"],
   visitors: ["Visitor"],
+  dataimport: ["Data Import"],
+  erpdataimport: ["Data Import"],
 };
 
 export function SchoolAdminSidebar() {
@@ -123,7 +127,17 @@ export function SchoolAdminSidebar() {
   useEffect(() => {
     const loadSchoolData = () => {
       const data = localStorage.getItem("school");
-      setSchoolData(data ? JSON.parse(data) : null);
+      if (!data) {
+        setSchoolData(null);
+        return;
+      }
+
+      try {
+        setSchoolData(JSON.parse(data));
+      } catch {
+        localStorage.removeItem("school");
+        setSchoolData(null);
+      }
     };
 
     loadSchoolData();
@@ -155,8 +169,8 @@ export function SchoolAdminSidebar() {
           return;
         }
 
-        const latestSchool = await response.json();
-        if (cancelled) {
+        const latestSchool = await response.json().catch(() => null);
+        if (!latestSchool || cancelled) {
           return;
         }
 

@@ -200,20 +200,20 @@ export default function SchoolAdminLogin() {
             </div>
 
             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-center text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                <div>
+              <div className="space-y-1 text-center text-xs text-slate-600 dark:text-slate-400">
+                <p>
                   Are you a teacher?{" "}
                   <Link to="/teacher-login" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
                     Teacher Login
                   </Link>
-                </div>
-                <div>
+                </p>
+                <p>
                   Need access?{" "}
                   <Link to="/super-admin-login" className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                     Super Admin
                   </Link>
-                </div>
-              </p>
+                </p>
+              </div>
             </div>
 
             {/* Action Buttons at bottom */}

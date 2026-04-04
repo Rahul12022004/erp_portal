@@ -1,8 +1,22 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { API_URL } from "@/lib/api";
+import { clearStoredSessions, readAuthToken } from "@/lib/auth";
 
 const tabs = ["General", "Modules", "Subscription"];
 
+type ModuleSetting = {
+  name: string;
+  enabled: boolean;
+};
+
+type SubscriptionPlan = {
+  name: string;
+  price: number;
+};
+
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("General");
 
   // ==========================
@@ -17,7 +31,7 @@ export default function SettingsPage() {
   // ==========================
   // MODULE SETTINGS (FULL LIST)
   // ==========================
-  const [modules, setModules] = useState([
+  const [modules, setModules] = useState<ModuleSetting[]>([
     // 🎓 ACADEMICS
     { name: "Academics", enabled: true },
     { name: "Homework", enabled: true },
@@ -64,13 +78,19 @@ export default function SettingsPage() {
   // ==========================
   // SUBSCRIPTION SETTINGS
   // ==========================
-  const [plans, setPlans] = useState<any[]>([
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([
     { name: "Basic", price: 0 },
     { name: "Standard", price: 999 },
     { name: "Premium", price: 1999 },
   ]);
 
-  const [newPlan, setNewPlan] = useState({ name: "", price: 0 });
+  const [newPlan, setNewPlan] = useState<SubscriptionPlan>({ name: "", price: 0 });
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [confirmationText, setConfirmationText] = useState("");
+  const [clearDbLoading, setClearDbLoading] = useState(false);
+  const [clearDbError, setClearDbError] = useState("");
+  const [clearDbSuccess, setClearDbSuccess] = useState("");
 
   // ==========================
   // HANDLERS
@@ -81,7 +101,11 @@ export default function SettingsPage() {
     setModules(updated);
   };
 
-  const updatePlan = (index: number, field: string, value: any) => {
+  const updatePlan = (
+    index: number,
+    field: keyof SubscriptionPlan,
+    value: SubscriptionPlan[keyof SubscriptionPlan]
+  ) => {
     const updated = [...plans];
     updated[index][field] = value;
     setPlans(updated);
@@ -96,6 +120,58 @@ export default function SettingsPage() {
   const deletePlan = (index: number) => {
     const updated = plans.filter((_, i) => i !== index);
     setPlans(updated);
+  };
+
+  const clearDatabase = async () => {
+    setClearDbError("");
+    setClearDbSuccess("");
+
+    if (!adminEmail || !adminPassword) {
+      setClearDbError("Enter super admin email and password.");
+      return;
+    }
+
+    if (confirmationText !== "CLEAR DATABASE") {
+      setClearDbError('Type "CLEAR DATABASE" to continue.');
+      return;
+    }
+
+    setClearDbLoading(true);
+    try {
+      const token = readAuthToken();
+      const response = await fetch(`${API_URL}/api/schools/super-admin/clear-database`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: adminEmail,
+          password: adminPassword,
+          confirmationText,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error((payload as { message?: string }).message || "Failed to clear database");
+      }
+
+      setClearDbSuccess("Database cleared successfully. Redirecting to login...");
+      setAdminEmail("");
+      setAdminPassword("");
+      setConfirmationText("");
+
+      setTimeout(() => {
+        clearStoredSessions();
+        navigate("/super-admin-login", { replace: true });
+      }, 1200);
+    } catch (error) {
+      setClearDbError(error instanceof Error ? error.message : "Failed to clear database");
+    } finally {
+      setClearDbLoading(false);
+    }
   };
 
   // ==========================
@@ -283,6 +359,65 @@ export default function SettingsPage() {
         >
           Save Settings
         </button>
+      </div>
+
+      {/* DANGER ZONE */}
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6">
+        <h2 className="text-lg font-bold text-red-700">Danger Zone</h2>
+        <p className="mt-1 text-sm text-red-600">
+          This will permanently clear the entire database for all schools and modules.
+        </p>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium text-red-700">Super Admin Email</label>
+            <input
+              type="email"
+              value={adminEmail}
+              onChange={(e) => setAdminEmail(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-red-200 bg-white p-2 focus:ring-2 focus:ring-red-500"
+              placeholder="Enter super admin email"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-red-700">Super Admin Password</label>
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-red-200 bg-white p-2 focus:ring-2 focus:ring-red-500"
+              placeholder="Enter password"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="text-sm font-medium text-red-700">Type CLEAR DATABASE to confirm</label>
+          <input
+            value={confirmationText}
+            onChange={(e) => setConfirmationText(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-red-200 bg-white p-2 focus:ring-2 focus:ring-red-500"
+            placeholder="CLEAR DATABASE"
+          />
+        </div>
+
+        {clearDbError && (
+          <p className="mt-3 text-sm font-medium text-red-700">{clearDbError}</p>
+        )}
+        {clearDbSuccess && (
+          <p className="mt-3 text-sm font-medium text-green-700">{clearDbSuccess}</p>
+        )}
+
+        <div className="mt-5">
+          <button
+            onClick={clearDatabase}
+            disabled={clearDbLoading}
+            className="rounded-lg bg-red-600 px-5 py-2 text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {clearDbLoading ? "Clearing Database..." : "Clear Entire Database"}
+          </button>
+        </div>
       </div>
     </div>
   );

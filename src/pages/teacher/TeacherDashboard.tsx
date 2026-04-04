@@ -11,6 +11,7 @@ import {
 
 import { StatCard } from "@/components/StatCard";
 import { useRole } from "@/contexts/RoleContext";
+import { readStoredSchoolSession, readStoredTeacherSession } from "@/lib/auth";
 
 const MODULE_PATHS: Record<string, string> = {
   students: "/teacher/students",
@@ -82,8 +83,8 @@ export default function TeacherDashboard() {
         setLoading(true);
         setError("");
 
-        const school = JSON.parse(localStorage.getItem("school") || "null");
-        const teacher = JSON.parse(localStorage.getItem("teacher") || "null");
+        const school = readStoredSchoolSession();
+        const teacher = readStoredTeacherSession();
 
         if (!school?._id || !teacher?._id) {
           throw new Error("Teacher session not found. Please log in again.");

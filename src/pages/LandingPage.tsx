@@ -52,11 +52,15 @@ const glassCardDark = "dark:backdrop-blur-[5px] dark:bg-slate-900 dark:rounded-[
 
 // ── Reveal on scroll ────────────────────────────────────────────────────────
 function Reveal({ children, delay = 0, x = 0, y = 0 }: { children: React.ReactNode; delay?: number; x?: number; y?: number }) {
+  const canObserveInView =
+    typeof window !== "undefined" && typeof window.IntersectionObserver !== "undefined";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: y || 32, x }}
-      whileInView={{ opacity: 1, y: 0, x: 0 }}
-      viewport={{ once: true, amount: 0.15 }}
+      animate={!canObserveInView ? { opacity: 1, y: 0, x: 0 } : undefined}
+      whileInView={canObserveInView ? { opacity: 1, y: 0, x: 0 } : undefined}
+      viewport={canObserveInView ? { once: true, amount: 0.15 } : undefined}
       transition={{ duration: 0.7, ease: "easeOut", delay }}
     >
       {children}
@@ -1225,7 +1229,10 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-white/80 bg-white/80 backdrop-blur-xl shadow-sm dark:border-slate-800/60 dark:bg-slate-950/90">
         <div className="container mx-auto max-w-[1600px] flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <button type="button" onClick={() => scrollTo("hero")} className="flex items-center gap-3 cursor-pointer">
-            <div className={`flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-to-br from-[${brand}] to-[${brandDeep}] text-white shadow-[6px_6px_12px_#c8ccd1,-6px_-6px_12px_#ffffff] dark:shadow-[6px_6px_12px_rgba(0,0,0,0.2),-6px_-6px_12px_rgba(255,255,255,0.08)]`}>
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-3xl text-white shadow-[6px_6px_12px_#c8ccd1,-6px_-6px_12px_#ffffff] dark:shadow-[6px_6px_12px_rgba(0,0,0,0.2),-6px_-6px_12px_rgba(255,255,255,0.08)]"
+              style={{ background: `linear-gradient(135deg, ${brand}, ${brandDeep})` }}
+            >
               <School2 className="h-5 w-5" />
             </div>
             <div className="text-left">
@@ -1793,7 +1800,10 @@ export default function LandingPage() {
               {/* Brand column */}
               <div className="lg:col-span-1">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[${brand}] to-[${brandDeep}] text-white shadow-[4px_4px_8px_#c8ccd1,-4px_-4px_8px_#ffffff] dark:shadow-[4px_4px_8px_rgba(0,0,0,0.2),-4px_-4px_8px_rgba(255,255,255,0.08)]`}>
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-[4px_4px_8px_#c8ccd1,-4px_-4px_8px_#ffffff] dark:shadow-[4px_4px_8px_rgba(0,0,0,0.2),-4px_-4px_8px_rgba(255,255,255,0.08)]"
+                    style={{ background: `linear-gradient(135deg, ${brand}, ${brandDeep})` }}
+                  >
                     <School2 className="h-5 w-5" />
                   </div>
                   <div>

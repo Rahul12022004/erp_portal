@@ -11,13 +11,20 @@ import { API_URL } from "@/lib/api";
 
 type Plan = "Basic" | "Standard" | "Premium";
 
+type SignupSuccessData = {
+  adminEmail?: string;
+  adminPassword?: string;
+  modules?: string[];
+  subscriptionPlan?: Plan;
+};
+
 export default function SchoolSignup() {
   const navigate = useNavigate();
   const [step, setStep] = useState<"details" | "plan" | "success">("details");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [successData, setSuccessData] = useState<any>(null);
+  const [successData, setSuccessData] = useState<SignupSuccessData | null>(null);
   const [copiedPassword, setCopiedPassword] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -88,10 +95,10 @@ export default function SchoolSignup() {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.message || "Registration failed");
+        throw new Error(data?.message || "Registration failed");
       }
 
       setSuccessData(data.data);

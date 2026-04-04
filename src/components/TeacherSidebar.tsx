@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { readStoredTeacherPermissions, readStoredTeacherSession } from "@/lib/auth";
 
 const allTeacherModules = [
   { id: "dashboard", title: "Dashboard", path: "/teacher", icon: LayoutDashboard },
@@ -34,9 +35,9 @@ const allTeacherModules = [
 export function TeacherSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const teacherPermissions = JSON.parse(localStorage.getItem("teacherPermissions") || '{"modules":[]}');
+  const teacherPermissions = readStoredTeacherPermissions();
 
-  const teacherData = JSON.parse(localStorage.getItem("teacher") || "null");
+  const teacherData = readStoredTeacherSession();
   const teacherName = teacherData?.name || "Teacher";
 
   const visibleModules = allTeacherModules.filter(

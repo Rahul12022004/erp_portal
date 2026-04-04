@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "@/lib/api";
+import { readStoredSchoolSession, readStoredTeacherSession } from "@/lib/auth";
 
 type Exam = {
   _id: string;
@@ -27,6 +28,33 @@ type ExamMarksResponse = {
   students: StudentMark[];
 };
 
+type DownloadMarksRow = {
+  rollNumber?: string;
+  studentName?: string;
+  email?: string;
+  obtainedMarks?: number | string;
+  maxMarks?: number | string;
+  remarks?: string;
+};
+
+type DownloadMarksResponse = {
+  school?: {
+    name?: string;
+    address?: string;
+    logo?: string;
+  };
+  exam?: {
+    title?: string;
+    className?: string;
+    subject?: string;
+    examDate?: string;
+    startTime?: string;
+    endTime?: string;
+  };
+  teacher?: string;
+  marks?: DownloadMarksRow[];
+};
+
 export default function MarksModule() {
   const [schoolId, setSchoolId] = useState("");
   const [teacherId, setTeacherId] = useState("");
@@ -41,8 +69,8 @@ export default function MarksModule() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const school = JSON.parse(localStorage.getItem("school") || "null");
-    const teacher = JSON.parse(localStorage.getItem("teacher") || "null");
+    const school = readStoredSchoolSession();
+    const teacher = readStoredTeacherSession();
 
     setSchoolId(school?._id || "");
     setTeacherId(teacher?._id || "");
@@ -218,7 +246,7 @@ export default function MarksModule() {
       const res = await fetch(`${API_URL}/api/marks/download/${schoolId}/${selectedExamId}`);
       if (!res.ok) throw new Error(`Failed to fetch marks data (${res.status})`);
 
-      const data = await res.json();
+      const data: DownloadMarksResponse = await res.json();
 
       // Dynamically import jspdf to avoid SSR issues
       const { default: jsPDF } = await import("jspdf");
@@ -238,7 +266,7 @@ export default function MarksModule() {
 
       // --- LEFT: School name + logo ---
       const leftMargin = 14;
-      let logoY = headerTop + 4;
+      const logoY = headerTop + 4;
 
       if (data.school?.logo?.startsWith("data:image")) {
         try {
@@ -282,13 +310,13 @@ export default function MarksModule() {
 
       // ========== MARKS TABLE ==========
       const tableTop = headerBottom + 6;
-      const tableData = data.marks?.map((m: any) => [
-        m.rollNumber,
-        m.studentName,
-        m.email,
-        m.obtainedMarks,
-        m.maxMarks,
-        m.remarks || "-",
+      const tableData = data.marks?.map((mark) => [
+        mark.rollNumber,
+        mark.studentName,
+        mark.email,
+        mark.obtainedMarks,
+        mark.maxMarks,
+        mark.remarks || "-",
       ]) || [];
 
       autoTable(doc, {
@@ -319,7 +347,7 @@ export default function MarksModule() {
       );
 
       const filename = `Marks_${data.exam?.title || "Exam"}_${data.exam?.className || ""}_${data.exam?.examDate || ""}.pdf`;
-      doc.save(filename.replace(/[\s\/]+/g, "_"));
+      doc.save(filename.replace(/[\s/]+/g, "_"));
     } catch (err) {
       console.error("Download error:", err);
       alert(err instanceof Error ? err.message : "Failed to download marks");
