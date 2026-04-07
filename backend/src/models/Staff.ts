@@ -18,10 +18,12 @@ const staffSchema = new mongoose.Schema(
     accountNumber: String,
     ifscCode: String,
     accountHolderName: String,
+    panNumber: String,         // PAN (Permanent Account Number)
     ossId: String,             // CBSE OSS ID (teachers)
     workHistoryDoc: String,   // base64 — past working history document
     offerLetterDoc: String,   // base64 — previous school offer letter (teachers)
     identityDoc: String,      // base64 — Aadhaar / identity proof
+    salaryStructureId: { type: mongoose.Schema.Types.ObjectId, ref: "SalaryStructure" }, // Reference to salary structure
     schoolId: { type: mongoose.Schema.Types.ObjectId, ref: "School", required: true },
   },
   { timestamps: true }

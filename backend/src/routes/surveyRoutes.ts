@@ -26,7 +26,17 @@ router.get("/:schoolId", async (req, res) => {
 // ==========================
 router.post("/", async (req, res) => {
   try {
-    const { title, description, recipientType, questions, status, schoolId } = req.body;
+    const {
+      type,
+      title,
+      description,
+      recipientType,
+      questions,
+      status,
+      schoolId,
+    } = req.body;
+
+    const normalizedType = type === "Feedback" ? "Feedback" : "Survey";
 
     const cleanedQuestions = Array.isArray(questions)
       ? questions
@@ -72,6 +82,7 @@ router.post("/", async (req, res) => {
     }
 
     const survey = await Survey.create({
+      type: normalizedType,
       title,
       description,
       recipientType,
@@ -82,7 +93,7 @@ router.post("/", async (req, res) => {
 
     await createLog({
       action: "CREATE_SURVEY",
-      message: `Survey created: ${title}`,
+      message: `${normalizedType} created: ${title}`,
       schoolId,
     });
 

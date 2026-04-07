@@ -2,8 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Bus, Edit, Trash2, Users, FileText, X, ExternalLink } from "lucide-react";
 
 const API_BASE_URL =
-  (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL ||
-  "https://erp-portal-1-ftwe.onrender.com";
+  ((import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL || "").replace(/\/$/, "");
 
 const API_ENDPOINTS = {
   TRANSPORT: `${API_BASE_URL}/api/transport`,
@@ -29,6 +28,16 @@ type TransportBus = {
   conductorPhone?: string;
   conductorInfo?: string;
   routeStops?: string[];
+  readingLogs?: Array<{
+    readingDate?: string;
+    driverName: string;
+    odometerReading: number;
+    previousReading?: number;
+    distanceKm?: number;
+    fuelAmount?: number;
+    fuelSlip?: string;
+    fuelSlipFileName?: string;
+  }>;
   assignedStudents: Student[];
 };
 
@@ -70,6 +79,13 @@ export default function TransportModule() {
   const [error, setError] = useState("");
   const [routeStopInput, setRouteStopInput] = useState("");
   const [viewLicence, setViewLicence] = useState<string | null>(null);
+  const [expandedBusId, setExpandedBusId] = useState<string | null>(null);
+  const [readingOdometer, setReadingOdometer] = useState("");
+  const [readingFuelAmount, setReadingFuelAmount] = useState("");
+  const [readingFuelSlip, setReadingFuelSlip] = useState("");
+  const [readingFuelSlipFileName, setReadingFuelSlipFileName] = useState("");
+  const [readingDate, setReadingDate] = useState(new Date().toISOString().slice(0, 10));
+  const [savingReading, setSavingReading] = useState(false);
 
   useEffect(() => {
     fetchTransportData();
@@ -241,6 +257,77 @@ export default function TransportModule() {
         ? current.assignedStudents.filter((id) => id !== studentId)
         : [...current.assignedStudents, studentId],
     }));
+  };
+
+  const resetReadingForm = () => {
+    setReadingOdometer("");
+    setReadingFuelAmount("");
+    setReadingFuelSlip("");
+    setReadingFuelSlipFileName("");
+    setReadingDate(new Date().toISOString().slice(0, 10));
+  };
+
+  const getLastReadingForDriver = (bus: TransportBus) => {
+    const logs = Array.isArray(bus.readingLogs) ? bus.readingLogs : [];
+    const currentDriver = String(bus.driverName || "").trim().toLowerCase();
+
+    return [...logs]
+      .filter((log) => String(log.driverName || "").trim().toLowerCase() === currentDriver)
+      .sort(
+        (a, b) =>
+          new Date(b.readingDate || 0).getTime() - new Date(a.readingDate || 0).getTime()
+      )[0];
+  };
+
+  const handleFuelSlipUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = typeof reader.result === "string" ? reader.result : "";
+      setReadingFuelSlip(base64);
+      setReadingFuelSlipFileName(file.name || "fuel-slip");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddReading = async (bus: TransportBus) => {
+    if (!readingOdometer.trim()) {
+      setError("Please enter odometer reading.");
+      return;
+    }
+
+    try {
+      setSavingReading(true);
+      setError("");
+
+      const res = await fetch(`${API_ENDPOINTS.TRANSPORT}/${bus._id}/readings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          odometerReading: Number(readingOdometer),
+          fuelAmount: readingFuelAmount ? Number(readingFuelAmount) : undefined,
+          fuelSlip: readingFuelSlip || undefined,
+          fuelSlipFileName: readingFuelSlipFileName || undefined,
+          readingDate,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to add reading");
+      }
+
+      resetReadingForm();
+      await fetchTransportData();
+      setExpandedBusId(bus._id);
+    } catch (err) {
+      console.error("Add transport reading error:", err);
+      setError(err instanceof Error ? err.message : "Failed to add reading");
+    } finally {
+      setSavingReading(false);
+    }
   };
 
   return (
@@ -446,7 +533,14 @@ export default function TransportModule() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {buses.map((bus) => (
-            <div key={bus._id} className="stat-card p-6 space-y-4">
+            <div
+              key={bus._id}
+              className="stat-card p-6 space-y-4 cursor-pointer"
+              onClick={() => {
+                setExpandedBusId((current) => (current === bus._id ? null : bus._id));
+                resetReadingForm();
+              }}
+            >
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-xl font-bold">{bus.busNumber}</h3>
@@ -454,14 +548,20 @@ export default function TransportModule() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => startEdit(bus)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEdit(bus);
+                    }}
                     className="text-blue-600 hover:text-blue-800"
                     title="Edit"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(bus._id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDelete(bus._id);
+                    }}
                     className="text-red-600 hover:text-red-800"
                     title="Delete"
                   >
@@ -563,6 +663,151 @@ export default function TransportModule() {
                   )}
                 </div>
               </div>
+
+              {expandedBusId === bus._id && (
+                <div className="border-t pt-4" onClick={(e) => e.stopPropagation()}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="font-semibold text-slate-900">Odometer & Fuel Entry</p>
+                    <p className="text-xs text-slate-500">Driver: {bus.driverName}</p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">Reading Date</label>
+                        <input
+                          type="date"
+                          className="w-full rounded border p-2 text-sm"
+                          value={readingDate}
+                          onChange={(e) => setReadingDate(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">Odometer Reading (KM)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full rounded border p-2 text-sm"
+                          value={readingOdometer}
+                          onChange={(e) => setReadingOdometer(e.target.value)}
+                          placeholder="e.g. 45210"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">Fuel Amount (optional)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="w-full rounded border p-2 text-sm"
+                          value={readingFuelAmount}
+                          onChange={(e) => setReadingFuelAmount(e.target.value)}
+                          placeholder="e.g. 3500"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">Fuel Slip (image/pdf)</label>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="w-full rounded border p-2 text-sm"
+                          onChange={handleFuelSlipUpload}
+                        />
+                        {readingFuelSlipFileName && (
+                          <p className="mt-1 text-xs text-slate-600">Attached: {readingFuelSlipFileName}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const last = getLastReadingForDriver(bus);
+                      const current = Number(readingOdometer);
+                      const hasCurrent = readingOdometer.trim() !== "" && !Number.isNaN(current);
+                      const diff = last && hasCurrent ? current - Number(last.odometerReading || 0) : null;
+
+                      if (!last) {
+                        return (
+                          <p className="mt-3 text-xs text-slate-600">
+                            First reading for this driver. KM difference will appear from the second entry.
+                          </p>
+                        );
+                      }
+
+                      return (
+                        <div className="mt-3 rounded-lg bg-white p-2 text-sm">
+                          <p>
+                            Previous Reading: <span className="font-semibold">{last.odometerReading} KM</span>
+                          </p>
+                          {diff !== null && (
+                            <p className={diff < 0 ? "text-red-600" : "text-emerald-700"}>
+                              Difference: <span className="font-semibold">{diff} KM</span>
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleAddReading(bus)}
+                        disabled={savingReading}
+                        className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {savingReading ? "Saving..." : "Add Reading"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetReadingForm}
+                        className="rounded bg-slate-200 px-3 py-2 text-sm text-slate-700"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="mb-2 text-sm font-semibold text-slate-800">Reading History</p>
+                    <div className="space-y-2 max-h-56 overflow-y-auto">
+                      {(bus.readingLogs || []).length === 0 ? (
+                        <p className="text-sm text-slate-500">No readings yet.</p>
+                      ) : (
+                        [...(bus.readingLogs || [])]
+                          .sort(
+                            (a, b) =>
+                              new Date(b.readingDate || 0).getTime() - new Date(a.readingDate || 0).getTime()
+                          )
+                          .map((log, idx) => (
+                            <div key={`${log.readingDate || ""}-${idx}`} className="rounded-lg border border-slate-200 bg-white p-2 text-sm">
+                              <p>
+                                <span className="font-medium">Date:</span>{" "}
+                                {log.readingDate ? new Date(log.readingDate).toLocaleDateString() : "-"}
+                              </p>
+                              <p>
+                                <span className="font-medium">Reading:</span> {log.odometerReading} KM
+                              </p>
+                              <p>
+                                <span className="font-medium">Difference:</span> {log.distanceKm ?? "-"} KM
+                              </p>
+                              <p>
+                                <span className="font-medium">Fuel Amount:</span> {log.fuelAmount ?? "-"}
+                              </p>
+                              {log.fuelSlip && (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewLicence(log.fuelSlip || null)}
+                                  className="mt-1 text-xs text-blue-600 hover:underline"
+                                >
+                                  View Fuel Slip{log.fuelSlipFileName ? ` (${log.fuelSlipFileName})` : ""}
+                                </button>
+                              )}
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

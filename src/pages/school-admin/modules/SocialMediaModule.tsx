@@ -22,7 +22,7 @@ type SocialMediaForm = {
   isActive: boolean;
 };
 
-const API_BASE = (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL || "https://erp-portal-1-ftwe.onrender.com";
+const API_BASE = ((import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_URL || "").replace(/\/$/, "");
 
 const emptyForm: SocialMediaForm = {
   platform: "whatsapp",

@@ -60,6 +60,8 @@ const studentSchema = new mongoose.Schema(
     photo: String,
     rteDocument: String,
     bodCertificate: String,
+    aadharCardDocument: String,
+    admissionCompleted: { type: Boolean, default: false },
     house: { type: String, enum: ["Ruby", "Emerald", "Safier", "Topaz"], default: undefined },
   },
   { timestamps: true }

@@ -65,8 +65,8 @@ export default function AssignmentsModule() {
         setError("");
 
         const [classesRes, assignmentsRes] = await Promise.all([
-          fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${schoolId}`),
-          fetch(`https://erp-portal-1-ftwe.onrender.com/api/assignments/${schoolId}/${teacherId}`),
+          fetch(`/api/classes/${schoolId}`),
+          fetch(`/api/assignments/${schoolId}/${teacherId}`),
         ]);
 
         if (!classesRes.ok) {
@@ -130,7 +130,7 @@ export default function AssignmentsModule() {
 
       const fileData = file ? await readFileAsDataUrl(file) : "";
 
-      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/assignments", {
+      const res = await fetch("/api/assignments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -167,7 +167,7 @@ export default function AssignmentsModule() {
     }
 
     try {
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/assignments/${assignmentId}`, {
+      const res = await fetch(`/api/assignments/${assignmentId}`, {
         method: "DELETE",
       });
 

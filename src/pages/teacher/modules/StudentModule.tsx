@@ -49,8 +49,8 @@ export default function StudentsModule() {
         }
 
         const [studentsRes, classesRes] = await Promise.all([
-          fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`),
-          fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${school._id}`),
+          fetch(`/api/students/${school._id}`),
+          fetch(`/api/classes/${school._id}`),
         ]);
 
         if (!studentsRes.ok) {

@@ -69,8 +69,8 @@ export default function SupportModule() {
         setError("");
 
         const [schoolRes, staffRes] = await Promise.all([
-          fetch(`https://erp-portal-1-ftwe.onrender.com/api/schools/${storedSchool._id}`),
-          fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${storedSchool._id}`),
+          fetch(`/api/schools/${storedSchool._id}`),
+          fetch(`/api/staff/${storedSchool._id}`),
         ]);
 
         const schoolData = schoolRes.ok ? await schoolRes.json() : null;

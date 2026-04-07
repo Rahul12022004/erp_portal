@@ -38,7 +38,7 @@ export default function CommunicationModule() {
       setError("");
 
       const res = await fetch(
-        `https://erp-portal-1-ftwe.onrender.com/api/announcements/${school._id}`
+        `/api/announcements/${school._id}`
       );
 
       if (!res.ok) {
@@ -70,7 +70,7 @@ export default function CommunicationModule() {
 
     try {
       setError("");
-      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/announcements", {
+      const res = await fetch("/api/announcements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -111,7 +111,7 @@ export default function CommunicationModule() {
       setError("");
       setAiLoading(true);
 
-      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/announcements/ai-draft", {
+      const res = await fetch("/api/announcements/ai-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -144,7 +144,7 @@ export default function CommunicationModule() {
     try {
       setError("");
       const res = await fetch(
-        `https://erp-portal-1-ftwe.onrender.com/api/announcements/${id}`,
+        `/api/announcements/${id}`,
         { method: "DELETE" }
       );
 

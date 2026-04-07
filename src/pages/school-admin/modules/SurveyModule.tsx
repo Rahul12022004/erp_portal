@@ -3,6 +3,7 @@ import { BarChart3, Trash2 } from "lucide-react";
 
 type Survey = {
   _id: string;
+  type?: "Survey" | "Feedback";
   title: string;
   description: string;
   recipientType: "Teacher" | "Student";
@@ -28,6 +29,7 @@ export default function SurveyModule() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [createType, setCreateType] = useState<"Survey" | "Feedback">("Survey");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -51,7 +53,7 @@ export default function SurveyModule() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/surveys/${school._id}`);
+        const res = await fetch(`/api/surveys/${school._id}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load surveys (${res.status})`);
@@ -95,10 +97,11 @@ export default function SurveyModule() {
     try {
       setSaving(true);
 
-      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/surveys", {
+      const res = await fetch("/api/surveys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          type: createType,
           ...formData,
           questions: formData.questions.map((question) => ({
             prompt: question.prompt.trim(),
@@ -119,7 +122,11 @@ export default function SurveyModule() {
       resetForm();
     } catch (err) {
       console.error("Survey save error:", err);
-      alert(err instanceof Error ? err.message : "Failed to create survey");
+      alert(
+        err instanceof Error
+          ? err.message
+          : `Failed to create ${createType.toLowerCase()}`
+      );
     } finally {
       setSaving(false);
     }
@@ -219,7 +226,7 @@ export default function SurveyModule() {
 
   const updateStatus = async (surveyId: string, status: Survey["status"]) => {
     try {
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/surveys/${surveyId}/status`, {
+      const res = await fetch(`/api/surveys/${surveyId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -248,7 +255,7 @@ export default function SurveyModule() {
     }
 
     try {
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/surveys/${surveyId}`, {
+      const res = await fetch(`/api/surveys/${surveyId}`, {
         method: "DELETE",
       });
 
@@ -268,17 +275,39 @@ export default function SurveyModule() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => setShowForm((current) => !current)}
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          {showForm ? "Close Form" : "Create Survey"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              setCreateType("Survey");
+              setShowForm(true);
+            }}
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            Create Survey
+          </button>
+          <button
+            onClick={() => {
+              setCreateType("Feedback");
+              setShowForm(true);
+            }}
+            className="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+          >
+            Create Feedback
+          </button>
+          {showForm && (
+            <button
+              onClick={() => setShowForm(false)}
+              className="rounded bg-gray-500 px-4 py-2 text-white hover:bg-gray-600"
+            >
+              Close Form
+            </button>
+          )}
+        </div>
       </div>
 
       {showForm && (
         <div className="stat-card p-6">
-          <h3 className="mb-4 text-lg font-semibold">Create Survey</h3>
+          <h3 className="mb-4 text-lg font-semibold">Create {createType}</h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
@@ -424,7 +453,7 @@ export default function SurveyModule() {
                 className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save Survey"}
+                {saving ? "Saving..." : `Save ${createType}`}
               </button>
               <button
                 type="button"
@@ -455,6 +484,9 @@ export default function SurveyModule() {
                     {new Date(survey.createdAt).toLocaleDateString()}
                   </p>
                 </div>
+                <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                  {survey.type || "Survey"}
+                </span>
                 <button
                   onClick={() => handleDelete(survey._id)}
                   className="text-red-600 hover:text-red-800"

@@ -131,6 +131,7 @@ const studentFieldNames = [
   "photo",
   "rteDocument",
   "bodCertificate",
+  "aadharCardDocument",
   "address",
   "identificationMarks",
   "previousAcademicRecord",
@@ -476,6 +477,13 @@ const normalizeGender = (value: unknown) => {
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const hasDocument = (value: unknown) => typeof value === "string" && value.trim().length > 0;
+
+const computeAdmissionCompleted = (source: Record<string, unknown>) =>
+  hasDocument(source.rteDocument) &&
+  hasDocument(source.bodCertificate) &&
+  hasDocument(source.aadharCardDocument);
+
 function ensureDatabaseReady() {
   const dbStatus = getDatabaseStatus();
   if (!dbStatus.connected) {
@@ -533,17 +541,24 @@ async function createStudentRecord(source: StudentSource) {
   }
 
   const studentPayload = buildStudentPayload(source);
+  const admissionCompleted = computeAdmissionCompleted(source);
+  studentPayload.admissionCompleted = admissionCompleted;
+  if (!admissionCompleted) {
+    studentPayload.status = "Inactive";
+  }
   if (transportActive !== null) {
     studentPayload.needsTransport = transportActive;
   }
 
   const student = await Student.create(studentPayload as any);
 
-  await syncStudentFeeAssignmentForStudent({
-    studentId: student._id,
-    schoolId,
-    transportActiveOverride: transportActive ?? undefined,
-  });
+  if (admissionCompleted) {
+    await syncStudentFeeAssignmentForStudent({
+      studentId: student._id,
+      schoolId,
+      transportActiveOverride: transportActive ?? undefined,
+    });
+  }
 
   await createLog({
     action: "CREATE_STUDENT",
@@ -903,10 +918,28 @@ router.post("/", async (req, res) => {
 // ==========================
 router.put("/:id", async (req, res) => {
   try {
+    const existing = await Student.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
     const studentPayload = buildStudentPayload(req.body);
     const transportActive = resolveTransportActive(req.body);
     if (transportActive !== null) {
       studentPayload.needsTransport = transportActive;
+    }
+
+    const mergedForCompletion = {
+      ...(existing.toObject() as Record<string, unknown>),
+      ...studentPayload,
+    };
+    const admissionCompleted = computeAdmissionCompleted(mergedForCompletion);
+    studentPayload.admissionCompleted = admissionCompleted;
+
+    if (!admissionCompleted) {
+      studentPayload.status = "Inactive";
+    } else if (!existing.admissionCompleted) {
+      studentPayload.status = "Active";
     }
 
     const updated = await Student.findByIdAndUpdate(
@@ -919,11 +952,13 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    await syncStudentFeeAssignmentForStudent({
-      studentId: updated._id,
-      schoolId: String(updated.schoolId),
-      transportActiveOverride: transportActive ?? undefined,
-    });
+    if (admissionCompleted) {
+      await syncStudentFeeAssignmentForStudent({
+        studentId: updated._id,
+        schoolId: String(updated.schoolId),
+        transportActiveOverride: transportActive ?? undefined,
+      });
+    }
 
     await createLog({
       action: "UPDATE_STUDENT",

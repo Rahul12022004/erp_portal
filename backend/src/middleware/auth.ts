@@ -11,7 +11,9 @@ export function authenticateToken(req: express.Request, res: express.Response, n
 
   try {
     const payload = verifyAuthToken(token);
-    (req as express.Request & { user?: unknown }).user = payload;
+    (req as express.Request & { user?: unknown; schoolId?: string; userId?: string }).user = payload;
+    (req as any).schoolId = payload.schoolId;
+    (req as any).userId = payload.userId;
     return next();
   } catch {
     return res.status(401).json({ message: "Invalid or expired token" });

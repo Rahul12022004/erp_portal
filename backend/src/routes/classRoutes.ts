@@ -25,7 +25,8 @@ router.get("/:schoolId", async (req, res) => {
         const classLabel = buildClassLabel(cls.name, cls.section);
         const studentCount = await Student.countDocuments({ 
           class: classLabel,
-          schoolId: req.params.schoolId 
+          schoolId: req.params.schoolId,
+          admissionCompleted: { $ne: false },
         });
         return {
           ...cls.toObject(),
@@ -191,6 +192,7 @@ router.get("/:schoolId/:className", async (req, res) => {
     const students = await Student.find({
       class: classLabel,
       schoolId: req.params.schoolId,
+      admissionCompleted: { $ne: false },
     }).sort({ rollNumber: 1 });
 
     res.json({

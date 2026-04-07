@@ -22,6 +22,7 @@ const classFeeStructureSchema = new mongoose.Schema(
       default: "none",
     },
     late_fee_amount: { type: Number, default: 0, min: 0 },
+    late_fee_grace_days: { type: Number, default: 0, min: 0 },
     late_fee_description: { type: String, default: "" },
   },
   {

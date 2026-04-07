@@ -18,6 +18,11 @@ type Staff = {
   workHistoryDoc?: string;
   offerLetterDoc?: string;
   identityDoc?: string;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  accountHolderName?: string;
+  panNumber?: string;
 };
 
 export default function StaffModule() {
@@ -48,6 +53,11 @@ export default function StaffModule() {
     workHistoryDoc: "",
     offerLetterDoc: "",
     identityDoc: "",
+    bankName: "",
+    accountNumber: "",
+    ifscCode: "",
+    accountHolderName: "",
+    panNumber: "",
   });
 
   useEffect(() => {
@@ -65,7 +75,7 @@ export default function StaffModule() {
         return;
       }
 
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${school._id}`);
+      const res = await fetch(`/api/staff/${school._id}`);
       if (!res.ok) {
         throw new Error(`Failed to load staff (${res.status})`);
       }
@@ -95,8 +105,8 @@ export default function StaffModule() {
       };
 
       const url = editingStaff
-        ? `https://erp-portal-1-ftwe.onrender.com/api/staff/${editingStaff._id}`
-        : "https://erp-portal-1-ftwe.onrender.com/api/staff";
+        ? `/api/staff/${editingStaff._id}`
+        : "/api/staff";
 
       const method = editingStaff ? "PUT" : "POST";
 
@@ -129,7 +139,7 @@ export default function StaffModule() {
     if (!confirm("Are you sure you want to delete this staff member?")) return;
 
     try {
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${id}`, {
+      const res = await fetch(`/api/staff/${id}`, {
         method: "DELETE",
       });
 
@@ -162,6 +172,11 @@ export default function StaffModule() {
       workHistoryDoc: "",
       offerLetterDoc: "",
       identityDoc: "",
+      bankName: "",
+      accountNumber: "",
+      ifscCode: "",
+      accountHolderName: "",
+      panNumber: "",
     });
     setShowAddForm(false);
     setEditingStaff(null);
@@ -196,6 +211,11 @@ export default function StaffModule() {
       workHistoryDoc: staff.workHistoryDoc || "",
       offerLetterDoc: staff.offerLetterDoc || "",
       identityDoc: staff.identityDoc || "",
+      bankName: staff.bankName || "",
+      accountNumber: staff.accountNumber || "",
+      ifscCode: staff.ifscCode || "",
+      accountHolderName: staff.accountHolderName || "",
+      panNumber: staff.panNumber || "",
     });
     setEditingStaff(staff);
     setShowAddForm(true);
@@ -497,6 +517,49 @@ export default function StaffModule() {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Bank Details Section */}
+            <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 space-y-4">
+              <p className="font-medium text-sm text-purple-900">Bank & Payment Details</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Account Holder Name"
+                  className="border rounded p-2"
+                  value={formData.accountHolderName}
+                  onChange={(e) => setFormData({...formData, accountHolderName: e.target.value})}
+                />
+                <input
+                  type="text"
+                  placeholder="Bank Name (e.g., HDFC Bank)"
+                  className="border rounded p-2"
+                  value={formData.bankName}
+                  onChange={(e) => setFormData({...formData, bankName: e.target.value})}
+                />
+                <input
+                  type="text"
+                  placeholder="Account Number"
+                  className="border rounded p-2"
+                  value={formData.accountNumber}
+                  onChange={(e) => setFormData({...formData, accountNumber: e.target.value})}
+                />
+                <input
+                  type="text"
+                  placeholder="IFSC Code"
+                  className="border rounded p-2"
+                  value={formData.ifscCode}
+                  onChange={(e) => setFormData({...formData, ifscCode: e.target.value})}
+                />
+                <input
+                  type="text"
+                  placeholder="PAN Number"
+                  className="border rounded p-2"
+                  value={formData.panNumber}
+                  onChange={(e) => setFormData({...formData, panNumber: e.target.value})}
+                />
               </div>
             </div>
 

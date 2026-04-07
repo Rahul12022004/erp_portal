@@ -23,6 +23,8 @@ import HouseModule from "./modules/HouseModule";
 import SocialMediaModule from "./modules/SocialMediaModule";
 import VisitorModule from "./modules/VisitorModule";
 import DataImportModule from "./modules/DataImportModule";
+import TimetableModule from "./modules/TimetableModule";
+import SalaryModule from "./modules/SalaryModule";
 
 const moduleNames: Record<string, string> = {
   communication: "Communication",
@@ -36,6 +38,7 @@ const moduleNames: Record<string, string> = {
   finance: "Finance",
   admissions: "Admissions",
   hr: "HR",
+  salary: "Salary Management",
   transport: "Transport",
   hostel: "Hostel",
   library: "Library",
@@ -50,6 +53,7 @@ const moduleNames: Record<string, string> = {
   "social-media": "Social Media",
   visitor: "Visitor",
   "data-import": "Data Import",
+  "time-table": "Timetable Management",
 };
 
 export default function SchoolModulePage() {
@@ -80,6 +84,8 @@ export default function SchoolModulePage() {
         return <AdmissionsModule />;
       case "hr":
         return <HRModule />;
+      case "salary":
+        return <SalaryModule />;
       case "transport":
         return <TransportModule />;
       case "hostel":
@@ -108,6 +114,8 @@ export default function SchoolModulePage() {
         return <VisitorModule />;
       case "data-import":
         return <DataImportModule />;
+      case "time-table":
+        return <TimetableModule />;
       default:
         return (
           <div className="stat-card flex h-64 items-center justify-center">

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { API_URL } from "@/lib/api";
 
 type SchoolClass = {
   _id: string;
@@ -41,6 +42,15 @@ export default function AttendanceModule() {
   const [error, setError] = useState("");
   const [schoolId, setSchoolId] = useState("");
   const [teacherId, setTeacherId] = useState("");
+  const [teacherName, setTeacherName] = useState("");
+  const [selfAttendanceStatus, setSelfAttendanceStatus] = useState<string | null>(null);
+  const [selfAttendanceLocked, setSelfAttendanceLocked] = useState(false);
+  const [selfAttendanceLoading, setSelfAttendanceLoading] = useState(false);
+  const [selfAttendanceMeta, setSelfAttendanceMeta] = useState<{
+    isOutsideSchool?: boolean;
+    distanceFromSchoolMeters?: number | null;
+  }>({});
+  const [selfAttendanceMessage, setSelfAttendanceMessage] = useState("");
 
   useEffect(() => {
     const school = JSON.parse(localStorage.getItem("school") || "null");
@@ -48,7 +58,50 @@ export default function AttendanceModule() {
 
     setSchoolId(school?._id || "");
     setTeacherId(teacher?._id || "");
+    setTeacherName(teacher?.name || "Teacher");
   }, []);
+
+  useEffect(() => {
+    const fetchSelfAttendance = async () => {
+      if (!schoolId || !teacherId || !selectedDate) {
+        setSelfAttendanceStatus(null);
+        setSelfAttendanceLocked(false);
+        setSelfAttendanceMeta({});
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/api/attendance/self/${schoolId}/${teacherId}/${selectedDate}`);
+        if (!res.ok) {
+          return;
+        }
+
+        const payload = await res.json();
+        const entry = payload?.data;
+
+        if (!entry) {
+          setSelfAttendanceStatus(null);
+          setSelfAttendanceLocked(false);
+          setSelfAttendanceMeta({});
+          return;
+        }
+
+        setSelfAttendanceStatus(entry.status || null);
+        setSelfAttendanceLocked(Boolean(entry.selfLocked));
+        setSelfAttendanceMeta({
+          isOutsideSchool: Boolean(entry.isOutsideSchool),
+          distanceFromSchoolMeters:
+            typeof entry.distanceFromSchoolMeters === "number"
+              ? entry.distanceFromSchoolMeters
+              : null,
+        });
+      } catch (err) {
+        console.error("Self attendance fetch error:", err);
+      }
+    };
+
+    fetchSelfAttendance();
+  }, [schoolId, teacherId, selectedDate]);
 
   useEffect(() => {
     const fetchTeacherClasses = async () => {
@@ -62,7 +115,7 @@ export default function AttendanceModule() {
         setLoadingClasses(true);
         setError("");
 
-        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${schoolId}`);
+        const res = await fetch(`${API_URL}/api/classes/${schoolId}`);
 
         if (!res.ok) {
           throw new Error(`Failed to load classes (${res.status})`);
@@ -119,7 +172,7 @@ export default function AttendanceModule() {
         setError("");
 
         const res = await fetch(
-          `https://erp-portal-1-ftwe.onrender.com/api/attendance/students/${schoolId}/${encodeURIComponent(selectedClass)}/${selectedDate}`
+          `${API_URL}/api/attendance/students/${schoolId}/${encodeURIComponent(selectedClass)}/${selectedDate}`
         );
 
         if (!res.ok) {
@@ -150,7 +203,7 @@ export default function AttendanceModule() {
     }
 
     try {
-      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/attendance/students", {
+      const res = await fetch(`${API_URL}/api/attendance/students`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,6 +234,121 @@ export default function AttendanceModule() {
     } catch (err) {
       console.error("Student attendance save error:", err);
       alert("Failed to save attendance");
+    }
+  };
+
+  const getCurrentLocation = () =>
+    new Promise<GeolocationPosition>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported in this browser"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0,
+      });
+    });
+
+  const markSelfAttendance = async (status: "Present" | "Absent") => {
+    if (!schoolId || !teacherId || !selectedDate) {
+      alert("Please select date");
+      return;
+    }
+
+    if (selfAttendanceLocked) {
+      setSelfAttendanceMessage("Attendance is locked for this date and cannot be changed.");
+      return;
+    }
+
+    try {
+      setSelfAttendanceLoading(true);
+      setSelfAttendanceMessage("");
+
+      const position = await getCurrentLocation();
+      const location = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+      };
+
+      const res = await fetch(`${API_URL}/api/attendance/self`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacherId,
+          schoolId,
+          date: selectedDate,
+          status,
+          location,
+        }),
+      });
+
+      const payload = await res.json();
+      if (!res.ok || !payload?.success) {
+        throw new Error(payload?.message || "Failed to mark self attendance");
+      }
+
+      setSelfAttendanceStatus(status);
+      setSelfAttendanceLocked(Boolean(payload?.data?.selfLocked));
+      setSelfAttendanceMeta(payload?.meta || {});
+
+      if (payload?.meta?.isOutsideSchool) {
+        setSelfAttendanceMessage("Attendance marked, but location detected outside school geofence.");
+      } else {
+        setSelfAttendanceMessage("Self attendance marked successfully with location.");
+      }
+    } catch (err) {
+      console.error("Self attendance save error:", err);
+      alert(err instanceof Error ? err.message : "Failed to mark self attendance");
+    } finally {
+      setSelfAttendanceLoading(false);
+    }
+  };
+
+  const lockSelfAttendance = async () => {
+    if (!schoolId || !teacherId || !selectedDate) {
+      alert("Please select date");
+      return;
+    }
+
+    if (!selfAttendanceStatus) {
+      alert("Please mark attendance first, then lock it.");
+      return;
+    }
+
+    if (selfAttendanceLocked) {
+      setSelfAttendanceMessage("Attendance is already locked for this date.");
+      return;
+    }
+
+    try {
+      setSelfAttendanceLoading(true);
+      setSelfAttendanceMessage("");
+
+      const res = await fetch(`${API_URL}/api/attendance/self/lock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacherId,
+          schoolId,
+          date: selectedDate,
+        }),
+      });
+
+      const payload = await res.json();
+      if (!res.ok || !payload?.success) {
+        throw new Error(payload?.message || "Failed to lock self attendance");
+      }
+
+      setSelfAttendanceLocked(Boolean(payload?.data?.selfLocked));
+      setSelfAttendanceMessage("Attendance locked for this date.");
+    } catch (err) {
+      console.error("Self attendance lock error:", err);
+      alert(err instanceof Error ? err.message : "Failed to lock self attendance");
+    } finally {
+      setSelfAttendanceLoading(false);
     }
   };
 
@@ -226,6 +394,70 @@ export default function AttendanceModule() {
 
   return (
     <div className="space-y-6">
+      <div className="bg-white border rounded-xl p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold">My Attendance</p>
+            <p className="text-sm text-gray-500">
+              {teacherName} • {selectedDate}
+            </p>
+            <p className="text-xs mt-1 text-gray-600">
+              Status: {selfAttendanceStatus || "Not Marked"}
+            </p>
+            <p className="text-xs mt-1 text-gray-600">
+              Lock: {selfAttendanceLocked ? "Locked" : "Unlocked"}
+            </p>
+            {typeof selfAttendanceMeta.distanceFromSchoolMeters === "number" && (
+              <p className="text-xs text-gray-600">
+                Distance from school: {Math.round(selfAttendanceMeta.distanceFromSchoolMeters)} m
+              </p>
+            )}
+            {selfAttendanceMeta.isOutsideSchool && (
+              <p className="text-xs mt-1 text-red-600 font-medium">Outside school area detected</p>
+            )}
+            {!selfAttendanceMeta.isOutsideSchool && selfAttendanceStatus && (
+              <p className="text-xs mt-1 text-green-600 font-medium">Within school area</p>
+            )}
+            {selfAttendanceMessage && (
+              <p className="text-xs mt-1 text-blue-600">{selfAttendanceMessage}</p>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={selfAttendanceLoading || selfAttendanceLocked}
+              onClick={() => markSelfAttendance("Present")}
+              className={`px-3 py-1.5 rounded ${
+                selfAttendanceStatus === "Present" ? "bg-green-600 text-white" : "bg-gray-100"
+              }`}
+            >
+              {selfAttendanceLoading ? "Marking..." : "Mark Present"}
+            </button>
+            <button
+              type="button"
+              disabled={selfAttendanceLoading || selfAttendanceLocked}
+              onClick={() => markSelfAttendance("Absent")}
+              className={`px-3 py-1.5 rounded ${
+                selfAttendanceStatus === "Absent" ? "bg-red-500 text-white" : "bg-gray-100"
+              }`}
+            >
+              {selfAttendanceLoading ? "Marking..." : "Mark Absent"}
+            </button>
+            <button
+              type="button"
+              disabled={selfAttendanceLoading || selfAttendanceLocked || !selfAttendanceStatus}
+              onClick={lockSelfAttendance}
+              className={`px-3 py-1.5 rounded ${
+                selfAttendanceLocked ? "bg-slate-700 text-white" : "bg-amber-500 text-white"
+              }`}
+            >
+              {selfAttendanceLoading ? "Saving..." : selfAttendanceLocked ? "Locked" : "Lock"}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="flex gap-4 flex-wrap items-center">
         <div>
           <label className="mr-2 font-medium">Class:</label>

@@ -209,8 +209,8 @@ export function AddSchoolModal({ onClose, onSuccess, editData }: AddSchoolModalP
 
     try {
       const endpoint = isEditMode
-        ? `https://erp-portal-1-ftwe.onrender.com/api/schools/${editData?._id}`
-        : "https://erp-portal-1-ftwe.onrender.com/api/schools";
+        ? `/api/schools/${editData?._id}`
+        : "/api/schools";
 
       const res = await fetch(endpoint, {
         method: isEditMode ? "PUT" : "POST",

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node scripts/dev-runner.js",
     "seed": "ts-node src/seed.ts",
+    "cleanup:demo": "ts-node src/cleanupDemoData.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },

@@ -446,7 +446,22 @@ const buildAssignmentSummary = async (
  */
 router.post("/class-fee-structures", async (req: Request, res: Response) => {
   try {
-    const { schoolId, class_id, section_id, academic_year, academic_fee, default_transport_fee, other_fee, fee_breakdown, due_date, created_by } = req.body;
+    const {
+      schoolId,
+      class_id,
+      section_id,
+      academic_year,
+      academic_fee,
+      default_transport_fee,
+      other_fee,
+      fee_breakdown,
+      due_date,
+      created_by,
+      late_fee_type,
+      late_fee_amount,
+      late_fee_description,
+      late_fee_grace_days,
+    } = req.body;
 
     // Validation
     if (!schoolId || !class_id || !academic_year || academic_fee === undefined || default_transport_fee === undefined || !due_date) {
@@ -466,6 +481,15 @@ router.post("/class-fee-structures", async (req: Request, res: Response) => {
           .filter((item) => item.label && item.amount > 0)
       : [];
     const breakdownTotal = normalizedFeeBreakdown.reduce((sum, item) => sum + item.amount, 0);
+    const normalizedLateFeeTypeRaw = String(late_fee_type || "none").toLowerCase();
+    const normalizedLateFeeType =
+      normalizedLateFeeTypeRaw === "per_day"
+        ? "daily"
+        : normalizedLateFeeTypeRaw === "fixed" || normalizedLateFeeTypeRaw === "daily" || normalizedLateFeeTypeRaw === "percentage"
+          ? normalizedLateFeeTypeRaw
+          : "none";
+    const normalizedLateFeeAmount = Math.max(Number(late_fee_amount) || 0, 0);
+    const normalizedLateFeeGraceDays = Math.max(Math.floor(Number(late_fee_grace_days) || 0), 0);
 
     if (numericAcademicFee <= 0 && numericTransportFee <= 0 && numericOtherFee <= 0 && breakdownTotal <= 0) {
       return res.status(400).json({
@@ -484,6 +508,10 @@ router.post("/class-fee-structures", async (req: Request, res: Response) => {
       fee_breakdown: normalizedFeeBreakdown,
       due_date,
       created_by,
+      late_fee_type: normalizedLateFeeType,
+      late_fee_amount: normalizedLateFeeAmount,
+      late_fee_description: String(late_fee_description || "").trim(),
+      late_fee_grace_days: normalizedLateFeeGraceDays,
     });
 
     await createLog({
@@ -512,7 +540,18 @@ router.post("/class-fee-structures", async (req: Request, res: Response) => {
 router.put("/class-fee-structures/:id", async (req: Request, res: Response) => {
   try {
     const id = getSingleString(req.params.id);
-    const { schoolId, academic_fee, default_transport_fee, other_fee, fee_breakdown, due_date } = req.body;
+    const {
+      schoolId,
+      academic_fee,
+      default_transport_fee,
+      other_fee,
+      fee_breakdown,
+      due_date,
+      late_fee_type,
+      late_fee_amount,
+      late_fee_description,
+      late_fee_grace_days,
+    } = req.body;
 
     if (!schoolId) {
       return res.status(400).json({ error: "schoolId is required" });
@@ -536,6 +575,19 @@ router.put("/class-fee-structures/:id", async (req: Request, res: Response) => {
       structure.set("fee_breakdown", cleaned);
     }
     if (due_date) structure.due_date = due_date;
+    if (late_fee_type !== undefined) {
+      const normalizedLateFeeTypeRaw = String(late_fee_type || "none").toLowerCase();
+      const normalizedLateFeeType =
+        normalizedLateFeeTypeRaw === "per_day"
+          ? "daily"
+          : normalizedLateFeeTypeRaw === "fixed" || normalizedLateFeeTypeRaw === "daily" || normalizedLateFeeTypeRaw === "percentage"
+            ? normalizedLateFeeTypeRaw
+            : "none";
+      structure.set("late_fee_type", normalizedLateFeeType);
+    }
+    if (late_fee_amount !== undefined) structure.set("late_fee_amount", Math.max(Number(late_fee_amount) || 0, 0));
+    if (late_fee_description !== undefined) structure.set("late_fee_description", String(late_fee_description || "").trim());
+    if (late_fee_grace_days !== undefined) structure.set("late_fee_grace_days", Math.max(Math.floor(Number(late_fee_grace_days) || 0), 0));
 
     await structure.save();
 
@@ -1055,6 +1107,7 @@ router.post("/student-fee-payments", async (req: Request, res: Response) => {
       reference_no,
       remarks,
       created_by,
+      include_past_dues,
     } = req.body;
 
     // Validation
@@ -1071,6 +1124,7 @@ router.post("/student-fee-payments", async (req: Request, res: Response) => {
       reference_no: reference_no || "",
       remarks: remarks || "",
       created_by,
+      include_past_dues: Boolean(include_past_dues),
     });
 
     await createLog({
@@ -1423,13 +1477,8 @@ router.get("/:schoolId/students/summary", async (req: Request, res: Response) =>
       return res.status(400).json({ error: "schoolId is required" });
     }
 
-    // Fetch student fee assignments for this school
-    const assignments = await StudentFeeAssignment.find(asMongoFilter({
-      school_id: new mongoose.Types.ObjectId(schoolId),
-    }))
-      .populate("student_id", "name email class class_id section_id classSection rollNumber phone address dateOfBirth gender roll_no registration_no")
-      .populate("class_fee_structure_id")
-      .sort({ created_at: -1 });
+    // Use service layer so overdue late fee is auto-applied consistently.
+    const assignments = await financeService.getStudentFeeAssignments(schoolId, {});
 
     // Transform snake_case to camelCase
     const transformed = assignments.map(mapLegacyStudentAssignment);

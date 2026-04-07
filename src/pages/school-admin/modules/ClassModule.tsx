@@ -3,7 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Edit, GraduationCap, Plus, Trash2, UserPlus, Users } from "lucide-react";
 
 type Teacher = { _id: string; name: string; email: string; position: string; status?: string };
-type Student = { _id: string; name: string; email: string; rollNumber: string; class: string; phone?: string };
+type Student = {
+  _id: string;
+  name: string;
+  email: string;
+  rollNumber: string;
+  class: string;
+  phone?: string;
+  admissionCompleted?: boolean;
+};
 type SchoolClass = {
   _id: string;
   name: string;
@@ -138,9 +146,9 @@ export default function ClassModule() {
       }
 
       const [classesRes, studentsRes, staffRes] = await Promise.all([
-        fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${school._id}`),
-        fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${school._id}`),
-        fetch(`https://erp-portal-1-ftwe.onrender.com/api/staff/${school._id}`),
+        fetch(`/api/classes/${school._id}`),
+        fetch(`/api/students/${school._id}`),
+        fetch(`/api/staff/${school._id}`),
       ]);
 
       if (!classesRes.ok) throw new Error(`Failed to load classes (${classesRes.status})`);
@@ -154,7 +162,11 @@ export default function ClassModule() {
       ]);
 
       setClasses(Array.isArray(classesData) ? classesData : []);
-      setStudents(Array.isArray(studentsData) ? studentsData : []);
+      const normalizedStudents = Array.isArray(studentsData)
+        ? studentsData.filter((student: Student) => student.admissionCompleted !== false)
+        : [];
+
+      setStudents(normalizedStudents);
       setTeachers(
         (Array.isArray(staffData) ? staffData : []).filter(
           (staff: Teacher) => staff.position?.toLowerCase() === "teacher"
@@ -227,8 +239,8 @@ export default function ClassModule() {
       const nextClassName = getClassLabel({ name: trimmedName, section: trimmedSection });
       const res = await fetch(
         editingClass
-          ? `https://erp-portal-1-ftwe.onrender.com/api/classes/${editingClass._id}`
-          : "https://erp-portal-1-ftwe.onrender.com/api/classes",
+          ? `/api/classes/${editingClass._id}`
+          : "/api/classes",
         {
           method: editingClass ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -251,7 +263,7 @@ export default function ClassModule() {
         const impactedStudents = students.filter((student) => student.class === previousClassName);
         const updateResponses = await Promise.all(
           impactedStudents.map((student) =>
-            fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${student._id}`, {
+            fetch(`/api/students/${student._id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ class: nextClassName }),
@@ -283,7 +295,7 @@ export default function ClassModule() {
     if (!confirm(`Delete ${getClassLabel(schoolClass)}?`)) return;
 
     try {
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${schoolClass._id}`, {
+      const res = await fetch(`/api/classes/${schoolClass._id}`, {
         method: "DELETE",
       });
       const data = await res.json().catch(() => null);
@@ -313,7 +325,7 @@ export default function ClassModule() {
 
     try {
       setSavingClass(true);
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/classes/${activeClass._id}`, {
+      const res = await fetch(`/api/classes/${activeClass._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ classTeacher: selectedTeacherId || null }),
@@ -337,7 +349,7 @@ export default function ClassModule() {
 
     try {
       setSavingStudent(true);
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/students/${studentId}`, {
+      const res = await fetch(`/api/students/${studentId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ class: getClassLabel(activeClass) }),

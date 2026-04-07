@@ -8,6 +8,17 @@ const attendanceSchema = new mongoose.Schema(
     date: { type: String, required: true }, // Format: YYYY-MM-DD
     status: { type: String, enum: ["Present", "Absent", "Leave", "Half Day"], required: true },
     remarks: String,
+    selfMarked: { type: Boolean, default: false },
+    selfLocked: { type: Boolean, default: false },
+    selfLockedAt: Date,
+    location: {
+      latitude: Number,
+      longitude: Number,
+      accuracy: Number,
+      capturedAt: Date,
+    },
+    isOutsideSchool: { type: Boolean, default: false },
+    distanceFromSchoolMeters: Number,
   },
   { timestamps: true }
 );

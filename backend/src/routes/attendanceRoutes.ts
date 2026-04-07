@@ -2,6 +2,7 @@ import express from "express";
 import Attendance from "../models/Attendance";
 import Staff from "../models/Staff";
 import Student from "../models/Student";
+import School from "../models/School";
 import { createLog } from "../utils/createLog";
 
 const router = express.Router();
@@ -16,6 +17,29 @@ interface PopulatedAttendance {
   status: string;
   remarks?: string;
 }
+
+const toRadians = (value: number) => (value * Math.PI) / 180;
+
+const haversineDistanceMeters = (
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number
+) => {
+  const earthRadius = 6371000;
+  const dLat = toRadians(toLat - fromLat);
+  const dLng = toRadians(toLng - fromLng);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(fromLat)) *
+      Math.cos(toRadians(toLat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadius * c;
+};
 
 // ==========================
 // 📊 GET ATTENDANCE REPORT
@@ -62,6 +86,7 @@ router.get("/students/:schoolId/:className/:date", async (req, res) => {
     const students = await Student.find({
       schoolId,
       class: className,
+      admissionCompleted: { $ne: false },
     }).sort({ rollNumber: 1, name: 1 });
 
     const studentIds = students.map((student) => student._id);
@@ -100,6 +125,80 @@ router.get("/students/:schoolId/:className/:date", async (req, res) => {
   } catch (error) {
     console.error("GET STUDENT ATTENDANCE ERROR:", error);
     res.status(500).json({ message: "Failed to fetch student attendance" });
+  }
+});
+
+// ==========================
+// 👨‍🏫 GET SELF ATTENDANCE FOR A TEACHER AND DATE
+// ==========================
+router.get("/self/:schoolId/:teacherId/:date", async (req, res) => {
+  try {
+    const { schoolId, teacherId, date } = req.params;
+
+    const attendance = await Attendance.findOne({
+      schoolId,
+      staffId: teacherId,
+      date,
+    });
+
+    if (!attendance) {
+      return res.json({ success: true, data: null });
+    }
+
+    return res.json({ success: true, data: attendance });
+  } catch (error) {
+    console.error("GET SELF ATTENDANCE ERROR:", error);
+    return res.status(500).json({ message: "Failed to fetch self attendance" });
+  }
+});
+
+// ==========================
+// 🔒 LOCK SELF ATTENDANCE FOR A TEACHER AND DATE
+// ==========================
+router.post("/self/lock", async (req, res) => {
+  try {
+    const { teacherId, schoolId, date } = req.body as {
+      teacherId?: string;
+      schoolId?: string;
+      date?: string;
+    };
+
+    if (!teacherId || !schoolId || !date) {
+      return res.status(400).json({
+        message: "Required fields: teacherId, schoolId, date",
+      });
+    }
+
+    const attendance = await Attendance.findOne({
+      schoolId,
+      staffId: teacherId,
+      date,
+    });
+
+    if (!attendance) {
+      return res.status(404).json({
+        message: "Self attendance not found for selected date",
+      });
+    }
+
+    if (attendance.selfLocked) {
+      return res.json({ success: true, data: attendance, message: "Attendance is already locked" });
+    }
+
+    attendance.selfLocked = true;
+    attendance.selfLockedAt = new Date();
+    await attendance.save();
+
+    await createLog({
+      action: "LOCK_SELF_ATTENDANCE",
+      message: `Teacher self attendance locked for ${date}`,
+      schoolId,
+    });
+
+    return res.json({ success: true, data: attendance });
+  } catch (error) {
+    console.error("LOCK SELF ATTENDANCE ERROR:", error);
+    return res.status(500).json({ message: "Failed to lock self attendance" });
   }
 });
 
@@ -243,6 +342,132 @@ router.post("/", async (req, res) => {
   } catch (error) {
     console.error("MARK ATTENDANCE ERROR:", error);
     res.status(500).json({ message: "Failed to mark attendance" });
+  }
+});
+
+// ==========================
+// 📍 TEACHER SELF ATTENDANCE WITH LOCATION
+// ==========================
+router.post("/self", async (req, res) => {
+  try {
+    const {
+      teacherId,
+      schoolId,
+      date,
+      status,
+      remarks,
+      location,
+    } = req.body as {
+      teacherId?: string;
+      schoolId?: string;
+      date?: string;
+      status?: string;
+      remarks?: string;
+      location?: {
+        latitude?: number;
+        longitude?: number;
+        accuracy?: number;
+      };
+    };
+
+    if (!teacherId || !schoolId || !date || !status) {
+      return res.status(400).json({
+        message: "Required fields: teacherId, schoolId, date, status",
+      });
+    }
+
+    const teacher = await Staff.findOne({ _id: teacherId, schoolId, position: /^Teacher$/i }).select("name");
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    const school = await School.findById(schoolId).select("schoolInfo.location");
+    const schoolLocation = (school as unknown as {
+      schoolInfo?: {
+        location?: {
+          latitude?: number;
+          longitude?: number;
+          radiusMeters?: number;
+        };
+      };
+    })?.schoolInfo?.location;
+
+    let distanceFromSchoolMeters: number | undefined;
+    let isOutsideSchool = false;
+
+    const hasTeacherLocation =
+      typeof location?.latitude === "number" && typeof location?.longitude === "number";
+    const hasSchoolLocation =
+      typeof schoolLocation?.latitude === "number" && typeof schoolLocation?.longitude === "number";
+
+    if (hasTeacherLocation && hasSchoolLocation) {
+      distanceFromSchoolMeters = haversineDistanceMeters(
+        schoolLocation!.latitude as number,
+        schoolLocation!.longitude as number,
+        location!.latitude as number,
+        location!.longitude as number
+      );
+
+      const allowedRadius = schoolLocation?.radiusMeters || 200;
+      isOutsideSchool = distanceFromSchoolMeters > allowedRadius;
+    }
+
+    const updatePayload = {
+      status,
+      remarks,
+      selfMarked: true,
+      location: hasTeacherLocation
+        ? {
+            latitude: location!.latitude,
+            longitude: location!.longitude,
+            accuracy: location?.accuracy,
+            capturedAt: new Date(),
+          }
+        : undefined,
+      isOutsideSchool,
+      distanceFromSchoolMeters,
+    };
+
+    const existingAttendance = await Attendance.findOne({ staffId: teacherId, schoolId, date });
+
+    if (existingAttendance?.selfLocked) {
+      return res.status(423).json({
+        message: "Attendance is locked for this date and cannot be changed",
+      });
+    }
+
+    let attendance;
+    if (existingAttendance) {
+      attendance = await Attendance.findByIdAndUpdate(existingAttendance._id, updatePayload, {
+        new: true,
+      });
+    } else {
+      attendance = await Attendance.create({
+        staffId: teacherId,
+        schoolId,
+        date,
+        ...updatePayload,
+      });
+    }
+
+    await createLog({
+      action: "MARK_SELF_ATTENDANCE",
+      message: `Teacher self attendance marked: ${status} for ${date}${isOutsideSchool ? " (outside school)" : ""}`,
+      schoolId,
+      user: teacher.name,
+    });
+
+    return res.json({
+      success: true,
+      data: attendance,
+      meta: {
+        isOutsideSchool,
+        distanceFromSchoolMeters: distanceFromSchoolMeters || null,
+      },
+    });
+  } catch (error) {
+    console.error("MARK SELF ATTENDANCE ERROR:", error);
+    return res.status(500).json({ message: "Failed to mark self attendance" });
   }
 });
 

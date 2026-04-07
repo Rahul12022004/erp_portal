@@ -74,6 +74,58 @@ type SuperAdminSessionResponse = {
   };
 };
 
+function normalizeApiPath(path: string) {
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+function getApiCandidates(path: string) {
+  const normalizedPath = normalizeApiPath(path);
+  const candidates: string[] = [];
+
+  const pushCandidate = (value: string) => {
+    if (!value || candidates.includes(value)) {
+      return;
+    }
+    candidates.push(value);
+  };
+
+  pushCandidate(`${API_URL}${normalizedPath}`);
+
+  // Same-origin API path works with Vite proxy and reverse-proxy deployments.
+  pushCandidate(normalizedPath);
+
+  if (import.meta.env.MODE === "development") {
+    pushCandidate(`http://localhost:5000${normalizedPath}`);
+  }
+
+  return candidates;
+}
+
+async function postJsonWithFallback(path: string, body: Record<string, string>) {
+  const candidates = getApiCandidates(path);
+  let lastError: Error | null = null;
+
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json().catch(() => ({ message: "Invalid server response" }));
+      return { response, data };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Request failed");
+    }
+  }
+
+  const reason = lastError?.message ? ` (${lastError.message})` : "";
+  throw new Error(
+    `Unable to connect to the login server. Please verify backend is running and API URL is correct.${reason}`
+  );
+}
+
 export function clearStoredSessions() {
   localStorage.removeItem("authToken");
   localStorage.removeItem("user");
@@ -128,13 +180,7 @@ export function persistTeacherSession(
 
 export async function loginSchoolAdmin(email: string, password: string) {
   try {
-    const response = await fetch(`${API_URL}/api/schools/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json().catch(() => ({ message: "Invalid server response" }));
+    const { response, data } = await postJsonWithFallback("/api/schools/login", { email, password });
 
     if (!response.ok) {
       throw new Error(data.message || `School admin login failed (${response.status})`);
@@ -151,35 +197,39 @@ export async function loginSchoolAdmin(email: string, password: string) {
 }
 
 export async function loginTeacher(email: string, password: string) {
-  const response = await fetch(`${API_URL}/api/staff/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  try {
+    const { response, data } = await postJsonWithFallback("/api/staff/login", { email, password });
 
-  const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Teacher login failed");
+    }
 
-  if (!response.ok) {
-    throw new Error(data.message || "Teacher login failed");
+    return data as TeacherSessionResponse;
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Unable to connect to backend. Please check your network and backend server."
+    );
   }
-
-  return data as TeacherSessionResponse;
 }
 
 export async function loginSuperAdmin(email: string, password: string) {
-  const response = await fetch(`${API_URL}/api/schools/super-admin-login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  try {
+    const { response, data } = await postJsonWithFallback("/api/schools/super-admin-login", { email, password });
 
-  const data = await response.json().catch(() => ({ message: "Invalid server response" }));
+    if (!response.ok) {
+      throw new Error((data as { message?: string }).message || "Super admin login failed");
+    }
 
-  if (!response.ok) {
-    throw new Error((data as { message?: string }).message || "Super admin login failed");
+    return data as SuperAdminSessionResponse;
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Unable to connect to backend. Please check your network and backend server."
+    );
   }
-
-  return data as SuperAdminSessionResponse;
 }
 
 export function readStoredSchoolSession() {

@@ -35,7 +35,7 @@ export default function SubscriptionsPage() {
 
   const fetchSchools = async () => {
     try {
-      const res = await fetch("https://erp-portal-1-ftwe.onrender.com/api/schools");
+      const res = await fetch("/api/schools");
       const data: unknown = await res.json();
       setSchools(Array.isArray(data) ? (data as SchoolSubscriptionRecord[]) : []);
     } catch (err) {
@@ -55,8 +55,8 @@ export default function SubscriptionsPage() {
     try {
       const url =
         actionType === "upgrade"
-          ? `https://erp-portal-1-ftwe.onrender.com/api/schools/upgrade/${selectedSchool._id}`
-          : `https://erp-portal-1-ftwe.onrender.com/api/schools/renew/${selectedSchool._id}`;
+          ? `/api/schools/upgrade/${selectedSchool._id}`
+          : `/api/schools/renew/${selectedSchool._id}`;
 
       const body =
         actionType === "upgrade"

@@ -12,6 +12,18 @@ const transportSchema = new mongoose.Schema(
     conductorPhone: String,
     conductorInfo: String,
     routeStops: [{ type: String }],
+    readingLogs: [
+      {
+        readingDate: { type: Date, default: Date.now },
+        driverName: { type: String, required: true },
+        odometerReading: { type: Number, required: true },
+        previousReading: { type: Number },
+        distanceKm: { type: Number },
+        fuelAmount: { type: Number },
+        fuelSlip: { type: String },
+        fuelSlipFileName: { type: String },
+      },
+    ],
     assignedStudents: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Student" }
     ],

@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
-import connectDB, { getDatabaseStatus } from "./config/db";
+import connectDB, { ensureDatabaseConnection, getDatabaseStatus } from "./config/db";
 
 import schoolRoutes from "./routes/schoolRoutes";
 import logRoutes from "./routes/logRoutes";
@@ -27,6 +27,8 @@ import teacherRoleRoutes from "./routes/teacherRoleRoutes";
 import socialMediaRoutes from "./routes/socialMediaRoutes";
 import visitorRoutes from "./routes/visitorRoutes";
 import dataImportRoutes from "./routes/dataImportRoutes";
+import salaryStructureRoutes from "./routes/salaryStructureRoutes";
+import expenseRoutes from "./routes/expenseRoutes";
 import { seedDatabase } from "./seed";
 import { authenticateToken } from "./middleware/auth";
 
@@ -83,11 +85,16 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // 🗄 DATABASE
 // ==========================
 const shouldSeedLocalData =
-  process.env.NODE_ENV === "development" ||
   process.env.SEED_LOCAL_DATA === "true";
 
 async function initializeDatabase() {
   await connectDB();
+  const dbStatus = getDatabaseStatus();
+
+  if (!dbStatus.connected) {
+    console.warn("Skipping local seed because MongoDB is not connected.");
+    return;
+  }
 
   if (shouldSeedLocalData) {
     seedDatabase(false).catch((error) => {
@@ -97,6 +104,14 @@ async function initializeDatabase() {
 }
 
 initializeDatabase();
+
+if (process.env.NODE_ENV !== "production") {
+  setInterval(() => {
+    void ensureDatabaseConnection().catch((error) => {
+      console.warn("Background DB reconnect check failed:", error instanceof Error ? error.message : String(error));
+    });
+  }, 15000);
+}
 
 // ==========================
 // 🚀 ROUTES
@@ -124,6 +139,8 @@ app.use("/api/teacher-roles", authenticateToken, teacherRoleRoutes);
 app.use("/api/social-media", authenticateToken, socialMediaRoutes);
 app.use("/api/visitors", authenticateToken, visitorRoutes);
 app.use("/api/data-import", authenticateToken, dataImportRoutes);
+app.use("/api/salary-structures", authenticateToken, salaryStructureRoutes);
+app.use("/api/expenses", authenticateToken, expenseRoutes);
 
 // ==========================
 // 🧪 TEST ROUTE

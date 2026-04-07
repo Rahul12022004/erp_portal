@@ -15,6 +15,11 @@ const surveyQuestionSchema = new mongoose.Schema(
 
 const surveySchema = new mongoose.Schema(
   {
+    type: {
+      type: String,
+      enum: ["Survey", "Feedback"],
+      default: "Survey",
+    },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     recipientType: {

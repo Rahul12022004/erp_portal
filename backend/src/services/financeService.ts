@@ -31,6 +31,8 @@ type AssignmentQuery = {
   academic_year?: string;
 };
 
+type LateFeeType = "none" | "fixed" | "daily" | "percentage";
+
 const asRecord = (value: unknown): LooseRecord | null =>
   value && typeof value === "object" ? (value as LooseRecord) : null;
 
@@ -54,6 +56,7 @@ const toPlainObject = (value: unknown): LooseRecord => {
 
 const toNumber = (value: unknown) => Number(value || 0);
 const toStringValue = (value: unknown) => String(value || "");
+const roundCurrency = (value: number) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const normalizeText = (value: unknown) =>
   String(value || "")
     .trim()
@@ -65,6 +68,110 @@ const buildClassLabel = (name: string, section?: string | null) =>
 const isDuplicateKeyError = (error: unknown) => {
   const record = error as { code?: unknown } | null;
   return Number(record?.code) === 11000;
+};
+
+const parseDateOnly = (value: unknown): Date | null => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+
+  const direct = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (direct) {
+    const parsed = new Date(`${direct[1]}-${direct[2]}-${direct[3]}T00:00:00.000Z`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+};
+
+const getOverdueDays = (dueDate: unknown, graceDaysInput: unknown = 0, now: Date = new Date()) => {
+  const due = parseDateOnly(dueDate);
+  if (!due) return 0;
+
+  const graceDays = Math.max(Math.floor(toNumber(graceDaysInput)), 0);
+  const effectiveDue = new Date(due.getTime() + graceDays * 24 * 60 * 60 * 1000);
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+  const diff = today.getTime() - effectiveDue.getTime();
+  if (diff <= 0) return 0;
+
+  return Math.floor(diff / (24 * 60 * 60 * 1000));
+};
+
+const calculateAutoLateFeeAmount = (
+  assignment: LooseRecord,
+  structure: LooseRecord,
+  now: Date = new Date()
+) => {
+  const dueAmount = Math.max(toNumber(assignment.due_amount), 0);
+  if (dueAmount <= 0) {
+    return 0;
+  }
+
+  const currentLateFee = Math.max(toNumber(assignment.late_fee_amount), 0);
+  if (currentLateFee > 0) {
+    return 0;
+  }
+
+  const lateFeeTypeRaw = toStringValue(structure.late_fee_type).trim().toLowerCase();
+  const lateFeeType: LateFeeType =
+    lateFeeTypeRaw === "fixed" || lateFeeTypeRaw === "daily" || lateFeeTypeRaw === "percentage"
+      ? (lateFeeTypeRaw as LateFeeType)
+      : "none";
+
+  if (lateFeeType === "none") {
+    return 0;
+  }
+
+  const lateFeeAmount = Math.max(toNumber(structure.late_fee_amount), 0);
+  if (lateFeeAmount <= 0) {
+    return 0;
+  }
+
+  const graceDays = Math.max(Math.floor(toNumber(structure.late_fee_grace_days)), 0);
+  const overdueDays = getOverdueDays(assignment.due_date, graceDays, now);
+  if (overdueDays <= 0) {
+    return 0;
+  }
+
+  if (lateFeeType === "fixed") {
+    return roundCurrency(lateFeeAmount);
+  }
+
+  if (lateFeeType === "daily") {
+    return roundCurrency(lateFeeAmount * overdueDays);
+  }
+
+  const baseFee = Math.max(toNumber(assignment.total_fee), 0);
+  return roundCurrency((baseFee * lateFeeAmount) / 100);
+};
+
+const applyAutoLateFeeIfEligible = (
+  assignmentDoc: SaveableRecord,
+  structureRecord: LooseRecord,
+  now: Date = new Date()
+) => {
+  const computedLateFee = calculateAutoLateFeeAmount(assignmentDoc, structureRecord, now);
+  if (computedLateFee <= 0) {
+    return false;
+  }
+
+  const nextTotalFee = roundCurrency(Math.max(toNumber(assignmentDoc.total_fee), 0) + computedLateFee);
+  const paidAmount = Math.max(toNumber(assignmentDoc.paid_amount), 0);
+
+  assignmentDoc.late_fee_amount = computedLateFee;
+  assignmentDoc.late_fee_applied_date = new Date().toISOString().split("T")[0];
+  assignmentDoc.late_fee_reason =
+    toStringValue(structureRecord.late_fee_description).trim() || "Late fee auto-applied after due date";
+  assignmentDoc.total_fee = nextTotalFee;
+  assignmentDoc.due_amount = Math.max(roundCurrency(nextTotalFee - paidAmount), 0);
+  assignmentDoc.fee_status = calculateFeeStatus(nextTotalFee, paidAmount, toStringValue(assignmentDoc.due_date));
+
+  return true;
 };
 
 const generateReceiptNumber = (schoolId: string): string => {
@@ -262,6 +369,10 @@ export const financeService = {
       fee_breakdown?: Array<{ label: string; amount: number }>;
       due_date: string;
       created_by?: string;
+      late_fee_type?: LateFeeType;
+      late_fee_amount?: number;
+      late_fee_description?: string;
+      late_fee_grace_days?: number;
     }
   ) {
     const session = await mongoose.startSession();
@@ -291,6 +402,10 @@ export const financeService = {
         structure.other_fee = data.other_fee || 0;
         structure.fee_breakdown = data.fee_breakdown || [];
         structure.due_date = data.due_date;
+        structure.late_fee_type = data.late_fee_type || "none";
+        structure.late_fee_amount = Math.max(toNumber(data.late_fee_amount), 0);
+        structure.late_fee_description = toStringValue(data.late_fee_description).trim();
+        structure.late_fee_grace_days = Math.max(Math.floor(toNumber(data.late_fee_grace_days)), 0);
         structure.is_active = true;
         if (data.created_by) {
           structure.created_by = new mongoose.Types.ObjectId(data.created_by);
@@ -308,6 +423,10 @@ export const financeService = {
           other_fee: data.other_fee || 0,
           fee_breakdown: data.fee_breakdown || [],
           due_date: data.due_date,
+          late_fee_type: data.late_fee_type || "none",
+          late_fee_amount: Math.max(toNumber(data.late_fee_amount), 0),
+          late_fee_description: toStringValue(data.late_fee_description).trim(),
+          late_fee_grace_days: Math.max(Math.floor(toNumber(data.late_fee_grace_days)), 0),
           is_active: true,
           created_by: data.created_by ? new mongoose.Types.ObjectId(data.created_by) : undefined,
         });
@@ -385,7 +504,8 @@ export const financeService = {
     }
 
     const discountAmount = 0;
-    const totalFee = academicFee + transportFee + otherFee - discountAmount;
+    const existingLateFee = assignment ? Math.max(toNumber(assignment.late_fee_amount), 0) : 0;
+    const totalFee = academicFee + transportFee + otherFee - discountAmount + existingLateFee;
     const paidAmount = assignment ? toNumber(assignment.paid_amount) : 0;
     const dueAmount = Math.max(totalFee - paidAmount, 0);
 
@@ -417,6 +537,9 @@ export const financeService = {
           fee_status: "UNPAID" as const,
           due_date: toStringValue(structure.due_date),
           last_payment_date: null,
+          late_fee_amount: 0,
+          late_fee_applied_date: null,
+          late_fee_reason: null,
         });
         assignment = asDoc(await newAssignment.save({ session }));
       } catch (error) {
@@ -471,6 +594,7 @@ export const financeService = {
       reference_no?: string;
       remarks?: string;
       created_by?: string;
+      include_past_dues?: boolean;
     }
   ) {
     const session = await mongoose.startSession();
@@ -498,8 +622,9 @@ export const financeService = {
           : 0;
         const recalculatedOtherFee = toNumber(structure.other_fee);
         const recalculatedDiscount = toNumber(assignment.discount_amount);
+        const existingLateFee = Math.max(toNumber(assignment.late_fee_amount), 0);
         const recalculatedTotalFee = Math.max(
-          recalculatedAcademicFee + recalculatedTransportFee + recalculatedOtherFee - recalculatedDiscount,
+          recalculatedAcademicFee + recalculatedTransportFee + recalculatedOtherFee - recalculatedDiscount + existingLateFee,
           0
         );
         const recalculatedPaidAmount = toNumber(assignment.paid_amount);
@@ -515,51 +640,121 @@ export const financeService = {
           recalculatedPaidAmount,
           toStringValue(assignment.due_date)
         );
+
+        applyAutoLateFeeIfEligible(assignment, structure);
       }
 
+      const baseAssignmentRecord = asRecord(assignment);
+      const studentIdRef = asRecord(assignment.student_id)?._id || assignment.student_id;
+      const paymentSourceAssignments = await StudentFeeAssignment.find(asMongoFilter({
+        school_id: new mongoose.Types.ObjectId(schoolId),
+        student_id: studentIdRef,
+      }))
+        .populate("class_fee_structure_id")
+        .session(session);
+
+      const rankedAssignments = paymentSourceAssignments
+        .map((doc) => asDoc(doc))
+        .filter((doc): doc is SaveableRecord => Boolean(doc))
+        .sort((left, right) => {
+          const leftId = toStringValue(left._id);
+          const rightId = toStringValue(right._id);
+          const requestedId = toStringValue(assignment._id);
+
+          if (leftId === requestedId && rightId !== requestedId) return 1;
+          if (rightId === requestedId && leftId !== requestedId) return -1;
+
+          const leftDue = parseDateOnly(left.due_date)?.getTime() || 0;
+          const rightDue = parseDateOnly(right.due_date)?.getTime() || 0;
+          if (leftDue !== rightDue) return leftDue - rightDue;
+
+          return toStringValue(left.created_at).localeCompare(toStringValue(right.created_at));
+        });
+
+      const includePastDues = Boolean(paymentData.include_past_dues);
+
+      const outstandingAssignments = rankedAssignments.filter((doc) => {
+        if (!includePastDues && toStringValue(doc._id) !== toStringValue(assignment._id)) {
+          return false;
+        }
+        const populatedStructure = asRecord(doc.class_fee_structure_id);
+        if (populatedStructure) {
+          applyAutoLateFeeIfEligible(doc, populatedStructure);
+        }
+        return Math.max(toNumber(doc.due_amount), 0) > 0;
+      });
+
+      const totalOutstandingDue = roundCurrency(
+        outstandingAssignments.reduce((sum, doc) => sum + Math.max(toNumber(doc.due_amount), 0), 0)
+      );
+
       // Validate payment amount
-      const dueAmount = toNumber(assignment.due_amount);
       if (paymentData.payment_amount <= 0) {
         throw new Error("Payment amount must be greater than 0");
       }
-      if (paymentData.payment_amount > dueAmount) {
-        throw new Error(`Payment cannot exceed due amount of ${dueAmount}`);
+      if (paymentData.payment_amount > totalOutstandingDue) {
+        throw new Error(`Payment cannot exceed total due amount of ${totalOutstandingDue}`);
       }
 
-      // Create payment record
-      const receiptNo = generateReceiptNumber(schoolId);
-      const studentIdRef = asRecord(assignment.student_id)?._id || assignment.student_id;
-      const newPayment = new StudentFeePayment({
-        school_id: new mongoose.Types.ObjectId(schoolId),
-        student_fee_assignment_id: new mongoose.Types.ObjectId(studentFeeAssignmentId),
-        student_id: studentIdRef,
-        payment_date: paymentData.payment_date,
-        payment_amount: paymentData.payment_amount,
-        payment_mode: paymentData.payment_mode || "cash",
-        reference_no: paymentData.reference_no || "",
-        remarks: paymentData.remarks || "",
-        receipt_no: receiptNo,
-        created_by: paymentData.created_by ? new mongoose.Types.ObjectId(paymentData.created_by) : undefined,
-      });
-      const payment = await newPayment.save({ session });
+      let remainingPayment = roundCurrency(paymentData.payment_amount);
+      const paymentRecords: LooseRecord[] = [];
 
-      // Update assignment - increment paid amount and recalculate
-      const newPaidAmount = toNumber(assignment.paid_amount) + paymentData.payment_amount;
-      const newDueAmount = Math.max(toNumber(assignment.total_fee) - newPaidAmount, 0);
-      const newFeeStatus = calculateFeeStatus(toNumber(assignment.total_fee), newPaidAmount, toStringValue(assignment.due_date));
+      for (const targetAssignment of outstandingAssignments) {
+        if (remainingPayment <= 0) break;
 
-      assignment.paid_amount = newPaidAmount;
-      assignment.due_amount = newDueAmount;
-      assignment.fee_status = newFeeStatus;
-      assignment.last_payment_date = paymentData.payment_date;
-      await assignment.save({ session });
+        const targetDue = Math.max(toNumber(targetAssignment.due_amount), 0);
+        if (targetDue <= 0) {
+          continue;
+        }
+
+        const allocatedAmount = roundCurrency(Math.min(remainingPayment, targetDue));
+        if (allocatedAmount <= 0) {
+          continue;
+        }
+
+        const receiptNo = generateReceiptNumber(schoolId);
+        const paymentRecord = new StudentFeePayment({
+          school_id: new mongoose.Types.ObjectId(schoolId),
+          student_fee_assignment_id: new mongoose.Types.ObjectId(toStringValue(targetAssignment._id)),
+          student_id: studentIdRef,
+          payment_date: paymentData.payment_date,
+          payment_amount: allocatedAmount,
+          payment_mode: paymentData.payment_mode || "cash",
+          reference_no: paymentData.reference_no || "",
+          remarks: paymentData.remarks || "",
+          receipt_no: receiptNo,
+          created_by: paymentData.created_by ? new mongoose.Types.ObjectId(paymentData.created_by) : undefined,
+        });
+        const createdPayment = await paymentRecord.save({ session });
+        paymentRecords.push(toPlainObject(createdPayment));
+
+        const updatedPaidAmount = roundCurrency(toNumber(targetAssignment.paid_amount) + allocatedAmount);
+        const updatedDueAmount = Math.max(roundCurrency(toNumber(targetAssignment.total_fee) - updatedPaidAmount), 0);
+
+        targetAssignment.paid_amount = updatedPaidAmount;
+        targetAssignment.due_amount = updatedDueAmount;
+        targetAssignment.fee_status = calculateFeeStatus(
+          toNumber(targetAssignment.total_fee),
+          updatedPaidAmount,
+          toStringValue(targetAssignment.due_date)
+        );
+        targetAssignment.last_payment_date = paymentData.payment_date;
+        await targetAssignment.save({ session });
+
+        remainingPayment = roundCurrency(remainingPayment - allocatedAmount);
+      }
+
+      const updatedRequestedAssignment =
+        outstandingAssignments.find((doc) => toStringValue(doc._id) === toStringValue(assignment._id)) ||
+        (baseAssignmentRecord ? (asDoc(baseAssignmentRecord) || assignment) : assignment);
 
       await session.commitTransaction();
 
       return {
-        payment: toPlainObject(payment),
-        assignment: toPlainObject(assignment),
-        receipt_no: receiptNo,
+        payment: paymentRecords[0] || null,
+        payments: paymentRecords,
+        assignment: toPlainObject(updatedRequestedAssignment),
+        receipt_no: toStringValue(paymentRecords[0]?.receipt_no),
       };
     } catch (error) {
       await session.abortTransaction();
@@ -596,6 +791,22 @@ export const financeService = {
     let assignments = await StudentFeeAssignment.find(asMongoFilter(query))
       .populate("student_id", "name class class_id roll_no registration_no section_id transport_status")
       .populate("class_fee_structure_id");
+
+    // Auto-apply configured late fee for overdue assignments during read.
+    for (const assignment of assignments) {
+      const assignmentDoc = asDoc(assignment);
+      const assignmentRecord = asRecord(assignment);
+      const structureRecord = asRecord(assignmentRecord?.class_fee_structure_id);
+
+      if (!assignmentDoc || !structureRecord) {
+        continue;
+      }
+
+      const changed = applyAutoLateFeeIfEligible(assignmentDoc, structureRecord);
+      if (changed) {
+        await assignmentDoc.save();
+      }
+    }
 
     // Apply search filter
     if (filters.search) {

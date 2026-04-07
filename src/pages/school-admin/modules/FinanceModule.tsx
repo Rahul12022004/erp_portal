@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { ArrowRight, BarChart3, Briefcase, Building, CalendarDays, ChevronDown, ChevronUp, CirclePlus, Download, FileText, FileUp, IndianRupee, Info, Mail, Package, PiggyBank, Plus, Printer, Search, ShieldCheck, Trash2, Wallet, Wrench, LayoutDashboard, type LucideIcon } from "lucide-react";
 import SchoolFinanceDashboard from "@/components/finance/SchoolFinanceDashboard";
+import SalaryStructureModule from "@/components/SalaryStructureModule";
+import ExpenseModule from "@/components/finance/ExpenseModule";
 import Pagination from "@mui/material/Pagination";
 import { Illustration } from "@/components/shared-assets/illustrations";
 import { API_URL } from "@/lib/api";
@@ -67,6 +69,10 @@ type ClassFeeStructure = {
   assignedStudentsCount?: number;
   totalAssignedStudents?: number;
   classLabel?: string;
+  lateFeeType?: "none" | "fixed" | "daily" | "percentage";
+  lateFeeAmount?: number;
+  lateFeeGraceDays?: number;
+  lateFeeDescription?: string;
 };
 
 type ClassOption = {
@@ -120,6 +126,13 @@ type StudentFeeSummary = {
   extensionGrantedBy?: string | null;
   extensionReason?: string | null;
   extensionEligible?: boolean;
+  outstandingAssignments?: Array<{
+    assignmentId: string;
+    academicYear: string;
+    dueAmount: number;
+    dueDate?: string | null;
+    status: "pending" | "partial" | "paid" | "overdue";
+  }>;
 };
 
 type StaffSalarySummary = {
@@ -184,6 +197,8 @@ type FeeFormState = {
   academicYear: string;
   description: string;
   selectedMonthIndexes: number[];
+  olderPendingAmount: number;
+  includePastDues: boolean;
 };
 
 type LateFeeFormState = {
@@ -252,6 +267,7 @@ type StudentFeeAssignment = {
   lastPaymentDate?: string | null;
   latestReceipt?: PaymentReceipt | null;
   paymentHistory?: PaymentReceipt[];
+  lateFeeAmount?: number;
 };
 
 type FinancePhaseAction = "fee-structure" | "record-payment" | "salary" | "investor-ledger" | "expense" | "banking" | "school-investment" | "asset";
@@ -959,6 +975,26 @@ const normalizeClassFeeStructureRecord = (
       (structure as ClassFeeStructure & Record<string, unknown>).academic_year ||
       ""
     ),
+    lateFeeType: String(
+      structure.lateFeeType ||
+      (structure as ClassFeeStructure & Record<string, unknown>).late_fee_type ||
+      "none"
+    ).toLowerCase() as ClassFeeStructure["lateFeeType"],
+    lateFeeAmount: Number(
+      structure.lateFeeAmount ??
+      (structure as ClassFeeStructure & Record<string, unknown>).late_fee_amount ??
+      0
+    ),
+    lateFeeGraceDays: Number(
+      structure.lateFeeGraceDays ??
+      (structure as ClassFeeStructure & Record<string, unknown>).late_fee_grace_days ??
+      0
+    ),
+    lateFeeDescription: String(
+      structure.lateFeeDescription ||
+      (structure as ClassFeeStructure & Record<string, unknown>).late_fee_description ||
+      ""
+    ),
   };
 };
 
@@ -1002,10 +1038,11 @@ const mapApiAssignmentToUiRecord = (assignment: Record<string, unknown>): Studen
   const otherFee = hasStructureValues
     ? Number(classFeeStructureRaw?.other_fee ?? 0)
     : Number(assignment.otherFee ?? assignment.other_fee ?? 0);
+  const lateFeeAmount = Number(assignment.lateFeeAmount ?? assignment.late_fee_amount ?? 0);
   const discountAmount = Number(assignment.discountAmount ?? assignment.discount_amount ?? 0);
-  const totalFee = Math.max(academicFee + transportFee + otherFee - discountAmount, 0);
+  const totalFee = Math.max(academicFee + transportFee + otherFee - discountAmount + lateFeeAmount, 0);
   const paidAmount = Number(assignment.paidAmount ?? assignment.paid_amount ?? 0);
-  const dueAmount = Math.max(totalFee - paidAmount, 0);
+  const dueAmount = Math.max(Number(assignment.dueAmount ?? assignment.due_amount ?? totalFee - paidAmount), 0);
   
   // Log if we have fees for this assignment
   if (totalFee > 0 || academicFee > 0 || transportFee > 0) {
@@ -1050,6 +1087,7 @@ const mapApiAssignmentToUiRecord = (assignment: Record<string, unknown>): Studen
     lastPaymentDate: String(assignment.lastPaymentDate || assignment.last_payment_date || ""),
     paymentHistory: Array.isArray(assignment.paymentHistory) ? (assignment.paymentHistory as PaymentReceipt[]) : [],
     latestReceipt: (assignment.latestReceipt as PaymentReceipt | null) || null,
+    lateFeeAmount,
   });
 };
 
@@ -1272,6 +1310,7 @@ export default function FinanceModule() {
   const [savingInvestorTransaction, setSavingInvestorTransaction] = useState(false);
   const [pendingRemoveInvestor, setPendingRemoveInvestor] = useState<InvestorLedgerAccount | null>(null);
   const [removingInvestorId, setRemovingInvestorId] = useState<string | null>(null);
+  const [showSalaryStructureManager, setShowSalaryStructureManager] = useState(false);
   const [deletingInvestor, setDeletingInvestor] = useState(false);
   const [investorLedgerRange, setInvestorLedgerRange] = useState<"all" | "month" | "quarter">("all");
   const [investorAccountForm, setInvestorAccountForm] = useState<{ investorName: string; investorType: "investor" | "trustee" | "other"; contact: string; description: string; initialInvestment: string }>({
@@ -1446,19 +1485,85 @@ export default function FinanceModule() {
       );
 
       const assignments = toArray<Record<string, unknown>>(assignmentPayload).map(mapApiAssignmentToUiRecord);
-      const assignmentSummaries = assignments.map((assignment) => {
-        const student = getAssignmentStudent(assignment);
-        if (student && !student.class && student.classId) {
-          student.class = classLabelById.get(student.classId) || student.class;
-        }
-        return assignmentToStudentFeeSummary(assignment);
-      });
+      const assignmentsByStudentId = new Map<string, StudentFeeAssignment[]>();
 
-      const summaryByStudentId = new Map(
-        assignmentSummaries
-          .map((summary) => [getStudentFromSummary(summary)?._id || "", summary] as const)
-          .filter(([studentId]) => Boolean(studentId))
-      );
+      for (const assignment of assignments) {
+        const assignmentStudent = getAssignmentStudent(assignment);
+        const studentId = String(assignmentStudent?._id || "");
+        if (!studentId) {
+          continue;
+        }
+
+        if (assignmentStudent && !assignmentStudent.class && assignmentStudent.classId) {
+          assignmentStudent.class = classLabelById.get(assignmentStudent.classId) || assignmentStudent.class;
+        }
+
+        const existingAssignments = assignmentsByStudentId.get(studentId) || [];
+        assignmentsByStudentId.set(studentId, [...existingAssignments, assignment]);
+      }
+
+      const summaryByStudentId = new Map<string, StudentFeeSummary>();
+      for (const [studentId, studentAssignments] of assignmentsByStudentId.entries()) {
+        const sortedAssignments = [...studentAssignments].sort((left, right) => {
+          const leftYear = getAcademicYearSortValue(left.academicYear || "");
+          const rightYear = getAcademicYearSortValue(right.academicYear || "");
+          if (rightYear !== leftYear) {
+            return rightYear - leftYear;
+          }
+
+          const leftDueTime = new Date(left.dueDate || "").getTime();
+          const rightDueTime = new Date(right.dueDate || "").getTime();
+          if (Number.isFinite(leftDueTime) && Number.isFinite(rightDueTime) && rightDueTime !== leftDueTime) {
+            return rightDueTime - leftDueTime;
+          }
+
+          return String(right._id || "").localeCompare(String(left._id || ""));
+        });
+
+        const primaryAssignment = sortedAssignments[0];
+        if (!primaryAssignment) {
+          continue;
+        }
+
+        const summary = assignmentToStudentFeeSummary(primaryAssignment);
+        const olderPendingAmount = roundCurrency(
+          sortedAssignments
+            .slice(1)
+            .reduce((sum, assignment) => sum + Math.max(Number(assignment.dueAmount || 0), 0), 0)
+        );
+        const currentDueAmount = Math.max(Number(summary.currentDueAmount ?? summary.pendingBalance ?? summary.remainingAmount ?? 0), 0);
+        const totalPendingBalance = roundCurrency(currentDueAmount + olderPendingAmount);
+
+        const outstandingAssignments = sortedAssignments
+          .filter((assignment) => Number(assignment.dueAmount || 0) > 0)
+          .map((assignment) => ({
+            assignmentId: String(assignment._id || ""),
+            academicYear: String(assignment.academicYear || ""),
+            dueAmount: Math.max(Number(assignment.dueAmount || 0), 0),
+            dueDate: assignment.dueDate || null,
+            status: String(getAssignmentStatus(assignment) || "pending") as StudentFeeSummary["status"],
+          }));
+
+        const aggregateStatus: StudentFeeSummary["status"] =
+          outstandingAssignments.length === 0
+            ? "paid"
+            : outstandingAssignments.some((assignment) => assignment.status === "overdue")
+              ? "overdue"
+              : outstandingAssignments.some((assignment) => assignment.status === "partial")
+                ? "partial"
+                : "pending";
+
+        summaryByStudentId.set(studentId, {
+          ...summary,
+          currentDueAmount,
+          olderPendingAmount,
+          pendingBalance: totalPendingBalance,
+          remainingAmount: totalPendingBalance,
+          status: aggregateStatus,
+          paymentStatus: aggregateStatus,
+          outstandingAssignments,
+        });
+      }
 
       for (const student of studentsData) {
         const studentId = String(student._id || "");
@@ -1510,6 +1615,8 @@ export default function FinanceModule() {
           latestReceipt: null,
           paymentHistory: [],
           isOverdue: false,
+          olderPendingAmount: 0,
+          outstandingAssignments: [],
         } as StudentFeeSummary);
       }
 
@@ -2138,10 +2245,15 @@ export default function FinanceModule() {
         if (parts.length === 3) return String(parseInt(parts[2], 10));
         return raw;
       })(),
-      enableLateFee: false,
-      lateFeeType: "fixed",
-      lateFeeValue: "",
-      gracePeriodDays: "",
+      enableLateFee: Number(matchedStructure?.lateFeeAmount || 0) > 0,
+      lateFeeType: (() => {
+        const rawLateType = String(matchedStructure?.lateFeeType || "none").toLowerCase();
+        if (rawLateType === "daily") return "per_day";
+        if (rawLateType === "percentage") return "percentage";
+        return "fixed";
+      })(),
+      lateFeeValue: Number(matchedStructure?.lateFeeAmount || 0) > 0 ? String(matchedStructure?.lateFeeAmount || "") : "",
+      gracePeriodDays: String(matchedStructure?.lateFeeGraceDays || ""),
       feeBreakdown: Array.isArray((matchedStructure as (typeof matchedStructure & { feeBreakdown?: Array<{ label: string; amount: number }> }) | undefined)?.feeBreakdown)
         ? ((matchedStructure as unknown as { feeBreakdown: Array<{ label: string; amount: number }> }).feeBreakdown).map((item) => ({ label: item.label, amount: String(item.amount), category: "other" }))
         : [],
@@ -2337,6 +2449,16 @@ export default function FinanceModule() {
             other_fee: 0,
             fee_breakdown: feeBreakdown,
             due_date: classFeeStructureForm.dueDate,
+            late_fee_type: classFeeStructureForm.enableLateFee
+              ? classFeeStructureForm.lateFeeType === "per_day"
+                ? "daily"
+                : classFeeStructureForm.lateFeeType
+              : "none",
+            late_fee_amount: classFeeStructureForm.enableLateFee ? Number(classFeeStructureForm.lateFeeValue || 0) : 0,
+            late_fee_grace_days: classFeeStructureForm.enableLateFee ? Number(classFeeStructureForm.gracePeriodDays || 0) : 0,
+            late_fee_description: classFeeStructureForm.enableLateFee
+              ? `Auto late fee (${classFeeStructureForm.lateFeeType === "per_day" ? "per day" : classFeeStructureForm.lateFeeType})`
+              : "",
           }
         : {
             schoolId: school._id,
@@ -2347,6 +2469,16 @@ export default function FinanceModule() {
             other_fee: 0,
             fee_breakdown: feeBreakdown,
             due_date: classFeeStructureForm.dueDate,
+            late_fee_type: classFeeStructureForm.enableLateFee
+              ? classFeeStructureForm.lateFeeType === "per_day"
+                ? "daily"
+                : classFeeStructureForm.lateFeeType
+              : "none",
+            late_fee_amount: classFeeStructureForm.enableLateFee ? Number(classFeeStructureForm.lateFeeValue || 0) : 0,
+            late_fee_grace_days: classFeeStructureForm.enableLateFee ? Number(classFeeStructureForm.gracePeriodDays || 0) : 0,
+            late_fee_description: classFeeStructureForm.enableLateFee
+              ? `Auto late fee (${classFeeStructureForm.lateFeeType === "per_day" ? "per day" : classFeeStructureForm.lateFeeType})`
+              : "",
           };
 
       const res = await fetch(url, {
@@ -2622,6 +2754,7 @@ export default function FinanceModule() {
     win.document.write(`<!DOCTYPE html><html><head><title>Fee Structure - ${activeClassName}</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:24px;background:#f8fafc}.sheet{max-width:820px;margin:0 auto}.header{background:#0f766e;color:#fff;padding:22px 24px;border-radius:16px 16px 0 0}.content{background:#fff;border:1px solid #dbe4ea;border-top:none;padding:24px;border-radius:0 0 16px 16px}.summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}.summary-item{background:#f8fafc;padding:14px;border-radius:12px}.section{margin-top:24px}table{width:100%;border-collapse:collapse}th,td{padding:10px;border:1px solid #dbe4ea;text-align:left}th{background:#f0fdfa}.footer{margin-top:20px;font-size:12px;color:#64748b}</style></head><body><div class="sheet"><div class="header"><h2 style="margin:0">Class Fee Structure</h2><p style="margin:6px 0 0;opacity:.88">${school?.name || "School ERP"} | ${activeClassName}</p></div><div class="content"><div class="summary"><div class="summary-item"><strong>Academic Year</strong><br/>${activeClassStructure.academicYear || "-"}</div><div class="summary-item"><strong>Due Date</strong><br/>${formatDate(activeClassStructure.dueDate || "-")}</div><div class="summary-item"><strong>Academic Fee</strong><br/>${formatCurrency(activeClassStructure.amount || 0)}</div><div class="summary-item"><strong>Transport Fee</strong><br/>${formatCurrency(activeClassStructure.transportFee || 0)}</div></div><div class="section"><h3>Fee Components</h3><table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody><tr><td>Academic Fee</td><td>${formatCurrency(activeClassStructure.amount || 0)}</td></tr><tr><td>Transport Fee</td><td>${formatCurrency(activeClassStructure.transportFee || 0)} (only for transport students)</td></tr></tbody></table></div><p class="footer">Generated from the finance module. Transport fee applies only to students who selected the school transport service.</p></div></div><script>window.onload=function(){window.print();};</script></body></html>`);
     win.document.close();
   };
+
 
   const openSalaryForm = (item: StaffSalarySummary, mode: "set" | "pay") => {
     const staffMember = item.staff || item.staffId;
@@ -3096,6 +3229,8 @@ export default function FinanceModule() {
       academicYear: targetSummary.academicYear || getDefaultAcademicYear(),
       description: `Fee payment for ${student.name}`,
       selectedMonthIndexes: [],
+      olderPendingAmount: Math.max(Number(targetSummary.olderPendingAmount || item.olderPendingAmount || 0), 0),
+      includePastDues: false,
     });
   };
 
@@ -3114,9 +3249,13 @@ export default function FinanceModule() {
     const selectedMonthIndexes = Array.from(new Set(feeForm.selectedMonthIndexes || []))
       .filter((index) => Number.isInteger(index) && index >= paidMonthsCount && index < 12)
       .sort((left, right) => left - right);
-    const pendingBalance = Math.max(amount - feeForm.currentPaidAmount, 0);
+    const currentPendingBalance = Math.max(amount - feeForm.currentPaidAmount, 0);
+    const pastPendingBalance = Math.max(Number(feeForm.olderPendingAmount || 0), 0);
+    const payableBalance = roundCurrency(currentPendingBalance + (feeForm.includePastDues ? pastPendingBalance : 0));
     const selectedInstallmentAmount = getSelectedInstallmentAmount(installmentPlan, selectedMonthIndexes);
-    const paymentAmount = roundCurrency(Math.min(selectedInstallmentAmount, pendingBalance));
+    const paymentAmount = roundCurrency(
+      Math.min(selectedInstallmentAmount + (feeForm.includePastDues ? pastPendingBalance : 0), payableBalance)
+    );
 
     if (!amount || amount <= 0) {
       setError("Add at least one valid fee component");
@@ -3124,12 +3263,12 @@ export default function FinanceModule() {
     }
 
     if (action !== "setup") {
-      if (selectedMonthIndexes.length === 0 || paymentAmount <= 0) {
-        setError("Select at least one unpaid month");
+      if ((selectedMonthIndexes.length === 0 && !feeForm.includePastDues) || paymentAmount <= 0) {
+        setError("Select unpaid month(s) or enable past due payment");
         return;
       }
 
-      if (paymentAmount > pendingBalance + 0.01) {
+      if (paymentAmount > payableBalance + 0.01) {
         setError("Payment amount cannot exceed pending balance");
         return;
       }
@@ -3153,6 +3292,7 @@ export default function FinanceModule() {
         payment_mode: feeForm.paymentType,
         reference_no: "",
         remarks: `${feeForm.description}${selectedMonthIndexes.length > 0 ? ` | Months: ${selectedMonthIndexes.map((index) => INSTALLMENT_MONTH_LABELS[index]).join(", ")}` : ""}`,
+        include_past_dues: feeForm.includePastDues,
       };
 
       const res = await fetch(`${API_URL}/api/finance/student-fee-payments`, {
@@ -3186,6 +3326,8 @@ export default function FinanceModule() {
       setSavingFee(false);
     }
   };
+
+
 
   const submitSalaryForm = async () => {
     if (!salaryForm) return;
@@ -3247,10 +3389,38 @@ export default function FinanceModule() {
     }
   };
 
-  const isOverdue = (dueDate: string | null | undefined) => {
-    if (!dueDate) return false;
-    const due = new Date(dueDate).getTime();
-    return due < Date.now();
+  const getFeeTrafficSignal = (summary: StudentFeeSummary, pendingAmount: number) => {
+    const safePending = Math.max(Number(pendingAmount || 0), 0);
+    const pastDue = Math.max(Number(summary.olderPendingAmount || 0), 0);
+    const status = String(summary.status || summary.paymentStatus || "").toLowerCase();
+
+    if (pastDue > 0) {
+      return {
+        label: "Red",
+        text: "Past Pending",
+        outerClass: "bg-red-100",
+        ringClass: "bg-white",
+        dotClass: "bg-red-500",
+      };
+    }
+
+    if (status === "partial" || safePending > 0) {
+      return {
+        label: "Yellow",
+        text: "Current Pending",
+        outerClass: "bg-amber-100",
+        ringClass: "bg-white",
+        dotClass: "bg-amber-400",
+      };
+    }
+
+    return {
+      label: "Green",
+      text: "All Clear",
+      outerClass: "bg-emerald-100",
+      ringClass: "bg-white",
+      dotClass: "bg-emerald-500",
+    };
   };
 
   const openLateFeeForm = (summary: StudentFeeSummary) => {
@@ -3743,7 +3913,11 @@ export default function FinanceModule() {
   };
 
   const feeFormTotal = feeForm ? getFeeComponentsTotal(feeForm.feeComponents) : 0;
-  const feeFormPendingBalance = feeForm ? Math.max(feeFormTotal - feeForm.currentPaidAmount, 0) : 0;
+  const feeFormCurrentPendingBalance = feeForm ? Math.max(feeFormTotal - feeForm.currentPaidAmount, 0) : 0;
+  const feeFormPastPendingBalance = feeForm ? Math.max(Number(feeForm.olderPendingAmount || 0), 0) : 0;
+  const feeFormPendingBalance = feeForm
+    ? roundCurrency(feeFormCurrentPendingBalance + (feeForm.includePastDues ? feeFormPastPendingBalance : 0))
+    : 0;
   const feeFormInstallmentPlan = feeForm ? getInstallmentPlan(feeFormTotal) : Array.from({ length: 12 }, () => 0);
   const feeFormPaidMonthsCount = feeForm ? getPaidMonthsCount(feeFormInstallmentPlan, feeForm.currentPaidAmount) : 0;
   const feeFormSelectedMonthIndexes = feeForm
@@ -3752,7 +3926,10 @@ export default function FinanceModule() {
         .sort((left, right) => left - right)
     : [];
   const feeFormSelectedAmount = roundCurrency(
-    Math.min(getSelectedInstallmentAmount(feeFormInstallmentPlan, feeFormSelectedMonthIndexes), feeFormPendingBalance)
+    Math.min(
+      getSelectedInstallmentAmount(feeFormInstallmentPlan, feeFormSelectedMonthIndexes) + (feeForm?.includePastDues ? feeFormPastPendingBalance : 0),
+      feeFormPendingBalance
+    )
   );
   const feeFormMinInstallment = feeForm ? Math.min(...feeFormInstallmentPlan.filter((amount) => amount > 0)) : 0;
   const feeFormMaxInstallment = feeForm ? Math.max(...feeFormInstallmentPlan) : 0;
@@ -4200,31 +4377,33 @@ export default function FinanceModule() {
         </section>
       )}
 
-      {(activeFinanceAction === "expense" || activeFinanceAction === "banking" || activeFinanceAction === "asset") && (
+      {activeFinanceAction === "expense" && (
+        <section id="finance-expense-section">
+          <ExpenseModule />
+        </section>
+      )}
+
+      {(activeFinanceAction === "banking" || activeFinanceAction === "asset") && (
         <section id="finance-phase-placeholder" className="rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_55%,#fff7ed_100%)] p-6 shadow-sm">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
             <div>
               <div className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-                {activeFinanceAction === "expense" && "Expense area"}
                 {activeFinanceAction === "banking" && "Banking area"}
                 {activeFinanceAction === "asset" && "Asset area"}
               </div>
               <h3 className="mt-4 text-2xl font-semibold text-slate-900">
-                {activeFinanceAction === "expense" && "Expense tracking is queued for the next phase."}
                 {activeFinanceAction === "banking" && "Banking details will be built in the next phase."}
                 {activeFinanceAction === "asset" && "Asset register and lifecycle management will be built in the next phase."}
               </h3>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                Phase 1 establishes the redesigned finance entry points. This placeholder confirms the new navigation is in place, while Expense, Banking, and Asset workflows are still being implemented.
+                This placeholder confirms the new navigation is in place while Banking and Asset workflows are being implemented.
               </p>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Planned next</p>
               <div className="mt-4 space-y-3 text-sm text-slate-600">
-                <div className="rounded-2xl bg-slate-50 px-4 py-3">Create a dedicated form and table for outgoing transactions.</div>
                 <div className="rounded-2xl bg-slate-50 px-4 py-3">Add account metadata, reference numbers, and banking summaries.</div>
-                <div className="rounded-2xl bg-slate-50 px-4 py-3">Track investment inflows and allocations with period-wise analytics.</div>
                 <div className="rounded-2xl bg-slate-50 px-4 py-3">Maintain an asset register with purchase value, depreciation, and status.</div>
                 <div className="rounded-2xl bg-slate-50 px-4 py-3">Connect the new screens to backend endpoints once those APIs are finalized.</div>
               </div>
@@ -5027,6 +5206,8 @@ export default function FinanceModule() {
                       <th className="p-3 text-left">Total Fee</th>
                       <th className="p-3 text-left">Paid</th>
                       <th className="p-3 text-left">Pending</th>
+                      <th className="p-3 text-left">Past Due</th>
+                      <th className="p-3 text-left">Fee Dues</th>
                       <th className="p-3 text-left">Due Date</th>
                       <th className="p-3 text-left">Action</th>
                     </tr>
@@ -5037,7 +5218,9 @@ export default function FinanceModule() {
                       const hasAssignment = Boolean(summary.financeId);
                       const rowTotalFee = getEffectiveSummaryTotal(summary);
                       const rowPending = getEffectiveSummaryPending(summary);
+                      const rowPastDue = Math.max(Number(summary.olderPendingAmount || 0), 0);
                       const rowDueDate = getDisplayDueDate(summary) || activeClassStructure?.dueDate || null;
+                      const traffic = getFeeTrafficSignal(summary, rowPending);
                       return (
                         <tr key={student?._id || summary.financeId || summary.totalFee} className="border-t border-slate-200">
                           <td className="p-3 text-slate-600">{student?.rollNumber || "-"}</td>
@@ -5046,6 +5229,19 @@ export default function FinanceModule() {
                           <td className="p-3">{formatCurrency(rowTotalFee)}</td>
                           <td className="p-3 text-emerald-700">{formatCurrency(summary.paidAmount)}</td>
                           <td className="p-3 text-rose-700">{formatCurrency(rowPending)}</td>
+                          <td className={`p-3 ${rowPastDue > 0 ? "text-orange-700 font-medium" : "text-slate-600"}`}>{formatCurrency(rowPastDue)}</td>
+                          <td className="p-3">
+                            <div className="inline-flex items-center gap-2">
+                              <div className={`relative flex h-10 w-10 items-center justify-center rounded-full ${traffic.outerClass}`}>
+                                <div className={`h-7 w-7 rounded-full shadow-sm ${traffic.ringClass}`} />
+                                <div className={`absolute h-5 w-5 rounded-full ${traffic.dotClass}`} />
+                              </div>
+                              <div className="leading-tight">
+                                <p className="text-xs font-semibold text-slate-800">{traffic.label}</p>
+                                <p className="text-[11px] text-slate-500">{traffic.text}</p>
+                              </div>
+                            </div>
+                          </td>
                           <td className="p-3">{formatDate(rowDueDate)}</td>
                           <td className="p-3">
                             <div className="flex flex-wrap gap-2">
@@ -5055,15 +5251,6 @@ export default function FinanceModule() {
                               >
                                 {hasAssignment ? "Record Payment" : "Assign & Record"}
                               </button>
-                              {isOverdue(rowDueDate) && summary.status !== "paid" && hasAssignment && (
-                                <button
-                                  onClick={() => openLateFeeForm(summary)}
-                                  className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700"
-                                  title="Add late fee charge for overdue payment"
-                                >
-                                  Add Late Fee
-                                </button>
-                              )}
                               <button
                                 onClick={() => void printAllReceiptsForStudent(summary)}
                                 disabled={!hasAssignment}
@@ -5137,6 +5324,8 @@ export default function FinanceModule() {
         </div>
       )}
 
+
+
       {!isStudent && activeFinanceAction === "salary" && salaryForm && (
         <div className="bg-white rounded-xl shadow p-4 space-y-4">
           <div className="flex items-center justify-between">
@@ -5172,6 +5361,17 @@ export default function FinanceModule() {
             {!isStudent && activeFinanceAction === "salary" ? <>
               <div className="lg:col-span-2 xl:col-span-3 grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
                 <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-4 lg:h-fit">
+                  <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-sm font-semibold text-slate-900">Salary Structure</p>
+                    <p className="mt-1 text-xs text-slate-600">Create earnings and deduction templates before setting salaries for staff.</p>
+                    <button
+                      onClick={() => setShowSalaryStructureManager((current) => !current)}
+                      className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      {showSalaryStructureManager ? "Hide Salary Structure" : "Create Salary Structure"}
+                    </button>
+                  </div>
+
                   <h4 className="text-sm font-semibold text-slate-900">Filter Department</h4>
                   <p className="mt-1 text-xs text-slate-500">Select a department to filter salary cards.</p>
                   <select
@@ -5191,6 +5391,12 @@ export default function FinanceModule() {
                 </aside>
 
                 <div className="space-y-4">
+                  {showSalaryStructureManager && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                      <SalaryStructureModule />
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                       <p className="text-sm text-slate-500">Total Salary</p>
@@ -5514,7 +5720,7 @@ export default function FinanceModule() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Total Fee</p>
                   <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(feeFormTotal)}</p>
@@ -5524,10 +5730,38 @@ export default function FinanceModule() {
                   <p className="mt-2 text-lg font-semibold text-emerald-700">{formatCurrency(feeForm.currentPaidAmount)}</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Pending Balance</p>
-                  <p className="mt-2 text-lg font-semibold text-rose-700">{formatCurrency(feeFormPendingBalance)}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Current Pending</p>
+                  <p className="mt-2 text-lg font-semibold text-rose-700">{formatCurrency(feeFormCurrentPendingBalance)}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Past Left Fee</p>
+                  <p className="mt-2 text-lg font-semibold text-amber-700">{formatCurrency(feeFormPastPendingBalance)}</p>
                 </div>
               </div>
+
+              {feeFormPastPendingBalance > 0 && (
+                <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={feeForm?.includePastDues || false}
+                    onChange={(e) => {
+                      if (!feeForm) return;
+                      setFeeForm({
+                        ...feeForm,
+                        includePastDues: e.target.checked,
+                        paymentAmount: String(roundCurrency(Math.min(
+                          getSelectedInstallmentAmount(feeFormInstallmentPlan, feeFormSelectedMonthIndexes) + (e.target.checked ? feeFormPastPendingBalance : 0),
+                          feeFormCurrentPendingBalance + (e.target.checked ? feeFormPastPendingBalance : 0)
+                        ))),
+                      });
+                    }}
+                  />
+                  <span>
+                    Include past left fee in this payment ({formatCurrency(feeFormPastPendingBalance)}).
+                  </span>
+                </label>
+              )}
 
               <div className="rounded-2xl border border-slate-200 p-5">
                 <div>
@@ -5579,11 +5813,12 @@ export default function FinanceModule() {
                             ? feeForm.selectedMonthIndexes.filter((index) => index !== monthIndex)
                             : [...feeForm.selectedMonthIndexes, monthIndex];
                           const nextSelectedAmount = getSelectedInstallmentAmount(feeFormInstallmentPlan, nextSelection);
+                          const includePastAmount = feeForm.includePastDues ? feeFormPastPendingBalance : 0;
 
                           setFeeForm({
                             ...feeForm,
                             selectedMonthIndexes: nextSelection,
-                            paymentAmount: String(roundCurrency(Math.min(nextSelectedAmount, feeFormPendingBalance))),
+                            paymentAmount: String(roundCurrency(Math.min(nextSelectedAmount + includePastAmount, feeFormPendingBalance))),
                           });
                         }}
                         className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
@@ -5619,7 +5854,10 @@ export default function FinanceModule() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Payment Amount (Auto)</span>
                   <input type="text" readOnly className="w-full rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-semibold text-slate-900" value={formatCurrency(feeFormSelectedAmount)} />
-                  <p className="mt-1 text-xs text-slate-500">Selected months: {feeFormSelectedMonthIndexes.length}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Selected months: {feeFormSelectedMonthIndexes.length}
+                    {feeForm?.includePastDues ? " | Includes past due" : ""}
+                  </p>
                 </label>
                 <label className="block md:col-span-2">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Payment Type</span>

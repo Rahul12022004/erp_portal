@@ -36,7 +36,16 @@ function startServer() {
 
     if (!shuttingDown && wasCurrent && signal !== "SIGTERM") {
       log(`server exited with code ${code ?? "unknown"}${signal ? ` (signal ${signal})` : ""}`);
-      log("waiting for file changes before restarting");
+      if (code && code !== 0) {
+        log("restarting server in 1 second");
+        setTimeout(() => {
+          if (!shuttingDown && !child) {
+            startServer();
+          }
+        }, 1000);
+      } else {
+        log("waiting for file changes before restarting");
+      }
     }
   });
 

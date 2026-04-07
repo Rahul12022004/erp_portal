@@ -29,6 +29,13 @@ const schoolSchema = new mongoose.Schema(
       website: String,
       address: String,
       logo: String,
+      location: {
+        latitude: Number,
+        longitude: Number,
+        radiusMeters: { type: Number, default: 200 },
+        locked: { type: Boolean, default: false },
+        lockedAt: Date,
+      },
     },
 
     adminInfo: {

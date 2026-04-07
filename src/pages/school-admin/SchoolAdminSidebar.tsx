@@ -26,6 +26,7 @@ const iconMap: Record<string, LucideIcon> = {
   Finance: DollarSign,
   Admissions: UserPlus,
   HR: Briefcase,
+  "Salary Management": Briefcase,
   Transport: Bus,
   Hostel: Building,
   Library: Library,

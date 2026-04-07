@@ -91,7 +91,7 @@ export default function TeacherDashboard() {
         }
 
         const res = await fetch(
-          `https://erp-portal-1-ftwe.onrender.com/api/dashboard/teacher/${school._id}/${teacher._id}`
+          `/api/dashboard/teacher/${school._id}/${teacher._id}`
         );
 
         if (!res.ok) {

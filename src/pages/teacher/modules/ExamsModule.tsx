@@ -136,7 +136,7 @@ export default function ExamsModule() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/exams/teacher/${schoolId}/${teacherId}`);
+        const res = await fetch(`/api/exams/teacher/${schoolId}/${teacherId}`);
         if (!res.ok) {
           throw new Error(`Failed to load exams (${res.status})`);
         }
@@ -224,7 +224,7 @@ export default function ExamsModule() {
       setUploadingExamId(examId);
       const documentData = await readFileAsDataUrl(file);
 
-      const res = await fetch(`https://erp-portal-1-ftwe.onrender.com/api/exams/${examId}/upload`, {
+      const res = await fetch(`/api/exams/${examId}/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

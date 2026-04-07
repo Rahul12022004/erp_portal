@@ -32,7 +32,68 @@ const generatePassword = (teacherName: string) => {
   return `${cleanName}@${suffix}`;
 };
 
-const API_BASE = (import.meta.env.VITE_API_URL || "https://erp-portal-1-ftwe.onrender.com").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
+const SIDEBAR_MENU_GROUPS = [
+  { label: "Overview", items: ["Dashboard"] },
+  { label: "Academics", items: ["Communication", "Academics", "Attendance", "Classes", "Students", "Staff", "Exams", "Time Table"] },
+  { label: "Administration", items: ["Finance", "Admissions", "Visitor", "HR", "Transport", "Hostel", "Library", "Inventory", "Social Media", "Data Import"] },
+  { label: "Services", items: ["Sports", "House"] },
+  { label: "Management", items: ["Approvals", "Maintenance", "Survey", "Downloads", "Support", "Logs", "Settings"] },
+];
+
+const PORTAL_MODULES_BY_NORMALIZED_SOURCE: Record<string, string[]> = {
+  dashboard: ["Dashboard"],
+  communication: ["Communication"],
+  announcements: ["Communication"],
+  academics: ["Academics"],
+  attendance: ["Attendance"],
+  classes: ["Classes"],
+  classmanagement: ["Classes"],
+  digitalclassroom: ["Classes"],
+  students: ["Students"],
+  studentmanagement: ["Students"],
+  staff: ["Staff"],
+  staffmanagement: ["Staff"],
+  exams: ["Exams"],
+  marksresults: ["Exams"],
+  timetable: ["Time Table"],
+  finance: ["Finance"],
+  financefees: ["Finance"],
+  admissions: ["Admissions"],
+  hr: ["HR"],
+  transport: ["Transport"],
+  transportmanagement: ["Transport"],
+  hostel: ["Hostel"],
+  hostelmanagement: ["Hostel"],
+  library: ["Library"],
+  librarymanagement: ["Library"],
+  inventory: ["Inventory"],
+  inventorymanagement: ["Inventory"],
+  socialmedia: ["Social Media"],
+  socialmediaintegration: ["Social Media"],
+  survey: ["Survey"],
+  surveysfeedback: ["Survey"],
+  approvals: ["Approvals"],
+  leavemanagement: ["Approvals"],
+  maintenance: ["Maintenance"],
+  sports: ["Sports"],
+  house: ["House"],
+  discipline: ["House"],
+  downloads: ["Downloads"],
+  support: ["Support"],
+  logs: ["Logs"],
+  settings: ["Settings"],
+  visitor: ["Visitor"],
+  visitors: ["Visitor"],
+  dataimport: ["Data Import"],
+  erpdataimport: ["Data Import"],
+};
+
+const normalizeModuleName = (value: string) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 
 const toReadableFetchError = (err: unknown) => {
   if (err instanceof Error && /failed to fetch|networkerror|network request failed/i.test(err.message)) {
@@ -95,8 +156,32 @@ export default function HRModule() {
   const schoolId = school?._id || "";
 
   const availableModules = useMemo(() => {
-    const moduleList = Array.isArray(school?.modules) ? school.modules : [];
-    return moduleList.map((moduleName: unknown) => String(moduleName)).filter(Boolean).sort((a, b) => a.localeCompare(b));
+    const sourceModules = Array.isArray(school?.modules)
+      ? school.modules.map((moduleName: unknown) => String(moduleName || "").trim()).filter(Boolean)
+      : [];
+    const subscriptionPlan = String(school?.systemInfo?.subscriptionPlan || "");
+    const sidebarItems = SIDEBAR_MENU_GROUPS.flatMap((group) => group.items);
+
+    const availablePortalModules = new Set(
+      sourceModules.flatMap((moduleName) => {
+        const normalizedName = normalizeModuleName(moduleName);
+        const mappedPortalModules = PORTAL_MODULES_BY_NORMALIZED_SOURCE[normalizedName];
+
+        if (mappedPortalModules) {
+          return mappedPortalModules;
+        }
+
+        return sidebarItems.filter(
+          (item) => normalizeModuleName(item) === normalizedName
+        );
+      })
+    );
+
+    return sidebarItems.filter(
+      (item, index) =>
+        sidebarItems.indexOf(item) === index &&
+        (item === "Dashboard" || item === "Visitor" || subscriptionPlan === "Premium" || availablePortalModules.has(item))
+    );
   }, [school]);
 
   const fetchData = useCallback(async () => {
@@ -385,23 +470,40 @@ export default function HRModule() {
           </div>
 
           <div>
-            <p className="mb-2 text-sm font-medium">Assign Modules</p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-800">Assign Modules</p>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                {modules.length} selected
+              </span>
+            </div>
             {availableModules.length === 0 ? (
               <p className="text-sm text-gray-500">No enabled school modules found.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {availableModules.map((moduleName) => (
                   <button
                     key={moduleName}
                     type="button"
                     onClick={() => toggleModule(moduleName)}
-                    className={`rounded-full border px-3 py-1 text-sm ${
+                    className={`min-h-[84px] rounded-3xl border px-4 py-3 text-left transition-all hover:-translate-y-0.5 ${
                       modules.includes(moduleName)
-                        ? "border-blue-600 bg-blue-50 text-blue-700"
-                        : "border-gray-300 bg-white text-gray-700"
+                        ? "border-blue-600 bg-blue-100 text-blue-900"
+                        : "border-slate-200 bg-[#eef6ff] text-slate-800"
                     }`}
+                    style={{
+                      boxShadow: modules.includes(moduleName)
+                        ? "8px 8px 20px rgba(37,99,235,0.22), inset -4px -4px 10px rgba(29,78,216,0.2), inset 4px 4px 10px rgba(255,255,255,0.75)"
+                        : "6px 6px 16px rgba(15,23,42,0.12), inset -3px -3px 8px rgba(15,23,42,0.1), inset 3px 3px 8px rgba(255,255,255,0.75)",
+                    }}
                   >
-                    {moduleName}
+                    <div className="flex h-full items-start justify-between gap-2">
+                      <span className="break-words text-sm font-semibold leading-5 text-inherit">{moduleName}</span>
+                      {modules.includes(moduleName) && (
+                        <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                          ON
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>

@@ -34,6 +34,7 @@ import { sendSchoolAdminCredentialsEmail } from "../utils/sendEmail";
 import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../utils/loginThrottle";
 import { signAuthToken } from "../utils/jwt";
 import { authenticateToken } from "../middleware/auth";
+import { ensureDatabaseConnection, getDatabaseStatus } from "../config/db";
 
 const router = express.Router();
 
@@ -137,12 +138,111 @@ const toSchoolSessionResponse = (school: any) => ({
     phone: school.schoolInfo?.phone,
     address: school.schoolInfo?.address,
     website: school.schoolInfo?.website,
+    location: school.schoolInfo?.location,
   },
   systemInfo: {
     schoolType: school.systemInfo?.schoolType,
     subscriptionPlan: school.systemInfo?.subscriptionPlan,
     subscriptionEndDate: school.systemInfo?.subscriptionEndDate,
   },
+});
+
+// ==========================
+// 📍 UPDATE SCHOOL GEOFENCE LOCATION
+// ==========================
+router.put("/:id/location", async (req, res) => {
+  try {
+    const { latitude, longitude, radiusMeters } = req.body as {
+      latitude?: number;
+      longitude?: number;
+      radiusMeters?: number;
+    };
+
+    const school = await School.findById(req.params.id);
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    if (school.schoolInfo?.location?.locked) {
+      return res.status(423).json({
+        message: "Geofence is locked. Unlock it before making changes.",
+      });
+    }
+
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      return res.status(400).json({ message: "latitude and longitude are required numbers" });
+    }
+
+    const safeRadius =
+      typeof radiusMeters === "number" && radiusMeters > 0 ? Math.round(radiusMeters) : 200;
+
+    const updated = await School.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          "schoolInfo.location.latitude": latitude,
+          "schoolInfo.location.longitude": longitude,
+          "schoolInfo.location.radiusMeters": safeRadius,
+        },
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    await createLog({
+      action: "UPDATE_SCHOOL_GEOFENCE",
+      message: `${updated.schoolInfo?.name} geofence updated`,
+      schoolId: updated._id,
+    });
+
+    return res.json({ success: true, data: toSchoolSessionResponse(updated) });
+  } catch (error) {
+    console.error("UPDATE SCHOOL GEOFENCE ERROR:", error);
+    return res.status(500).json({ message: "Failed to update school geofence" });
+  }
+});
+
+// ==========================
+// 🔒 LOCK / UNLOCK SCHOOL GEOFENCE LOCATION
+// ==========================
+router.patch("/:id/location-lock", async (req, res) => {
+  try {
+    const { locked } = req.body as { locked?: boolean };
+
+    if (typeof locked !== "boolean") {
+      return res.status(400).json({ message: "locked must be a boolean" });
+    }
+
+    const updated = await School.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          "schoolInfo.location.locked": locked,
+          "schoolInfo.location.lockedAt": locked ? new Date() : null,
+        },
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    await createLog({
+      action: locked ? "LOCK_SCHOOL_GEOFENCE" : "UNLOCK_SCHOOL_GEOFENCE",
+      message: `${updated.schoolInfo?.name} geofence ${locked ? "locked" : "unlocked"}`,
+      schoolId: updated._id,
+    });
+
+    return res.json({ success: true, data: toSchoolSessionResponse(updated) });
+  } catch (error) {
+    console.error("TOGGLE SCHOOL GEOFENCE LOCK ERROR:", error);
+    return res.status(500).json({ message: "Failed to update geofence lock" });
+  }
 });
 
 function toSchoolSessionWithToken(school: any) {
@@ -165,6 +265,14 @@ function toSchoolSessionWithToken(school: any) {
 // ==========================
 router.post("/login", async (req, res) => {
   try {
+    await ensureDatabaseConnection();
+    const dbStatus = getDatabaseStatus();
+    if (!dbStatus.connected) {
+      return res.status(503).json({
+        message: "Login service is temporarily unavailable. Database is not connected.",
+      });
+    }
+
     const { email, password } = req.body;
     const throttleKey = getLoginThrottleKey(req.ip, String(email || ""));
     const blockInfo = getLoginBlockInfo(throttleKey);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Download, IdCard, Printer, UserPlus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, IdCard, Printer, UserPlus, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 import { API_URL } from "@/lib/api";
@@ -21,8 +21,22 @@ type Student = {
   bloodGroup?: string;
   gender?: string;
   photo?: string;
+  aadharCardDocument?: string;
+  bodCertificate?: string;
+  rteDocument?: string;
+  hasParentConsent?: boolean;
   createdAt?: string;
 };
+
+const getMissingDocs = (s: Student): string[] => {
+  const missing: string[] = [];
+  if (!s.rteDocument) missing.push("Right to Education Document");
+  if (!s.bodCertificate) missing.push("DOB Certificate");
+  if (!s.aadharCardDocument) missing.push("Aadhaar Card");
+  return missing;
+};
+
+const isAdmissionComplete = (s: Student) => getMissingDocs(s).length === 0;
 
 type AdmissionForm = {
   formNumber: string;
@@ -88,6 +102,11 @@ type SchoolNameSession = {
   name?: string;
   schoolInfo?: {
     name?: string;
+    logo?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    website?: string;
   };
 };
 
@@ -374,8 +393,21 @@ const resizeImage = (file: File, maxPx: number): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
+const generateFormNumber = (count: number) => {
+  const year = new Date().getFullYear();
+  const seq = String(count + 1).padStart(4, "0");
+  return `F-${year}-${seq}`;
+};
+
+const generateAdmissionNumber = (count: number) => {
+  const year = new Date().getFullYear();
+  const seq = String(count + 1).padStart(4, "0");
+  return `ADM-${year}-${seq}`;
+};
+
 export default function AdmissionsModule() {
-  const [formData, setFormData] = useState<AdmissionForm>(emptyForm);
+  const today = new Date().toISOString().slice(0, 10);
+  const [formData, setFormData] = useState<AdmissionForm>({ ...emptyForm, formDate: today });
   const [recentAdmissions, setRecentAdmissions] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -397,16 +429,35 @@ export default function AdmissionsModule() {
   const [rteDocumentName, setRteDocumentName] = useState("");
   const [bodCertificateName, setBodyCertificateName] = useState("");
   const [idCardStudent, setIdCardStudent] = useState<Student | null>(null);
+  const [docModalStudent, setDocModalStudent] = useState<Student | null>(null);
+  const [docUploading, setDocUploading] = useState(false);
+  const [docModalError, setDocModalError] = useState("");
+  const [docModalSuccess, setDocModalSuccess] = useState("");
+  const [docPatch, setDocPatch] = useState<Record<string, string>>({});
   const [selectedClassFilter, setSelectedClassFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "pending">("all");
   const [showTransportTerms, setShowTransportTerms] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const schoolSession = readStoredSchoolSession() as SchoolNameSession | null;
   const schoolDisplayName = schoolSession?.schoolInfo?.name ?? schoolSession?.name ?? "School";
+  const schoolLogo = schoolSession?.schoolInfo?.logo ?? "";
+  const schoolPhone = schoolSession?.schoolInfo?.phone ?? "";
+  const schoolEmail = schoolSession?.schoolInfo?.email ?? "";
+  const schoolAddress = schoolSession?.schoolInfo?.address ?? "";
+  const schoolWebsite = schoolSession?.schoolInfo?.website ?? "";
   // ref kept for potential future use
   const _idCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void fetchAdmissions();
   }, []);
+
+  // Auto-generate form and admission numbers when admissions list loads
+  useEffect(() => {
+    const formNum = generateFormNumber(recentAdmissions.length);
+    const admNum = generateAdmissionNumber(recentAdmissions.length);
+    setFormData((prev) => ({ ...prev, formNumber: formNum, admissionNumber: admNum }));
+  }, [recentAdmissions.length]);
 
   const clearSchoolDataImportPreview = () => {
     setSchoolDataImportFileName("");
@@ -446,18 +497,76 @@ export default function AdmissionsModule() {
     }
   };
 
+  // Only show admissions created through the new admission form (F- prefix)
+  const newAdmissions = useMemo(
+    () => recentAdmissions.filter((s) => s.formNumber?.startsWith("F-")),
+    [recentAdmissions]
+  );
+
   const classFilterOptions = useMemo(() => {
-    const unique = Array.from(new Set(recentAdmissions.map((student) => student.class).filter(Boolean)));
+    const unique = Array.from(new Set(newAdmissions.map((s) => s.class).filter(Boolean)));
     return unique.sort((a, b) => a.localeCompare(b));
-  }, [recentAdmissions]);
+  }, [newAdmissions]);
 
   const filteredAdmissions = useMemo(() => {
-    if (selectedClassFilter === "all") {
-      return recentAdmissions;
-    }
+    let list = selectedClassFilter === "all"
+      ? newAdmissions
+      : newAdmissions.filter((s) => s.class === selectedClassFilter);
+    if (statusFilter === "complete") list = list.filter(isAdmissionComplete);
+    if (statusFilter === "pending") list = list.filter((s) => !isAdmissionComplete(s));
+    return list;
+  }, [newAdmissions, selectedClassFilter, statusFilter]);
 
-    return recentAdmissions.filter((student) => student.class === selectedClassFilter);
-  }, [recentAdmissions, selectedClassFilter]);
+  const printableAdmissionCount = useMemo(
+    () => filteredAdmissions.filter(isAdmissionComplete).length,
+    [filteredAdmissions]
+  );
+
+  const openDocModal = (student: Student) => {
+    setDocModalStudent(student);
+    setDocPatch({});
+    setDocModalError("");
+    setDocModalSuccess("");
+  };
+
+  const handleDocFileSelect = async (field: string, file: File) => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    setDocPatch((prev) => ({ ...prev, [field]: dataUrl }));
+  };
+
+  const saveDocModal = async () => {
+    if (!docModalStudent) return;
+    if (Object.keys(docPatch).length === 0) {
+      setDocModalError("No files selected.");
+      return;
+    }
+    try {
+      setDocUploading(true);
+      setDocModalError("");
+      const res = await fetch(`${API_URL}/api/students/${docModalStudent._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(docPatch),
+      });
+      if (!res.ok) throw new Error("Failed to save documents");
+      setDocModalSuccess("Documents saved successfully.");
+      setDocPatch({});
+      await fetchAdmissions();
+      // refresh local student reference
+      setDocModalStudent((prev) =>
+        prev ? { ...prev, ...Object.fromEntries(Object.entries(docPatch).map(([k]) => [k, "uploaded"])) } : prev
+      );
+    } catch (err) {
+      setDocModalError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setDocUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -535,8 +644,10 @@ export default function AdmissionsModule() {
       }
 
       setSuccess("Student admitted successfully.");
-      setFormData(emptyForm);
       setPhotoPreview("");
+      setBodyCertificateName("");
+      setRteDocumentName("");
+      setFormData({ ...emptyForm, formDate: new Date().toISOString().slice(0, 10) });
       await fetchAdmissions();
     } catch (err) {
       console.error("Admission save error:", err);
@@ -1083,40 +1194,71 @@ export default function AdmissionsModule() {
 
   const printIdCard = () => {
     if (!idCardStudent) return;
+    if (!isAdmissionComplete(idCardStudent)) {
+      setError("ID card is available only after admission is completed.");
+      return;
+    }
     const sch = readStoredSchoolSession() as SchoolNameSession | null;
     const schoolName = sch?.schoolInfo?.name ?? sch?.name ?? "School";
+    const schoolLogoUrl = sch?.schoolInfo?.logo ?? "";
+    const schoolAddressText = sch?.schoolInfo?.address ?? "";
+    const schoolPhoneText = sch?.schoolInfo?.phone ?? "";
+    const schoolEmailText = sch?.schoolInfo?.email ?? "";
+    const schoolWebsiteText = sch?.schoolInfo?.website ?? "";
     const photoHtml = idCardStudent.photo
       ? `<img src="${idCardStudent.photo}" style="width:80px;height:100px;object-fit:cover;border-radius:6px;" />`
       : `<div style="width:80px;height:100px;background:#e5e7eb;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:36px;">&#128100;</div>`;
+    const logoHtml = schoolLogoUrl
+      ? `<img src="${schoolLogoUrl}" style="width:34px;height:34px;object-fit:cover;border-radius:50%;border:1px solid rgba(255,255,255,.45);" />`
+      : `<div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.2);font-size:16px;">&#127979;</div>`;
     const win = window.open("", "_blank", "width=540,height=440");
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>ID Card - ${idCardStudent.name}</title>
 <style>
   body{margin:20px;font-family:Arial,sans-serif;}
-  .card{width:340px;border:2px solid #1d4ed8;border-radius:12px;overflow:hidden;}
-  .hd{background:#1d4ed8;color:white;text-align:center;padding:8px 12px;}
-  .hd h2{margin:0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;}
-  .hd p{margin:2px 0 0;font-size:11px;opacity:.85;}
-  .bd{display:flex;padding:12px;gap:12px;background:#fff;align-items:flex-start;}
+  .sheet{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:760px;}
+  .card{width:340px;border:2px solid #1d4ed8;border-radius:12px;overflow:hidden;background:#fff;}
+  .hd{background:#1d4ed8;color:white;padding:8px 12px;display:flex;align-items:center;gap:8px;}
+  .hdcopy h2{margin:0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;line-height:1.1;}
+  .hdcopy p{margin:2px 0 0;font-size:11px;opacity:.92;line-height:1.2;}
+  .bd{display:flex;padding:12px;gap:12px;align-items:flex-start;}
   .info .name{font-size:14px;font-weight:700;margin:0 0 5px;}
   .info p{margin:2px 0;font-size:11px;color:#374151;}
   .ft{background:#eff6ff;border-top:1px solid #bfdbfe;text-align:center;padding:5px;}
   .ft p{margin:0;font-size:10px;color:#6b7280;}
+  .back{padding:12px;min-height:154px;}
+  .back h3{margin:0 0 8px;font-size:12px;color:#1d4ed8;text-transform:uppercase;letter-spacing:1px;}
+  .back p{margin:0 0 6px;font-size:11px;color:#374151;line-height:1.3;}
+  .back .label{font-weight:700;color:#0f172a;}
 </style></head><body>
-<div class="card">
-  <div class="hd"><h2>Student Identity Card</h2><p>${schoolName}</p></div>
-  <div class="bd">
-    <div>${photoHtml}</div>
-    <div class="info">
-      <p class="name">${idCardStudent.name}</p>
-      <p>Class: ${idCardStudent.class}${idCardStudent.classSection ? " " + idCardStudent.classSection : ""}</p>
-      <p>Roll No: ${idCardStudent.rollNumber}</p>
-      <p>Admission No: ${idCardStudent.admissionNumber ?? "-"}</p>
-      <p>Date of Birth: ${idCardStudent.dateOfBirth ?? "-"}</p>
-      <p>Blood Group: ${idCardStudent.bloodGroup ?? "-"}</p>
+<div class="sheet">
+  <div class="card">
+    <div class="hd">${logoHtml}<div class="hdcopy"><h2>Student Identity Card</h2><p>${schoolName}</p></div></div>
+    <div class="bd">
+      <div>${photoHtml}</div>
+      <div class="info">
+        <p class="name">${idCardStudent.name}</p>
+        <p>Class: ${idCardStudent.class}${idCardStudent.classSection ? " " + idCardStudent.classSection : ""}</p>
+        <p>Roll No: ${idCardStudent.rollNumber}</p>
+        <p>Admission No: ${idCardStudent.admissionNumber ?? "-"}</p>
+        <p>Date of Birth: ${idCardStudent.dateOfBirth ?? "-"}</p>
+        <p>Blood Group: ${idCardStudent.bloodGroup ?? "-"}</p>
+      </div>
     </div>
+    <div class="ft"><p>If found, please return to the school office</p></div>
   </div>
-  <div class="ft"><p>If found, please return to the school office</p></div>
+  <div class="card">
+    <div class="hd">${logoHtml}<div class="hdcopy"><h2>School Information</h2><p>${schoolName}</p></div></div>
+    <div class="back">
+      <h3>Back Side</h3>
+      <p><span class="label">Address:</span> ${escapeHtml(schoolAddressText || "-")}</p>
+      <p><span class="label">Phone:</span> ${escapeHtml(schoolPhoneText || "-")}</p>
+      <p><span class="label">Email:</span> ${escapeHtml(schoolEmailText || "-")}</p>
+      <p><span class="label">Website:</span> ${escapeHtml(schoolWebsiteText || "-")}</p>
+      <p><span class="label">Student:</span> ${escapeHtml(idCardStudent.name)} (${escapeHtml(idCardStudent.admissionNumber ?? "-")})</p>
+    </div>
+    <div class="ft"><p>This card belongs to ${escapeHtml(idCardStudent.name)}</p></div>
+  </div>
 </div>
 <script>window.onload=function(){window.print();};</script>
 </body></html>`);
@@ -1131,14 +1273,22 @@ export default function AdmissionsModule() {
       .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
-  const renderCardHtml = (student: Student, schoolName: string) => {
+  const renderCardHtml = (
+    student: Student,
+    schoolName: string,
+    schoolLogoUrl: string,
+    schoolInfo: { address: string; phone: string; email: string; website: string }
+  ) => {
     const photoHtml = student.photo
       ? `<img src="${student.photo}" style="width:64px;height:80px;object-fit:cover;border-radius:6px;" />`
       : `<div style="width:64px;height:80px;background:#e5e7eb;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">&#128100;</div>`;
+    const logoHtml = schoolLogoUrl
+      ? `<img src="${schoolLogoUrl}" style="width:28px;height:28px;object-fit:cover;border-radius:50%;border:1px solid rgba(255,255,255,.45);" />`
+      : `<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.2);font-size:14px;">&#127979;</div>`;
 
     return `
       <article class="card">
-        <div class="hd"><h2>Student Identity Card</h2><p>${escapeHtml(schoolName)}</p></div>
+        <div class="hd">${logoHtml}<div><h2>Student Identity Card</h2><p>${escapeHtml(schoolName)}</p></div></div>
         <div class="bd">
           <div>${photoHtml}</div>
           <div class="info">
@@ -1152,12 +1302,24 @@ export default function AdmissionsModule() {
         </div>
         <div class="ft"><p>If found, please return to school office</p></div>
       </article>
+      <article class="card">
+        <div class="hd">${logoHtml}<div><h2>School Information</h2><p>${escapeHtml(schoolName)}</p></div></div>
+        <div class="back">
+          <p><strong>Address:</strong> ${escapeHtml(schoolInfo.address || "-")}</p>
+          <p><strong>Phone:</strong> ${escapeHtml(schoolInfo.phone || "-")}</p>
+          <p><strong>Email:</strong> ${escapeHtml(schoolInfo.email || "-")}</p>
+          <p><strong>Website:</strong> ${escapeHtml(schoolInfo.website || "-")}</p>
+          <p><strong>Student:</strong> ${escapeHtml(student.name)} (${escapeHtml(student.admissionNumber ?? "-")})</p>
+        </div>
+        <div class="ft"><p>This card belongs to ${escapeHtml(student.name)}</p></div>
+      </article>
     `;
   };
 
   const printFilteredIdCards = () => {
-    if (filteredAdmissions.length === 0) {
-      setError("No students available to print for the selected class filter.");
+    const printableAdmissions = filteredAdmissions.filter(isAdmissionComplete);
+    if (printableAdmissions.length === 0) {
+      setError("No completed admissions available for ID card printing.");
       return;
     }
 
@@ -1165,7 +1327,16 @@ export default function AdmissionsModule() {
     const win = window.open("", "_blank", "width=960,height=760");
     if (!win) return;
 
-    const cardsHtml = filteredAdmissions.map((student) => renderCardHtml(student, schoolName)).join("");
+    const cardsHtml = printableAdmissions
+      .map((student) =>
+        renderCardHtml(student, schoolName, schoolLogo, {
+          address: schoolAddress,
+          phone: schoolPhone,
+          email: schoolEmail,
+          website: schoolWebsite,
+        })
+      )
+      .join("");
 
     win.document.write(`<!DOCTYPE html><html><head><title>Student ID Cards</title>
       <style>
@@ -1185,12 +1356,14 @@ export default function AdmissionsModule() {
           break-inside: avoid;
           page-break-inside: avoid;
         }
-        .hd { background: #1d4ed8; color: white; text-align: center; padding: 6px 10px; }
+        .hd { background: #1d4ed8; color: white; display: flex; align-items: center; gap: 6px; padding: 6px 10px; }
         .hd h2 { margin: 0; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
         .hd p { margin: 2px 0 0; font-size: 9px; opacity: 0.85; }
         .bd { display: flex; gap: 10px; padding: 10px; align-items: flex-start; min-height: 100px; }
         .info .name { margin: 0 0 4px; font-size: 12px; font-weight: 700; }
         .info p { margin: 2px 0; font-size: 9px; color: #374151; }
+        .back { padding: 10px; min-height: 100px; }
+        .back p { margin: 0 0 4px; font-size: 9px; color: #374151; }
         .ft { background: #eff6ff; border-top: 1px solid #bfdbfe; text-align: center; padding: 4px; }
         .ft p { margin: 0; font-size: 8px; color: #6b7280; }
         .card:nth-of-type(4n) { break-after: page; page-break-after: always; }
@@ -1206,25 +1379,36 @@ export default function AdmissionsModule() {
   return (
     <div className="space-y-6">
       <div className="stat-card p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <UserPlus className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-semibold">New Admission</h3>
-        </div>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 text-left"
+          onClick={() => setFormOpen((prev) => !prev)}
+        >
+          <UserPlus className="w-5 h-5 text-blue-600 flex-shrink-0" />
+          <h3 className="text-lg font-semibold flex-1">New Admission</h3>
+          {formOpen ? (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
 
-        {success && <p className="text-green-600 text-sm mb-4">{success}</p>}
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+        {formOpen && (
+          <>
+        {success && <p className="text-green-600 text-sm mt-4">{success}</p>}
+        {error && <p className="text-red-600 text-sm mt-4">{error}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="space-y-1 text-sm text-slate-700">
               <span className="text-xs font-medium">Form Number</span>
               <input
                 type="text"
-                placeholder="Form Number"
-                className="w-full border rounded p-2"
+                readOnly
+                className="w-full border rounded p-2 bg-gray-50 text-gray-600 cursor-not-allowed"
                 value={formData.formNumber}
-                onChange={(e) => setFormData({ ...formData, formNumber: e.target.value })}
               />
+              <span className="text-xs text-muted-foreground">Auto-generated</span>
             </label>
             <label className="space-y-1 text-sm text-slate-700">
               <span className="text-xs font-medium">Form Date</span>
@@ -1239,11 +1423,11 @@ export default function AdmissionsModule() {
               <span className="text-xs font-medium">Admission Number</span>
               <input
                 type="text"
-                placeholder="Admission Number"
-                className="w-full border rounded p-2"
+                readOnly
+                className="w-full border rounded p-2 bg-gray-50 text-gray-600 cursor-not-allowed font-medium"
                 value={formData.admissionNumber}
-                onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
               />
+              <span className="text-xs text-muted-foreground">Permanent — auto-generated</span>
             </label>
             <label className="space-y-1 text-sm text-slate-700">
               <span className="text-xs font-medium">Full Name</span>
@@ -1351,6 +1535,30 @@ export default function AdmissionsModule() {
                 onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
               />
             </label>
+            <div className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs font-medium">Date of Birth Certificate</span>
+              <div className="border rounded p-2 bg-gray-50">
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={(e) => void handleBodCertificateSelect(e)}
+                  className="block text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {bodCertificateName && (
+                  <div className="mt-2 flex items-center justify-between bg-blue-50 p-1.5 rounded">
+                    <p className="text-xs text-gray-700">✓ {bodCertificateName}</p>
+                    <button
+                      type="button"
+                      className="text-xs text-red-500 hover:underline"
+                      onClick={() => { setBodyCertificateName(""); setFormData((p) => ({ ...p, bodCertificate: "" })); }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, JPG, or PNG</p>
+              </div>
+            </div>
             <label className="space-y-1 text-sm text-slate-700">
               <span className="text-xs font-medium">Place Of Birth</span>
               <input
@@ -1444,24 +1652,6 @@ export default function AdmissionsModule() {
                   <span className="text-3xl text-gray-400">&#128100;</span>
                 )}
               </div>
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => void handlePhotoSelect(e)}
-                  className="block text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {photoPreview && (
-                  <button
-                    type="button"
-                    className="mt-2 text-xs text-red-500 hover:underline"
-                    onClick={() => { setPhotoPreview(""); setFormData((p) => ({ ...p, photo: "" })); }}
-                  >
-                    Remove photo
-                  </button>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">JPEG / PNG — auto-resized to 250px</p>
-              </div>
             </div>
           </div>
 
@@ -1491,31 +1681,7 @@ export default function AdmissionsModule() {
             </div>
           </div>
 
-          {/* BOD Certificate Upload */}
-          <div className="border rounded p-3 bg-gray-50">
-            <p className="text-sm font-medium mb-2">BOD Certificate</p>
-            <div>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                onChange={(e) => void handleBodCertificateSelect(e)}
-                className="block text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {bodCertificateName && (
-                <div className="mt-3 flex items-center justify-between bg-blue-50 p-2 rounded">
-                  <p className="text-xs text-gray-700">✓ {bodCertificateName}</p>
-                  <button
-                    type="button"
-                    className="text-xs text-red-500 hover:underline"
-                    onClick={() => { setBodyCertificateName(""); setFormData((p) => ({ ...p, bodCertificate: "" })); }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, JPG, or PNG</p>
-            </div>
-          </div>
+
 
           <label className="space-y-1 text-sm text-slate-700">
             <span className="text-xs font-medium">Residential Address</span>
@@ -1714,11 +1880,35 @@ export default function AdmissionsModule() {
             {saving ? "Saving..." : "Add Admission"}
           </button>
         </form>
+          </>
+        )}
       </div>
 
       <div className="stat-card p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold">Recent Admissions</h3>
+          <div>
+            <h3 className="text-lg font-semibold">New Admissions</h3>
+            <div className="mt-1 flex gap-1">
+              {(["all", "complete", "pending"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusFilter(s)}
+                  className={`rounded-full px-3 py-0.5 text-xs font-medium border transition-colors ${
+                    statusFilter === s
+                      ? s === "complete"
+                        ? "bg-green-600 text-white border-green-600"
+                        : s === "pending"
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {s === "all" ? `All (${newAdmissions.length})` : s === "complete" ? `Complete (${newAdmissions.filter(isAdmissionComplete).length})` : `Pending (${newAdmissions.filter((x) => !isAdmissionComplete(x)).length})`}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={selectedClassFilter}
@@ -1735,10 +1925,11 @@ export default function AdmissionsModule() {
             <button
               type="button"
               onClick={printFilteredIdCards}
-              className="inline-flex items-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              disabled={printableAdmissionCount === 0}
+              className="inline-flex items-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Printer className="h-4 w-4" />
-              Print ID Cards (4/Page)
+              Print ID Cards (Completed)
             </button>
           </div>
         </div>
@@ -1748,40 +1939,80 @@ export default function AdmissionsModule() {
         ) : filteredAdmissions.length === 0 ? (
           <p className="text-gray-500">No admissions yet.</p>
         ) : (
-          <div className="max-h-[520px] overflow-y-auto overflow-x-auto rounded border border-slate-200">
-            <table className="w-full">
-              <thead className="sticky top-0 bg-white">
-                <tr className="border-b bg-slate-50">
-                  <th className="text-left p-2">Name</th>
-                  <th className="text-left p-2">Class</th>
-                  <th className="text-left p-2">Roll No</th>
-                  <th className="text-left p-2">Email</th>
-                  <th className="text-left p-2">Phone</th>
-                  <th className="text-left p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAdmissions.map((student) => (
-                  <tr key={student._id} className="border-b hover:bg-gray-50">
-                    <td className="p-2 font-medium">{student.name}</td>
-                    <td className="p-2">{student.class}</td>
-                    <td className="p-2">{student.rollNumber}</td>
-                    <td className="p-2">{student.email}</td>
-                    <td className="p-2">{student.phone || "-"}</td>
-                    <td className="p-2">
+          <div className="max-h-[620px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredAdmissions.map((student) => (
+                <div
+                  key={student._id}
+                  className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden border-slate-200 cursor-pointer"
+                  onClick={() => openDocModal(student)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && openDocModal(student)}
+                >
+                  {/* Card header with status colour */}
+                  <div className={`px-3 py-2 flex items-center justify-between ${
+                    isAdmissionComplete(student) ? "bg-green-600" : "bg-amber-500"
+                  }`}>
+                    <p className="text-[10px] font-bold tracking-widest uppercase text-white">Student</p>
+                    <span className="text-[9px] font-semibold text-white uppercase tracking-wide">
+                      {isAdmissionComplete(student) ? "✓ Complete" : "⚠ Pending"}
+                    </span>
+                  </div>
+
+                  {/* Photo + info */}
+                  <div className="flex gap-3 p-3 flex-1">
+                    <div className="w-14 h-16 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden border">
+                      {student.photo ? (
+                        <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-3xl text-gray-400">&#128100;</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 text-xs space-y-0.5">
+                      <p className="font-bold text-sm text-slate-800 truncate">{student.name}</p>
+                      {student.admissionNumber && (
+                        <p className="text-blue-600 font-medium">{student.admissionNumber}</p>
+                      )}
+                      <p className="text-slate-500">
+                        {student.class}{student.classSection ? ` · ${student.classSection}` : ""}
+                      </p>
+                      <p className="text-slate-500">Roll: {student.rollNumber}</p>
+                      {student.phone && <p className="text-slate-500 truncate">{student.phone}</p>}
+                    </div>
+                  </div>
+
+                  {/* Pending docs list */}
+                  {!isAdmissionComplete(student) && (
+                    <div className="mx-3 mb-2 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1.5">
+                      <p className="text-[10px] font-semibold text-amber-700 mb-0.5">Documents remaining:</p>
+                      <ul className="list-disc list-inside space-y-0.5">
+                        {getMissingDocs(student).map((doc) => (
+                          <li key={doc} className="text-[10px] text-amber-600">{doc}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Footer action */}
+                  <div className="border-t px-3 py-2 bg-slate-50 flex justify-between items-center">
+                    <span className="text-[10px] text-slate-400">Click to manage documents</span>
+                    {isAdmissionComplete(student) ? (
                       <button
                         type="button"
                         className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                        onClick={() => setIdCardStudent(student)}
+                        onClick={(e) => { e.stopPropagation(); setIdCardStudent(student); }}
                       >
                         <IdCard className="w-3.5 h-3.5" />
                         ID Card
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ) : (
+                      <span className="text-[10px] font-medium text-amber-600">Complete documents to unlock ID Card</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -1807,11 +2038,20 @@ export default function AdmissionsModule() {
               </button>
             </div>
             <div className="border-2 border-blue-700 rounded-xl overflow-hidden">
-              <div className="bg-blue-700 text-white text-center py-2 px-3">
-                <p className="text-xs font-bold tracking-widest uppercase">Student Identity Card</p>
-                <p className="text-xs opacity-80">
-                  {schoolDisplayName}
-                </p>
+              <div className="bg-blue-700 text-white py-2 px-3 flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/40">
+                  {schoolLogo ? (
+                    <img src={schoolLogo} alt={schoolDisplayName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm">🏫</span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-bold tracking-widest uppercase">Student Identity Card</p>
+                  <p className="text-xs opacity-80">
+                    {schoolDisplayName}
+                  </p>
+                </div>
               </div>
               <div className="flex p-3 gap-3 bg-white items-start">
                 <div className="w-20 h-24 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden border">
@@ -1835,14 +2075,16 @@ export default function AdmissionsModule() {
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
-                onClick={printIdCard}
-              >
-                <Printer className="w-4 h-4" />
-                Print ID Card
-              </button>
+              {isAdmissionComplete(idCardStudent) && (
+                <button
+                  type="button"
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                  onClick={printIdCard}
+                >
+                  <Printer className="w-4 h-4" />
+                  Print ID Card
+                </button>
+              )}
               <button
                 type="button"
                 className="px-4 py-2 rounded border text-sm hover:bg-gray-50"
@@ -1850,6 +2092,99 @@ export default function AdmissionsModule() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Upload Modal */}
+      {docModalStudent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setDocModalStudent(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className={`px-5 py-4 flex items-center justify-between ${isAdmissionComplete(docModalStudent) ? "bg-green-600" : "bg-amber-500"}`}>
+              <div>
+                <p className="text-white font-semibold text-sm">{docModalStudent.name}</p>
+                <p className="text-white/80 text-xs">{docModalStudent.admissionNumber} · {docModalStudent.class}{docModalStudent.classSection ? ` ${docModalStudent.classSection}` : ""}</p>
+              </div>
+              <button type="button" onClick={() => setDocModalStudent(null)} className="text-white/80 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {isAdmissionComplete(docModalStudent) ? (
+                <p className="text-green-700 text-sm font-medium text-center py-4">✓ Admission is complete. All documents are uploaded.</p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-slate-700">Upload missing documents:</p>
+
+                  {!docModalStudent.rteDocument && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-600">Right to Education Document</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        className="block w-full text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleDocFileSelect("rteDocument", f); }}
+                      />
+                    </div>
+                  )}
+
+                  {!docModalStudent.bodCertificate && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-600">Date of Birth Certificate</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        className="block w-full text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleDocFileSelect("bodCertificate", f); }}
+                      />
+                    </div>
+                  )}
+
+                  {!docModalStudent.aadharCardDocument && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-600">Aadhaar Card</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        className="block w-full text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleDocFileSelect("aadharCardDocument", f); }}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {docModalError && <p className="text-red-600 text-xs">{docModalError}</p>}
+              {docModalSuccess && <p className="text-green-600 text-xs">{docModalSuccess}</p>}
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded border text-sm hover:bg-gray-50"
+                  onClick={() => setDocModalStudent(null)}
+                >
+                  Close
+                </button>
+                {!isAdmissionComplete(docModalStudent) && (
+                  <button
+                    type="button"
+                    disabled={docUploading || Object.keys(docPatch).length === 0}
+                    className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:opacity-50"
+                    onClick={() => void saveDocModal()}
+                  >
+                    {docUploading ? "Saving..." : "Save Documents"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
