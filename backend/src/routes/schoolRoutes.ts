@@ -34,7 +34,6 @@ import { sendSchoolAdminCredentialsEmail } from "../utils/sendEmail";
 import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../utils/loginThrottle";
 import { signAuthToken } from "../utils/jwt";
 import { authenticateToken } from "../middleware/auth";
-import { ensureDatabaseConnection, getDatabaseStatus } from "../config/db";
 
 const router = express.Router();
 
@@ -265,14 +264,6 @@ function toSchoolSessionWithToken(school: any) {
 // ==========================
 router.post("/login", async (req, res) => {
   try {
-    await ensureDatabaseConnection();
-    const dbStatus = getDatabaseStatus();
-    if (!dbStatus.connected) {
-      return res.status(503).json({
-        message: "Login service is temporarily unavailable. Database is not connected.",
-      });
-    }
-
     const { email, password } = req.body;
     const throttleKey = getLoginThrottleKey(req.ip, String(email || ""));
     const blockInfo = getLoginBlockInfo(throttleKey);

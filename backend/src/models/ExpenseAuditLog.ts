@@ -7,13 +7,11 @@ const expenseAuditLogSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Expense",
       required: true,
-      index: true,
     },
     schoolId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "School",
       required: true,
-      index: true,
     },
 
     // Action Information
@@ -33,7 +31,6 @@ const expenseAuditLogSchema = new mongoose.Schema(
         "status_changed",
       ],
       required: true,
-      index: true,
     },
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -43,7 +40,6 @@ const expenseAuditLogSchema = new mongoose.Schema(
     performedDate: {
       type: Date,
       default: Date.now,
-      index: true,
     },
 
     // Change Details

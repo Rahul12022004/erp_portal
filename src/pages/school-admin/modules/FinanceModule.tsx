@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { ArrowRight, BarChart3, Briefcase, Building, CalendarDays, ChevronDown, ChevronUp, CirclePlus, Download, FileText, FileUp, IndianRupee, Info, Mail, Package, PiggyBank, Plus, Printer, Search, ShieldCheck, Trash2, Wallet, Wrench, LayoutDashboard, type LucideIcon } from "lucide-react";
 import SchoolFinanceDashboard from "@/components/finance/SchoolFinanceDashboard";
 import SalaryStructureModule from "@/components/SalaryStructureModule";
 import ExpenseModule from "@/components/finance/ExpenseModule";
+import BankingModule from "@/components/finance/BankingModule";
+import AssetManagementModule from "@/components/finance/AssetManagementModule";
 import Pagination from "@mui/material/Pagination";
 import { Illustration } from "@/components/shared-assets/illustrations";
 import { API_URL } from "@/lib/api";
@@ -83,6 +85,15 @@ type ClassOption = {
   section?: string | null;
 };
 
+type DirectStudentSuggestion = {
+  studentId: string;
+  name: string;
+  rollNumber: string;
+  classValue: string;
+  classLabel: string;
+  inputValue: string;
+};
+
 type EditableFeeComponent = {
   id: string;
   label: string;
@@ -133,6 +144,29 @@ type StudentFeeSummary = {
     dueDate?: string | null;
     status: "pending" | "partial" | "paid" | "overdue";
   }>;
+};
+type StudentSummaryMetrics = {
+  totalStudents: number;
+  currentTotalFee: number;
+  currentPaidAmount: number;
+  currentPendingAmount: number;
+  olderPendingAmount: number;
+  outstandingBalance: number;
+  paidStudentsCount: number;
+  dueStudentsCount: number;
+  pendingCount: number;
+  partialCount: number;
+  paidCount: number;
+  overdueCount: number;
+};
+
+type StudentSummaryPagination = {
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 };
 
 type StaffSalarySummary = {
@@ -538,7 +572,7 @@ const financePhaseActions: FinanceActionCard[] = [
     icon: Package,
     phase: "Phase 2",
     targetTab: "staff",
-    targetSectionId: "finance-phase-placeholder",
+    targetSectionId: "finance-asset-section",
     accentClassName: "from-indigo-100 via-blue-50 to-white text-indigo-900 border-indigo-200",
   },
 ];
@@ -894,6 +928,30 @@ const toArray = <T,>(payload: unknown): T[] => {
   }
 
   return [];
+};
+
+const emptyStudentSummaryMetrics: StudentSummaryMetrics = {
+  totalStudents: 0,
+  currentTotalFee: 0,
+  currentPaidAmount: 0,
+  currentPendingAmount: 0,
+  olderPendingAmount: 0,
+  outstandingBalance: 0,
+  paidStudentsCount: 0,
+  dueStudentsCount: 0,
+  pendingCount: 0,
+  partialCount: 0,
+  paidCount: 0,
+  overdueCount: 0,
+};
+
+const emptyStudentSummaryPagination: StudentSummaryPagination = {
+  page: 1,
+  limit: 50,
+  totalItems: 0,
+  totalPages: 1,
+  hasNextPage: false,
+  hasPreviousPage: false,
 };
 
 const buildClassOption = (schoolClass: SchoolClass): ClassOption => ({
@@ -1273,6 +1331,8 @@ export default function FinanceModule() {
   const [activeTab, setActiveTab] = useState<"student" | "staff" | "dashboard">("dashboard");
   const [activeFinanceAction, setActiveFinanceAction] = useState<FinancePhaseAction>("fee-structure");
   const [studentFees, setStudentFees] = useState<StudentFeeSummary[]>([]);
+  const [studentSummaryMetrics, setStudentSummaryMetrics] = useState<StudentSummaryMetrics>(emptyStudentSummaryMetrics);
+  const [studentSummaryPagination, setStudentSummaryPagination] = useState<StudentSummaryPagination>(emptyStudentSummaryPagination);
   const [staffSalaries, setStaffSalaries] = useState<StaffSalarySummary[]>([]);
   const [selectedFinancialYear, setSelectedFinancialYear] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -1335,6 +1395,9 @@ export default function FinanceModule() {
   const [investmentSortBy, setInvestmentSortBy] = useState<"newest" | "oldest" | "amount-high" | "amount-low">("newest");
   const [investmentSubmitAttempted, setInvestmentSubmitAttempted] = useState(false);
   const [studentSearchTerm, setStudentSearchTerm] = useState<string>("");
+  const [isDirectSearchFocused, setIsDirectSearchFocused] = useState(false);
+  const deferredStudentSearchTerm = useDeferredValue(studentSearchTerm);
+  const hasLoadedInitialDataRef = useRef(false);
   const [classFeeStructureForm, setClassFeeStructureForm] = useState<ClassFeeStructureFormState>({
     structureName: "",
     classId: "",
@@ -1429,214 +1492,137 @@ export default function FinanceModule() {
     });
   }, [classFeeStructures, classStructureNameMap]);
 
-  useEffect(() => {
-    void fetchData();
+  const fetchStudentSummaryData = useCallback(
+    async (options?: { includeOptions?: boolean }) => {
+      const school = JSON.parse(localStorage.getItem("school") || "null");
+      if (!school?._id) {
+        setError("School ID not found in localStorage");
+        setStudentFees([]);
+        setStudentSummaryMetrics(emptyStudentSummaryMetrics);
+        setStudentSummaryPagination(emptyStudentSummaryPagination);
+        return;
+      }
+
+      const selectedClassId =
+        isLikelyObjectId(selectedFeeClass)
+          ? selectedFeeClass
+          : (
+              schoolClasses.find((schoolClass) =>
+                matchesClassValue(buildClassLabel(schoolClass.name, schoolClass.section), selectedFeeClass)
+              )?._id || ""
+            );
+
+      const params = new URLSearchParams({
+        page: String(studentRecordsPage),
+        limit: "50",
+      });
+
+      if (selectedClassId) {
+        params.set("classId", selectedClassId);
+      }
+      if (selectedFinancialYear) {
+        params.set("academicYear", selectedFinancialYear);
+      }
+      if (deferredStudentSearchTerm.trim()) {
+        params.set("search", deferredStudentSearchTerm.trim());
+      }
+      if (options?.includeOptions) {
+        params.set("includeOptions", "true");
+      }
+
+      const summaryRes = await fetch(`${API_URL}/api/finance/${school._id}/students/summary?${params.toString()}`);
+      const summaryPayload = summaryRes.ok ? await summaryRes.json().catch(() => null) : null;
+
+      if (!summaryRes.ok) {
+        throw new Error(
+          (summaryPayload as { message?: string } | null)?.message ||
+          `Student finance summary is temporarily unavailable (${summaryRes.status}).`
+        );
+      }
+
+      const summaryData = extractApiData<{
+        items?: StudentFeeSummary[];
+        metrics?: Partial<StudentSummaryMetrics>;
+        pagination?: Partial<StudentSummaryPagination>;
+        classes?: SchoolClass[];
+        classFeeStructures?: ClassFeeStructure[];
+      }>(summaryPayload);
+
+      setStudentFees(Array.isArray(summaryData?.items) ? summaryData.items : []);
+      setStudentSummaryMetrics({
+        ...emptyStudentSummaryMetrics,
+        ...(summaryData?.metrics || {}),
+      });
+      setStudentSummaryPagination({
+        ...emptyStudentSummaryPagination,
+        ...(summaryData?.pagination || {}),
+      });
+
+      if (options?.includeOptions) {
+        const classesData = Array.isArray(summaryData?.classes) ? summaryData.classes : [];
+        const structuresByClassId = new Map(
+          classesData.map((schoolClass) => [String(schoolClass._id || ""), schoolClass])
+        );
+
+        setSchoolClasses(classesData);
+        setClassFeeStructures(
+          Array.isArray(summaryData?.classFeeStructures)
+            ? summaryData.classFeeStructures.map((structure) =>
+                normalizeClassFeeStructureRecord(structure, structuresByClassId)
+              )
+            : []
+        );
+      }
+    },
+    [
+      deferredStudentSearchTerm,
+      selectedFeeClass,
+      selectedFinancialYear,
+      schoolClasses,
+      studentRecordsPage,
+    ]
+  );
+
+  const fetchStaticFinanceData = useCallback(async () => {
+    const school = JSON.parse(localStorage.getItem("school") || "null");
+    if (!school?._id) {
+      setError("School ID not found in localStorage");
+      setStaffSalaries([]);
+      setInvestorAccounts([]);
+      return;
+    }
+
+    const [staffRes, investorRes] = await Promise.all([
+      fetch(`${API_URL}/api/finance/${school._id}/staff/summary`),
+      fetch(`${API_URL}/api/finance/${school._id}/investors`),
+    ]);
+
+    const staffData = staffRes.ok ? ((await staffRes.json().catch(() => [])) as StaffSalarySummary[]) : [];
+    const investorData = investorRes.ok ? await investorRes.json().catch(() => []) : [];
+
+    if (!staffRes.ok) {
+      setError(`Staff finance summary is temporarily unavailable (${staffRes.status}).`);
+    }
+
+    setStaffSalaries(Array.isArray(staffData) ? staffData : []);
+    setInvestorAccounts(Array.isArray(investorData) ? (investorData as InvestorLedgerAccount[]) : []);
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const school = JSON.parse(localStorage.getItem("school") || "null");
-      if (!school || !school._id) {
-        setError("School ID not found in localStorage");
-        setStudentFees([]);
-        setStaffSalaries([]);
-        return;
-      }
-
-      const [assignmentRes, staffRes, classFeeStructureRes, classesRes, studentsRes, investorRes] = await Promise.all([
-        fetch(`${API_URL}/api/finance/student-fee-assignments?schoolId=${encodeURIComponent(school._id)}`),
-        fetch(`${API_URL}/api/finance/${school._id}/staff/summary`),
-        fetch(`${API_URL}/api/finance/class-fee-structures?schoolId=${encodeURIComponent(school._id)}`),
-        fetch(`${API_URL}/api/classes/${school._id}`),
-        fetch(`${API_URL}/api/students/${school._id}`),
-        fetch(`${API_URL}/api/finance/${school._id}/investors`),
+      await Promise.all([
+        fetchStaticFinanceData(),
+        fetchStudentSummaryData({ includeOptions: true }),
       ]);
-
-      const assignmentPayload = assignmentRes.ok ? await assignmentRes.json().catch(() => null) : null;
-      const staffData = staffRes.ok ? ((await staffRes.json()) as StaffSalarySummary[]) : [];
-      const classFeeStructurePayload = classFeeStructureRes.ok ? await classFeeStructureRes.json().catch(() => null) : null;
-      const classesDataRaw = classesRes.ok ? await classesRes.json().catch(() => null) : null;
-      const studentsDataRaw = studentsRes.ok ? await studentsRes.json().catch(() => null) : null;
-      const investorData = investorRes.ok ? await investorRes.json().catch(() => null) : [];
-
-      if (!classesRes.ok) {
-        throw new Error(`Failed loading classes (${classesRes.status})`);
-      }
-
-      if (!assignmentRes.ok) {
-        setError(`Student fee assignments are temporarily unavailable (${assignmentRes.status}). Class list is loaded.`);
-      } else if (!classFeeStructureRes.ok) {
-        setError(`Class fee structures are temporarily unavailable (${classFeeStructureRes.status}).`);
-      } else if (!staffRes.ok) {
-        setError(`Staff finance summary is temporarily unavailable (${staffRes.status}).`);
-      }
-      const classesData = toArray<SchoolClass>(classesDataRaw);
-      const studentsData = toArray<Record<string, unknown>>(studentsDataRaw);
-      const classOptionsFromSchool = classesData.map(buildClassOption);
-      const classLabelById = new Map(
-        classOptionsFromSchool.map((option) => [option.classId || option.value, option.label])
-      );
-
-      const structuresByClassId = new Map(
-        classesData.map((cls) => [String(cls._id || ""), cls])
-      );
-
-      const assignments = toArray<Record<string, unknown>>(assignmentPayload).map(mapApiAssignmentToUiRecord);
-      const assignmentsByStudentId = new Map<string, StudentFeeAssignment[]>();
-
-      for (const assignment of assignments) {
-        const assignmentStudent = getAssignmentStudent(assignment);
-        const studentId = String(assignmentStudent?._id || "");
-        if (!studentId) {
-          continue;
-        }
-
-        if (assignmentStudent && !assignmentStudent.class && assignmentStudent.classId) {
-          assignmentStudent.class = classLabelById.get(assignmentStudent.classId) || assignmentStudent.class;
-        }
-
-        const existingAssignments = assignmentsByStudentId.get(studentId) || [];
-        assignmentsByStudentId.set(studentId, [...existingAssignments, assignment]);
-      }
-
-      const summaryByStudentId = new Map<string, StudentFeeSummary>();
-      for (const [studentId, studentAssignments] of assignmentsByStudentId.entries()) {
-        const sortedAssignments = [...studentAssignments].sort((left, right) => {
-          const leftYear = getAcademicYearSortValue(left.academicYear || "");
-          const rightYear = getAcademicYearSortValue(right.academicYear || "");
-          if (rightYear !== leftYear) {
-            return rightYear - leftYear;
-          }
-
-          const leftDueTime = new Date(left.dueDate || "").getTime();
-          const rightDueTime = new Date(right.dueDate || "").getTime();
-          if (Number.isFinite(leftDueTime) && Number.isFinite(rightDueTime) && rightDueTime !== leftDueTime) {
-            return rightDueTime - leftDueTime;
-          }
-
-          return String(right._id || "").localeCompare(String(left._id || ""));
-        });
-
-        const primaryAssignment = sortedAssignments[0];
-        if (!primaryAssignment) {
-          continue;
-        }
-
-        const summary = assignmentToStudentFeeSummary(primaryAssignment);
-        const olderPendingAmount = roundCurrency(
-          sortedAssignments
-            .slice(1)
-            .reduce((sum, assignment) => sum + Math.max(Number(assignment.dueAmount || 0), 0), 0)
-        );
-        const currentDueAmount = Math.max(Number(summary.currentDueAmount ?? summary.pendingBalance ?? summary.remainingAmount ?? 0), 0);
-        const totalPendingBalance = roundCurrency(currentDueAmount + olderPendingAmount);
-
-        const outstandingAssignments = sortedAssignments
-          .filter((assignment) => Number(assignment.dueAmount || 0) > 0)
-          .map((assignment) => ({
-            assignmentId: String(assignment._id || ""),
-            academicYear: String(assignment.academicYear || ""),
-            dueAmount: Math.max(Number(assignment.dueAmount || 0), 0),
-            dueDate: assignment.dueDate || null,
-            status: String(getAssignmentStatus(assignment) || "pending") as StudentFeeSummary["status"],
-          }));
-
-        const aggregateStatus: StudentFeeSummary["status"] =
-          outstandingAssignments.length === 0
-            ? "paid"
-            : outstandingAssignments.some((assignment) => assignment.status === "overdue")
-              ? "overdue"
-              : outstandingAssignments.some((assignment) => assignment.status === "partial")
-                ? "partial"
-                : "pending";
-
-        summaryByStudentId.set(studentId, {
-          ...summary,
-          currentDueAmount,
-          olderPendingAmount,
-          pendingBalance: totalPendingBalance,
-          remainingAmount: totalPendingBalance,
-          status: aggregateStatus,
-          paymentStatus: aggregateStatus,
-          outstandingAssignments,
-        });
-      }
-
-      for (const student of studentsData) {
-        const studentId = String(student._id || "");
-        if (!studentId) {
-          continue;
-        }
-
-        const mappedClassLabel =
-          classLabelById.get(String(student.class_id || "")) ||
-          buildClassLabel(String(student.class || ""), String(student.classSection || ""));
-
-        const normalizedStudent: Student = {
-          _id: studentId,
-          name: String(student.name || ""),
-          class: mappedClassLabel || String(student.class || ""),
-          classId: String(student.class_id || ""),
-          email: String(student.email || ""),
-          rollNumber: String(student.rollNumber || student.roll_no || ""),
-          needsTransport: Boolean(
-            student.needsTransport || student.transport_status === "ACTIVE" || Boolean(student.transport_route_id)
-          ),
-        };
-
-        const existingSummary = summaryByStudentId.get(studentId);
-        if (existingSummary) {
-          summaryByStudentId.set(studentId, {
-            ...existingSummary,
-            student: normalizedStudent,
-            studentId: normalizedStudent._id,
-          } as StudentFeeSummary);
-          continue;
-        }
-
-        summaryByStudentId.set(studentId, {
-          financeId: null,
-          student: normalizedStudent,
-          studentId,
-          totalFee: 0,
-          paidAmount: 0,
-          remainingAmount: 0,
-          pendingBalance: 0,
-          currentDueAmount: 0,
-          status: "pending",
-          paymentStatus: "pending",
-          dueDate: null,
-          effectiveDueDate: null,
-          academicYear: null,
-          feeComponents: [],
-          latestReceipt: null,
-          paymentHistory: [],
-          isOverdue: false,
-          olderPendingAmount: 0,
-          outstandingAssignments: [],
-        } as StudentFeeSummary);
-      }
-
-      const studentSummaries = Array.from(summaryByStudentId.values());
-
-      setStudentFees(studentSummaries);
-      setStaffSalaries(Array.isArray(staffData) ? staffData : []);
-      setClassFeeStructures(
-        toArray<ClassFeeStructure>(classFeeStructurePayload).length > 0
-          ? toArray<ClassFeeStructure>(classFeeStructurePayload).map((structure) =>
-              normalizeClassFeeStructureRecord(structure, structuresByClassId)
-            )
-          : []
-      );
-      setSchoolClasses(Array.isArray(classesData) ? classesData : []);
-      setInvestorAccounts(Array.isArray(investorData) ? (investorData as InvestorLedgerAccount[]) : []);
     } catch (err) {
       console.error("FinanceModule fetch error", err);
       setError(err instanceof Error ? err.message : String(err));
       setStudentFees([]);
+      setStudentSummaryMetrics(emptyStudentSummaryMetrics);
+      setStudentSummaryPagination(emptyStudentSummaryPagination);
       setStaffSalaries([]);
       setClassFeeStructures([]);
       setSchoolClasses([]);
@@ -1644,7 +1630,38 @@ export default function FinanceModule() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchStaticFinanceData, fetchStudentSummaryData]);
+
+  useEffect(() => {
+    if (hasLoadedInitialDataRef.current) {
+      return;
+    }
+
+    void fetchData().finally(() => {
+      hasLoadedInitialDataRef.current = true;
+    });
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (!hasLoadedInitialDataRef.current) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    void fetchStudentSummaryData()
+      .catch((err) => {
+        console.error("FinanceModule summary fetch error", err);
+        setError(err instanceof Error ? err.message : String(err));
+        setStudentFees([]);
+        setStudentSummaryMetrics(emptyStudentSummaryMetrics);
+        setStudentSummaryPagination(emptyStudentSummaryPagination);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [fetchStudentSummaryData]);
 
   const submitInvestorAccountForm = async () => {
     const school = JSON.parse(localStorage.getItem("school") || "null");
@@ -1932,25 +1949,64 @@ export default function FinanceModule() {
 
   const classSelectOptions: ClassOption[] = [...classStructureOptions, ...classOptionsFromData];
   const selectedClassOption = classSelectOptions.find((option) => option.value === selectedFeeClass) || null;
+  const directStudentSuggestions = useMemo(() => {
+    const query = studentSearchTerm.trim().toLowerCase();
+    if (!query) return [] as DirectStudentSuggestion[];
+
+    const seen = new Set<string>();
+    const matches: DirectStudentSuggestion[] = [];
+
+    studentFees.forEach((item) => {
+      const student = getStudentFromSummary(item);
+      if (!student?._id || seen.has(student._id)) return;
+
+      const name = String(student.name || "").trim();
+      const rollNumber = String(student.rollNumber || "").trim();
+      const rawClass = String(student.class || "").trim();
+      const matchedClass = classSelectOptions.find((option) =>
+        matchesClassValue(option.label, rawClass) || matchesClassValue(option.value, rawClass)
+      );
+      const classValue = matchedClass?.value || rawClass;
+      const classLabel = matchedClass?.label || rawClass;
+      const combined = `${name}${rollNumber ? ` (${rollNumber})` : ""}${classLabel ? ` - ${classLabel}` : ""}`.toLowerCase();
+
+      if (
+        !name.toLowerCase().includes(query) &&
+        !rollNumber.toLowerCase().includes(query) &&
+        !combined.includes(query)
+      ) {
+        return;
+      }
+
+      seen.add(student._id);
+      matches.push({
+        studentId: student._id,
+        name,
+        rollNumber,
+        classValue,
+        classLabel,
+        inputValue: `${name}${rollNumber ? ` (${rollNumber})` : ""}`,
+      });
+    });
+
+    return matches.slice(0, 8);
+  }, [classSelectOptions, studentFees, studentSearchTerm]);
   const selectedFeeClassLabel = selectedClassOption?.label || selectedFeeClass;
   const activeClassName = selectedFeeClassLabel || classFeeStructureForm.className;
-  const scopedStudentFees = activeClassName
-    ? studentFees.filter((item) => matchesSelectedClass(item, selectedFeeClass, selectedFeeClassLabel || activeClassName))
-    : studentFees;
   const activeClassStructure = selectedClassStructureId
     ? classFeeStructures.find((item) => String(item._id || "") === selectedClassStructureId) || null
     : activeClassName
       ? classFeeStructures.find((item) => matchesClassValue(item.classLabel || item.className || "", activeClassName)) || null
       : null;
   const total = isStudent
-    ? scopedStudentFees.reduce((sum, item) => sum + item.totalFee, 0)
+    ? Number(studentSummaryMetrics.currentTotalFee || 0)
     : staffSalaries.reduce((sum, item) => sum + item.salary, 0);
   const paid = isStudent
-    ? scopedStudentFees.reduce((sum, item) => sum + item.paidAmount, 0)
+    ? Number(studentSummaryMetrics.currentPaidAmount || 0)
     : staffSalaries.reduce((sum, item) => sum + item.paidAmount, 0);
   const due = total - paid;
   const selectedClassStudents = selectedFeeClass
-    ? studentFees.filter((item) => matchesSelectedClass(item, selectedFeeClass, selectedFeeClassLabel))
+    ? studentFees
     : [];
 
   const getEffectiveSummaryTotal = (summary: StudentFeeSummary) => {
@@ -1974,18 +2030,31 @@ export default function FinanceModule() {
   const getEffectiveSummaryPending = (summary: StudentFeeSummary) =>
     Math.max(getEffectiveSummaryTotal(summary) - Number(summary.paidAmount || 0), 0);
 
-  const selectedClassTotalAmount = selectedClassStudents.reduce((sum, item) => sum + getEffectiveSummaryTotal(item), 0);
-  const selectedClassPaidAmount = selectedClassStudents.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
-  const selectedClassRemainingAmount = selectedClassStudents.reduce(
-    (sum, item) => sum + getEffectiveSummaryPending(item),
-    0
-  );
-  const selectedClassPaidStudentsCount = selectedClassStudents.filter(
-    (item) => getEffectiveSummaryTotal(item) > 0 && Number(item.paidAmount || 0) >= getEffectiveSummaryTotal(item)
-  ).length;
-  const selectedClassDueStudentsCount = selectedClassStudents.filter(
-    (item) => getEffectiveSummaryPending(item) > 0
-  ).length;
+  const selectedClassTotalAmount = Number(studentSummaryMetrics.currentTotalFee || 0);
+  const selectedClassPaidAmount = Number(studentSummaryMetrics.currentPaidAmount || 0);
+  const selectedClassRemainingAmount = Number(studentSummaryMetrics.currentPendingAmount || 0);
+  const selectedClassPaidStudentsCount = Number(studentSummaryMetrics.paidStudentsCount || 0);
+  const selectedClassDueStudentsCount = Number(studentSummaryMetrics.dueStudentsCount || 0);
+  const selectedClassSearchSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const suggestions: string[] = [];
+
+    selectedClassStudents.forEach((item) => {
+      const student = getStudentFromSummary(item);
+      if (!student) return;
+
+      const name = String(student.name || "").trim();
+      const roll = String(student.rollNumber || "").trim();
+      const className = String(student.class || "").trim();
+      const label = `${name}${roll ? ` (${roll})` : ""}${className ? ` - ${className}` : ""}`;
+
+      if (!label || seen.has(label.toLowerCase())) return;
+      seen.add(label.toLowerCase());
+      suggestions.push(label);
+    });
+
+    return suggestions.sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
+  }, [selectedClassStudents]);
   const getStaffFromSalarySummary = (summary: StaffSalarySummary) => summary.staff || summary.staffId || null;
   const getSalaryDepartment = (summary: StaffSalarySummary) => {
     const staff = getStaffFromSalarySummary(summary);
@@ -2057,22 +2126,14 @@ export default function FinanceModule() {
     { label: "Cash in Hand", value: estimatedCashInHand, accent: "text-violet-700", helper: "Update in banking module" },
     { label: "Investor Outstanding Balance", value: investorOutstandingBalance, accent: "text-fuchsia-700", helper: "Total repayable amount" },
   ];
-  const filteredSelectedClassStudents = selectedClassStudents.filter((item) => {
-    const student = getStudentFromSummary(item);
-    const query = studentSearchTerm.trim().toLowerCase();
-    if (!query) return true;
-
-    return [student?.name || "", student?.rollNumber || ""]
-      .some((value) => value.toLowerCase().includes(query));
-  });
-  const totalStudentRecordPages = Math.max(1, Math.ceil(filteredSelectedClassStudents.length / STUDENT_RECORDS_PAGE_SIZE));
+  const filteredSelectedClassStudents = selectedClassStudents;
+  const totalStudentRecordPages = Math.max(1, Number(studentSummaryPagination.totalPages || 1));
   const safeStudentRecordsPage = Math.min(studentRecordsPage, totalStudentRecordPages);
-  const paginatedSelectedClassStudents = filteredSelectedClassStudents.slice(
-    (safeStudentRecordsPage - 1) * STUDENT_RECORDS_PAGE_SIZE,
-    safeStudentRecordsPage * STUDENT_RECORDS_PAGE_SIZE
-  );
-  const studentRecordsStart = filteredSelectedClassStudents.length === 0 ? 0 : (safeStudentRecordsPage - 1) * STUDENT_RECORDS_PAGE_SIZE + 1;
-  const studentRecordsEnd = Math.min(safeStudentRecordsPage * STUDENT_RECORDS_PAGE_SIZE, filteredSelectedClassStudents.length);
+  const paginatedSelectedClassStudents = filteredSelectedClassStudents;
+  const studentRecordsStart = filteredSelectedClassStudents.length === 0 ? 0 : (safeStudentRecordsPage - 1) * Number(studentSummaryPagination.limit || 50) + 1;
+  const studentRecordsEnd = filteredSelectedClassStudents.length === 0
+    ? 0
+    : studentRecordsStart + filteredSelectedClassStudents.length - 1;
 
   const normalizedBreakdownTotal = classFeeStructureForm.feeBreakdown.reduce(
     (sum, item) => sum + Number(item.amount || 0),
@@ -2222,7 +2283,7 @@ export default function FinanceModule() {
       : (normalizedClassName || "");
 
     if (className) {
-      setSelectedFeeClass(normalizedClassName);
+      setSelectedFeeClass(String(fallbackOption?.value || normalizedClassName));
     }
 
     setSelectedClassStructureId(matchedStructureId);
@@ -2270,6 +2331,21 @@ export default function FinanceModule() {
     setSelectedFeeClass(option?.value || "");
     setSelectedHistoryStudentId("");
     setStudentSearchTerm("");
+  };
+
+  const handleDirectStudentSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setStudentSearchTerm(value);
+    setSelectedHistoryStudentId("");
+    setIsDirectSearchFocused(true);
+  };
+
+  const handleDirectStudentSuggestionClick = (suggestion: DirectStudentSuggestion) => {
+    setStudentSearchTerm(suggestion.inputValue);
+    setSelectedClassStructureId("");
+    setSelectedFeeClass(suggestion.classValue);
+    setSelectedHistoryStudentId(suggestion.studentId);
+    setIsDirectSearchFocused(false);
   };
 
   const openSelectedStudentHistory = async () => {
@@ -2360,6 +2436,9 @@ export default function FinanceModule() {
       return;
     }
 
+    const normalizedAcademicYear = String(classFeeStructureForm.academicYear || "").trim() || getDefaultAcademicYear();
+    const normalizedDueDate = String(classFeeStructureForm.dueDate || "").trim() || new Date().toISOString().split("T")[0];
+
     const amount = Number(classFeeStructureForm.amount || 0);
     const transportFee = Number(classFeeStructureForm.transportFee || 0);
     const feeBreakdown = classFeeStructureForm.feeBreakdown
@@ -2401,7 +2480,7 @@ export default function FinanceModule() {
         : null;
       const isSameAcademicYear = Boolean(
         selectedStructure &&
-          String(selectedStructure.academicYear || "") === String(classFeeStructureForm.academicYear || "")
+          String(selectedStructure.academicYear || "") === normalizedAcademicYear
       );
       const isSameClass = Boolean(
         selectedStructure &&
@@ -2416,7 +2495,7 @@ export default function FinanceModule() {
           return false;
         }
 
-        const sameAcademicYear = String(item.academicYear || "").trim() === String(classFeeStructureForm.academicYear || "").trim();
+        const sameAcademicYear = String(item.academicYear || "").trim() === normalizedAcademicYear;
         if (!sameAcademicYear) {
           return false;
         }
@@ -2448,7 +2527,7 @@ export default function FinanceModule() {
             default_transport_fee: transportFee,
             other_fee: 0,
             fee_breakdown: feeBreakdown,
-            due_date: classFeeStructureForm.dueDate,
+            due_date: normalizedDueDate,
             late_fee_type: classFeeStructureForm.enableLateFee
               ? classFeeStructureForm.lateFeeType === "per_day"
                 ? "daily"
@@ -2463,12 +2542,12 @@ export default function FinanceModule() {
         : {
             schoolId: school._id,
             class_id: resolvedClassOption.classId,
-            academic_year: classFeeStructureForm.academicYear,
+            academic_year: normalizedAcademicYear,
             academic_fee: amount,
             default_transport_fee: transportFee,
             other_fee: 0,
             fee_breakdown: feeBreakdown,
-            due_date: classFeeStructureForm.dueDate,
+            due_date: normalizedDueDate,
             late_fee_type: classFeeStructureForm.enableLateFee
               ? classFeeStructureForm.lateFeeType === "per_day"
                 ? "daily"
@@ -2488,7 +2567,9 @@ export default function FinanceModule() {
       });
 
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.message || `Failed to ${isUpdate ? "update" : "save"} class fee structure`);
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || `Failed to ${isUpdate ? "update" : "save"} class fee structure`);
+      }
 
       const returnedStructureId = String(data?.data?.structure?._id || selectedStructure?._id || "");
       if (returnedStructureId) {
@@ -2498,10 +2579,10 @@ export default function FinanceModule() {
 
       if (isUpdate) {
         const syncedCount = Number(data?.data?.syncedCount || 0);
-        setInfoMessage(`Fee card for ${classFeeStructureForm.className} (${classFeeStructureForm.academicYear}) updated. ${syncedCount} student assignments synced.`);
+        setInfoMessage(`Fee card for ${classFeeStructureForm.className} (${normalizedAcademicYear}) updated. ${syncedCount} student assignments synced.`);
       } else {
         const assignedCount = Number(data?.data?.assignedCount || 0);
-        setInfoMessage(`New fee card saved for ${classFeeStructureForm.className} (${classFeeStructureForm.academicYear}).${assignedCount > 0 ? ` ${assignedCount} students assigned.` : ""}`);
+        setInfoMessage(`New fee card saved for ${classFeeStructureForm.className} (${normalizedAcademicYear}).${assignedCount > 0 ? ` ${assignedCount} students assigned.` : ""}`);
       }
 
       resetClassFeeStructureForm();
@@ -2523,10 +2604,8 @@ export default function FinanceModule() {
       return;
     }
 
-    if (!classFeeStructureForm.academicYear) {
-      setError("Select academic year before saving for all classes");
-      return;
-    }
+    const normalizedAcademicYear = String(classFeeStructureForm.academicYear || "").trim() || getDefaultAcademicYear();
+    const normalizedDueDate = String(classFeeStructureForm.dueDate || "").trim() || new Date().toISOString().split("T")[0];
 
     const targetClasses = classStructureOptions.filter((option) => Boolean(option.classId));
     if (targetClasses.length === 0) {
@@ -2566,7 +2645,7 @@ export default function FinanceModule() {
         const classLabel = classOption.label;
         const matchedStructure = classFeeStructures.find((item) => {
           const sameAcademicYear =
-            String(item.academicYear || "").trim() === String(classFeeStructureForm.academicYear || "").trim();
+            String(item.academicYear || "").trim() === normalizedAcademicYear;
           if (!sameAcademicYear) return false;
 
           return (
@@ -2588,17 +2667,17 @@ export default function FinanceModule() {
               default_transport_fee: transportFee,
               other_fee: 0,
               fee_breakdown: feeBreakdown,
-              due_date: classFeeStructureForm.dueDate,
+              due_date: normalizedDueDate,
             }
           : {
               schoolId: school._id,
               class_id: classId,
-              academic_year: classFeeStructureForm.academicYear,
+              academic_year: normalizedAcademicYear,
               academic_fee: amount,
               default_transport_fee: transportFee,
               other_fee: 0,
               fee_breakdown: feeBreakdown,
-              due_date: classFeeStructureForm.dueDate,
+              due_date: normalizedDueDate,
             };
 
         try {
@@ -2610,12 +2689,12 @@ export default function FinanceModule() {
 
           const data = await res.json().catch(() => null);
           if (!res.ok) {
-            throw new Error(data?.message || `Failed to ${isUpdate ? "update" : "save"} fee structure`);
+            throw new Error(data?.message || data?.error || `Failed to ${isUpdate ? "update" : "save"} fee structure`);
           }
 
           const returnedStructureId = String(data?.data?.structure?._id || matchedStructure?._id || "");
           if (returnedStructureId) {
-            const structureTitle = `${classLabel} (${classFeeStructureForm.academicYear})`;
+            const structureTitle = `${classLabel} (${normalizedAcademicYear})`;
             saveClassStructureName(returnedStructureId, structureTitle);
           }
 
@@ -4383,32 +4462,15 @@ export default function FinanceModule() {
         </section>
       )}
 
-      {(activeFinanceAction === "banking" || activeFinanceAction === "asset") && (
-        <section id="finance-phase-placeholder" className="rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_55%,#fff7ed_100%)] p-6 shadow-sm">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-            <div>
-              <div className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-                {activeFinanceAction === "banking" && "Banking area"}
-                {activeFinanceAction === "asset" && "Asset area"}
-              </div>
-              <h3 className="mt-4 text-2xl font-semibold text-slate-900">
-                {activeFinanceAction === "banking" && "Banking details will be built in the next phase."}
-                {activeFinanceAction === "asset" && "Asset register and lifecycle management will be built in the next phase."}
-              </h3>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                This placeholder confirms the new navigation is in place while Banking and Asset workflows are being implemented.
-              </p>
-            </div>
+      {activeFinanceAction === "banking" && (
+        <section id="finance-banking-section">
+          <BankingModule />
+        </section>
+      )}
 
-            <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Planned next</p>
-              <div className="mt-4 space-y-3 text-sm text-slate-600">
-                <div className="rounded-2xl bg-slate-50 px-4 py-3">Add account metadata, reference numbers, and banking summaries.</div>
-                <div className="rounded-2xl bg-slate-50 px-4 py-3">Maintain an asset register with purchase value, depreciation, and status.</div>
-                <div className="rounded-2xl bg-slate-50 px-4 py-3">Connect the new screens to backend endpoints once those APIs are finalized.</div>
-              </div>
-            </div>
-          </div>
+      {activeFinanceAction === "asset" && (
+        <section id="finance-asset-section">
+          <AssetManagementModule />
         </section>
       )}
 
@@ -5114,7 +5176,7 @@ export default function FinanceModule() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">Select Class{classSelectOptions.length > 0 && ` (${classSelectOptions.length} available)`}</span>
                 <Select
@@ -5129,8 +5191,37 @@ export default function FinanceModule() {
                   styles={classSelectStyles}
                 />
               </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">Direct Student Search</span>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={studentSearchTerm}
+                    onChange={handleDirectStudentSearchChange}
+                    onFocus={() => setIsDirectSearchFocused(true)}
+                    onBlur={() => window.setTimeout(() => setIsDirectSearchFocused(false), 120)}
+                    placeholder="Search student by name or roll"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  {isDirectSearchFocused && studentSearchTerm.trim() && directStudentSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                      {directStudentSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.studentId}
+                          type="button"
+                          onMouseDown={() => handleDirectStudentSuggestionClick(suggestion)}
+                          className="w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 last:border-b-0"
+                        >
+                          <p className="font-medium text-slate-900">{suggestion.name}{suggestion.rollNumber ? ` (${suggestion.rollNumber})` : ""}</p>
+                          <p className="text-xs text-slate-500">{suggestion.classLabel}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </label>
               <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                Students in selected class: <span className="font-semibold text-slate-900">{selectedClassStudents.length}</span>
+                Students in selected class: <span className="font-semibold text-slate-900">{studentSummaryPagination.totalItems}</span>
               </div>
               <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
                 Action: <span className="font-semibold text-slate-900">Use common fee structure, then record payment</span>
@@ -5169,12 +5260,18 @@ export default function FinanceModule() {
                       type="text"
                       value={studentSearchTerm}
                       onChange={(e) => setStudentSearchTerm(e.target.value)}
+                      list="finance-selected-class-search-suggestions"
                       placeholder="Search by roll no or name"
                       className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                     />
+                    <datalist id="finance-selected-class-search-suggestions">
+                      {selectedClassSearchSuggestions.map((suggestion) => (
+                        <option key={suggestion} value={suggestion} />
+                      ))}
+                    </datalist>
                   </label>
                   <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    Search results: <span className="font-semibold text-slate-900">{filteredSelectedClassStudents.length}</span>
+                    Search results: <span className="font-semibold text-slate-900">{studentSummaryPagination.totalItems}</span>
                   </div>
                 </div>
               </>
@@ -5269,10 +5366,10 @@ export default function FinanceModule() {
               </div>
             )}
 
-            {selectedFeeClass && filteredSelectedClassStudents.length > 0 && (
+            {selectedFeeClass && studentSummaryPagination.totalItems > 0 && (
               <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
                 <p className="text-sm text-slate-600">
-                  Showing <span className="font-semibold text-slate-900">{studentRecordsStart}-{studentRecordsEnd}</span> of <span className="font-semibold text-slate-900">{filteredSelectedClassStudents.length}</span> students
+                  Showing <span className="font-semibold text-slate-900">{studentRecordsStart}-{studentRecordsEnd}</span> of <span className="font-semibold text-slate-900">{studentSummaryPagination.totalItems}</span> students
                 </p>
                 <Pagination
                   page={safeStudentRecordsPage}

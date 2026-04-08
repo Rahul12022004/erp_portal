@@ -48,6 +48,7 @@ type DataImportBatchDocument = {
   status: "VALIDATED" | "IMPORTED" | "ROLLED_BACK" | "IMPORT_FAILED";
   mapping: Record<string, unknown>;
   summary: ImportBatchSummary;
+  error_details?: Array<{ row_number?: number; messages?: string[] }>;
   normalized_rows: unknown[];
   inserted_refs?: InsertedRefs;
   rolled_back_at?: Date | null;
@@ -1197,7 +1198,7 @@ router.post("/validate", async (req, res) => {
         invalid_rows: validation.summary.invalidRows,
         duplicate_rows: validation.summary.duplicateRows,
       },
-      errors: validation.errors.map((entry) => ({
+      error_details: validation.errors.map((entry) => ({
         row_number: entry.rowNumber,
         messages: entry.messages,
       })),
@@ -1311,7 +1312,15 @@ router.get("/history/:schoolId", async (req, res) => {
       .limit(50)
       .lean();
 
-    return res.json({ success: true, data: history });
+    return res.json({
+      success: true,
+      data: history.map((batch) => ({
+        ...batch,
+        errors: Array.isArray((batch as { error_details?: unknown[] }).error_details)
+          ? (batch as { error_details?: unknown[] }).error_details
+          : [],
+      })),
+    });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error("IMPORT HISTORY ERROR:", error);
@@ -1413,7 +1422,7 @@ router.post("/reimport/:batchId", async (req, res) => {
         invalid_rows: 0,
         duplicate_rows: 0,
       },
-      errors: [],
+      error_details: [],
       duplicate_rows: [],
       normalized_rows: rows,
       inserted_refs: {

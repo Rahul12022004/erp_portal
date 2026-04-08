@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const dataImportBatchSchema = new mongoose.Schema(
   {
-    school_id: { type: mongoose.Schema.Types.ObjectId, ref: "School", required: true, index: true },
+    school_id: { type: mongoose.Schema.Types.ObjectId, ref: "School", required: true },
     module_type: {
       type: String,
       required: true,
@@ -16,7 +16,6 @@ const dataImportBatchSchema = new mongoose.Schema(
       required: true,
       enum: ["VALIDATED", "IMPORTED", "ROLLED_BACK", "IMPORT_FAILED"],
       default: "VALIDATED",
-      index: true,
     },
     mapping: { type: mongoose.Schema.Types.Mixed, default: {} },
     summary: {
@@ -32,7 +31,7 @@ const dataImportBatchSchema = new mongoose.Schema(
       updated_fee_accounts: { type: Number, default: 0 },
       failed_rows: { type: Number, default: 0 },
     },
-    errors: [
+    error_details: [
       {
         row_number: Number,
         messages: [String],

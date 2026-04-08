@@ -69,5 +69,8 @@ const studentSchema = new mongoose.Schema(
 
 studentSchema.index({ schoolId: 1, class_id: 1, section_id: 1, academic_year: 1, status: 1 });
 studentSchema.index({ schoolId: 1, transport_status: 1, transport_route_id: 1 });
+studentSchema.index({ schoolId: 1, class_id: 1, name: 1 });
+studentSchema.index({ schoolId: 1, rollNumber: 1 });
+studentSchema.index({ schoolId: 1, roll_no: 1 });
 
 export default mongoose.model("Student", studentSchema);

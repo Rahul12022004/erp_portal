@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -103,6 +103,73 @@ const LEAVE_LIMITS = {
   Unpaid: 4,
   Emergency: 3,
 } as const;
+
+function DownloadDropdown({
+  onDailyPDF,
+  onDailyExcel,
+  onMonthlyPDF,
+  onMonthlyExcel,
+}: {
+  onDailyPDF: () => void;
+  onDailyExcel: () => void;
+  onMonthlyPDF: () => void;
+  onMonthlyExcel: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+      >
+        Download
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 mt-1 bg-white border rounded-lg shadow-lg z-20 min-w-[170px] py-1">
+          <button
+            onClick={() => { onDailyPDF(); setOpen(false); }}
+            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+          >
+            <span className="text-red-500">📄</span> Daily PDF
+          </button>
+          <button
+            onClick={() => { onDailyExcel(); setOpen(false); }}
+            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+          >
+            <span className="text-green-600">📊</span> Daily Excel
+          </button>
+          <hr className="my-1" />
+          <button
+            onClick={() => { onMonthlyPDF(); setOpen(false); }}
+            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+          >
+            <span className="text-red-500">📄</span> Monthly PDF
+          </button>
+          <button
+            onClick={() => { onMonthlyExcel(); setOpen(false); }}
+            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+          >
+            <span className="text-green-600">📊</span> Monthly Excel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TeacherAttendanceModule() {
   const now = new Date();
@@ -444,6 +511,21 @@ export default function TeacherAttendanceModule() {
     });
 
     doc.save(`Teacher_Attendance_${selectedDate}.pdf`);
+  };
+
+  const downloadDailyExcel = () => {
+    if (!selectedDate) {
+      alert("Please select date");
+      return;
+    }
+    const wsData = [
+      ["Teacher Name", "Subject", "Status"],
+      ...teachers.map((t) => [t.name, t.position, t.status || "Not Marked"]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+    XLSX.writeFile(wb, `Teacher_Attendance_${selectedDate}.xlsx`);
   };
 
   const downloadMonthlyPDF = () => {
@@ -883,26 +965,12 @@ export default function TeacherAttendanceModule() {
           </select>
         </div>
 
-        <button
-          onClick={downloadDailyPDF}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-        >
-          Download Daily PDF
-        </button>
-
-        <button
-          onClick={downloadMonthlyPDF}
-          className="bg-indigo-600 text-white px-4 py-2 rounded"
-        >
-          Monthly PDF
-        </button>
-
-        <button
-          onClick={downloadMonthlyExcel}
-          className="bg-emerald-600 text-white px-4 py-2 rounded"
-        >
-          Monthly Excel
-        </button>
+        <DownloadDropdown
+          onDailyPDF={downloadDailyPDF}
+          onDailyExcel={downloadDailyExcel}
+          onMonthlyPDF={downloadMonthlyPDF}
+          onMonthlyExcel={downloadMonthlyExcel}
+        />
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow flex justify-center">

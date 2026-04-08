@@ -1,7 +1,6 @@
-import dotenv from "dotenv";
 import mongoose from "mongoose";
-import path from "path";
 import connectDB from "./config/db";
+import { loadEnvironment } from "./config/env";
 import School from "./models/School";
 import Staff from "./models/Staff";
 import Class from "./models/Class";
@@ -12,7 +11,7 @@ import Finance from "./models/Finance";
 import InvestorLedger from "./models/InvestorLedger";
 import { seedFinanceData } from "./seeds/financeSeeds";
 
-dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
+loadEnvironment();
 
 const today = new Date().toISOString().split("T")[0];
 const nextSixMonths = new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString().split("T")[0];

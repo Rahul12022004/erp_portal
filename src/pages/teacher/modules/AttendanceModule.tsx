@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { API_URL } from "@/lib/api";
 
 type SchoolClass = {
@@ -51,6 +52,18 @@ export default function AttendanceModule() {
     distanceFromSchoolMeters?: number | null;
   }>({});
   const [selfAttendanceMessage, setSelfAttendanceMessage] = useState("");
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
+        setShowDownloadMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const school = JSON.parse(localStorage.getItem("school") || "null");
@@ -362,34 +375,125 @@ export default function AttendanceModule() {
     { name: "Absent", value: absentCount },
   ];
 
-  const downloadPDF = () => {
+  const downloadDailyPDF = () => {
     if (!selectedClass || !selectedDate) {
       alert("Please select class and date");
       return;
     }
 
     const doc = new jsPDF();
-
     doc.setFontSize(16);
     doc.text("Student Attendance Report", 14, 15);
-
     doc.setFontSize(12);
     doc.text(`Class: ${selectedClass}`, 14, 25);
     doc.text(`Date: ${selectedDate}`, 14, 32);
 
-    const tableData = students.map((student) => [
-      student.rollNumber,
-      student.name,
-      student.status || "Not Marked",
-    ]);
-
     autoTable(doc, {
       startY: 40,
       head: [["Roll No", "Student Name", "Status"]],
-      body: tableData,
+      body: students.map((s) => [s.rollNumber, s.name, s.status || "Not Marked"]),
     });
 
     doc.save(`Attendance_${selectedClass}_${selectedDate}.pdf`);
+  };
+
+  const downloadDailyExcel = () => {
+    if (!selectedClass || !selectedDate) {
+      alert("Please select class and date");
+      return;
+    }
+
+    const wsData = [
+      ["Roll No", "Student Name", "Status"],
+      ...students.map((s) => [s.rollNumber, s.name, s.status || "Not Marked"]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+    XLSX.writeFile(wb, `Attendance_${selectedClass}_${selectedDate}.xlsx`);
+  };
+
+  const fetchMonthlyData = async () => {
+    const [year, month] = selectedDate.split("-").map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const dates: string[] = Array.from({ length: daysInMonth }, (_, i) => {
+      const d = i + 1;
+      return `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    });
+
+    const allData: Record<string, Record<string, string>> = {};
+    const studentNames: Record<string, string> = {};
+    const studentRolls: Record<string, string> = {};
+
+    for (const date of dates) {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/attendance/students/${schoolId}/${encodeURIComponent(selectedClass)}/${date}`
+        );
+        if (!res.ok) continue;
+        const data: StudentAttendance[] = await res.json();
+        data.forEach((s) => {
+          if (!allData[s.studentId]) allData[s.studentId] = {};
+          allData[s.studentId][date] = s.status || "-";
+          studentNames[s.studentId] = s.name;
+          studentRolls[s.studentId] = s.rollNumber;
+        });
+      } catch {
+        // skip days with errors
+      }
+    }
+    return { dates, allData, studentNames, studentRolls, year, month };
+  };
+
+  const downloadMonthlyPDF = async () => {
+    if (!selectedClass || !selectedDate || !schoolId) {
+      alert("Please select class and date");
+      return;
+    }
+    const { dates, allData, studentNames, studentRolls, year, month } =
+      await fetchMonthlyData();
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text(`Monthly Attendance Report - ${selectedClass}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Month: ${year}-${String(month).padStart(2, "0")}`, 14, 22);
+
+    const head = [["Roll No", "Name", ...dates.map((d) => d.split("-")[2])]];
+    const body = Object.entries(allData).map(([id, dateMap]) => [
+      studentRolls[id] || "",
+      studentNames[id] || "",
+      ...dates.map((d) => dateMap[d] || "-"),
+    ]);
+
+    autoTable(doc, { startY: 28, head, body, styles: { fontSize: 7 } });
+    doc.save(
+      `Monthly_Attendance_${selectedClass}_${year}-${String(month).padStart(2, "0")}.pdf`
+    );
+  };
+
+  const downloadMonthlyExcel = async () => {
+    if (!selectedClass || !selectedDate || !schoolId) {
+      alert("Please select class and date");
+      return;
+    }
+    const { dates, allData, studentNames, studentRolls, year, month } =
+      await fetchMonthlyData();
+
+    const headers = ["Roll No", "Name", ...dates.map((d) => d.split("-")[2])];
+    const rows = Object.entries(allData).map(([id, dateMap]) => [
+      studentRolls[id] || "",
+      studentNames[id] || "",
+      ...dates.map((d) => dateMap[d] || "-"),
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Monthly Attendance");
+    XLSX.writeFile(
+      wb,
+      `Monthly_Attendance_${selectedClass}_${year}-${String(month).padStart(2, "0")}.xlsx`
+    );
   };
 
   return (
@@ -486,13 +590,48 @@ export default function AttendanceModule() {
           />
         </div>
 
-        <button
-          onClick={downloadPDF}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-          disabled={!selectedClass}
-        >
-          Download PDF
-        </button>
+        <div className="relative" ref={downloadMenuRef}>
+          <button
+            type="button"
+            onClick={() => setShowDownloadMenu((v) => !v)}
+            disabled={!selectedClass}
+            className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50"
+          >
+            Download
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showDownloadMenu && (
+            <div className="absolute left-0 mt-1 bg-white border rounded-lg shadow-lg z-20 min-w-[170px] py-1">
+              <button
+                onClick={() => { downloadDailyPDF(); setShowDownloadMenu(false); }}
+                className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              >
+                <span className="text-red-500">📄</span> Daily PDF
+              </button>
+              <button
+                onClick={() => { downloadDailyExcel(); setShowDownloadMenu(false); }}
+                className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              >
+                <span className="text-green-600">📊</span> Daily Excel
+              </button>
+              <hr className="my-1" />
+              <button
+                onClick={() => { downloadMonthlyPDF(); setShowDownloadMenu(false); }}
+                className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              >
+                <span className="text-red-500">📄</span> Monthly PDF
+              </button>
+              <button
+                onClick={() => { downloadMonthlyExcel(); setShowDownloadMenu(false); }}
+                className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              >
+                <span className="text-green-600">📊</span> Monthly Excel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (

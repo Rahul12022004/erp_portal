@@ -1,8 +1,7 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import path from "path";
-import connectDB, { ensureDatabaseConnection, getDatabaseStatus } from "./config/db";
+import connectDB, { getDatabaseStatus } from "./config/db";
+import { loadEnvironment } from "./config/env";
 
 import schoolRoutes from "./routes/schoolRoutes";
 import logRoutes from "./routes/logRoutes";
@@ -29,10 +28,11 @@ import visitorRoutes from "./routes/visitorRoutes";
 import dataImportRoutes from "./routes/dataImportRoutes";
 import salaryStructureRoutes from "./routes/salaryStructureRoutes";
 import expenseRoutes from "./routes/expenseRoutes";
+import bankingRoutes from "./routes/bankingRoutes";
 import { seedDatabase } from "./seed";
 import { authenticateToken } from "./middleware/auth";
 
-dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
+loadEnvironment();
 
 const app = express();
 const defaultAllowedOrigins = [
@@ -61,8 +61,6 @@ function isLocalDevOrigin(origin: string) {
   }
 }
 
-console.log("Allowed CORS origins:", Array.from(allowedOrigins).join(", "));
-
 // ==========================
 // 🔧 MIDDLEWARE
 // ==========================
@@ -89,28 +87,12 @@ const shouldSeedLocalData =
 
 async function initializeDatabase() {
   await connectDB();
-  const dbStatus = getDatabaseStatus();
-
-  if (!dbStatus.connected) {
-    console.warn("Skipping local seed because MongoDB is not connected.");
-    return;
-  }
 
   if (shouldSeedLocalData) {
     seedDatabase(false).catch((error) => {
       console.error("Local seed failed:", error);
     });
   }
-}
-
-initializeDatabase();
-
-if (process.env.NODE_ENV !== "production") {
-  setInterval(() => {
-    void ensureDatabaseConnection().catch((error) => {
-      console.warn("Background DB reconnect check failed:", error instanceof Error ? error.message : String(error));
-    });
-  }, 15000);
 }
 
 // ==========================
@@ -141,6 +123,7 @@ app.use("/api/visitors", authenticateToken, visitorRoutes);
 app.use("/api/data-import", authenticateToken, dataImportRoutes);
 app.use("/api/salary-structures", authenticateToken, salaryStructureRoutes);
 app.use("/api/expenses", authenticateToken, expenseRoutes);
+app.use("/api/banking", authenticateToken, bankingRoutes);
 
 // ==========================
 // 🧪 TEST ROUTE
@@ -187,6 +170,18 @@ app.use((error: unknown, req: express.Request, res: express.Response, next: expr
 // ==========================
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} (process.env.PORT=${process.env.PORT ?? "unset"})`);
-});
+async function startServer() {
+  try {
+    await initializeDatabase();
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Server startup failed: ${message}`);
+    process.exit(1);
+  }
+}
+
+void startServer();

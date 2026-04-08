@@ -1,10 +1,9 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
-import path from "path";
 import connectDB, { getDatabaseStatus } from "./config/db";
+import { loadEnvironment } from "./config/env";
 import School from "./models/School";
 
-dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
+loadEnvironment();
 
 const DEMO_SCHOOL_ID = "69c7ec870d7e01a1f062018e";
 const DEMO_SCHOOL_EMAILS = ["demo@school.com", "school@demo.com"];

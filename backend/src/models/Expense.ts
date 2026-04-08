@@ -6,7 +6,6 @@ const expenseSchema = new mongoose.Schema(
     expenseDate: {
       type: Date,
       required: true,
-      index: true,
     },
     title: {
       type: String,
@@ -21,7 +20,6 @@ const expenseSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "ExpenseCategory",
       required: true,
-      index: true,
     },
     subcategory: String,
     department: String,
@@ -69,7 +67,6 @@ const expenseSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Staff",
       required: true,
-      index: true,
     },
     recordedDate: {
       type: Date,
@@ -92,7 +89,6 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       enum: ["draft", "submitted", "pending_approval", "approved", "rejected", "paid"],
       default: "draft",
-      index: true,
     },
     approvalLevel: {
       type: Number,
@@ -131,7 +127,6 @@ const expenseSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "School",
       required: true,
-      index: true,
     },
 
     // Tracking

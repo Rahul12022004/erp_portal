@@ -15,4 +15,6 @@ const classSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+classSchema.index({ schoolId: 1, name: 1, section: 1 });
+
 export default mongoose.model("Class", classSchema);

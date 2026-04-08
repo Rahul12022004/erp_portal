@@ -11,6 +11,7 @@ const serverEntry = path.join(srcDir, "server.ts");
 let child = null;
 let restartTimer = null;
 let shuttingDown = false;
+const RESTART_DEBOUNCE_MS = 500;
 
 function log(message) {
   console.log(`[dev-runner] ${message}`);
@@ -36,16 +37,7 @@ function startServer() {
 
     if (!shuttingDown && wasCurrent && signal !== "SIGTERM") {
       log(`server exited with code ${code ?? "unknown"}${signal ? ` (signal ${signal})` : ""}`);
-      if (code && code !== 0) {
-        log("restarting server in 1 second");
-        setTimeout(() => {
-          if (!shuttingDown && !child) {
-            startServer();
-          }
-        }, 1000);
-      } else {
-        log("waiting for file changes before restarting");
-      }
+      log("waiting for file changes before restarting");
     }
   });
 
@@ -84,7 +76,7 @@ function restartServer(reason) {
         currentChild.kill("SIGKILL");
       }
     }, 2000);
-  }, 150);
+  }, RESTART_DEBOUNCE_MS);
 }
 
 function watchFile(targetPath) {

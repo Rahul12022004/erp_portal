@@ -76,6 +76,7 @@ const financeSchema = new mongoose.Schema(
 
 // Add indexes for better query performance
 financeSchema.index({ schoolId: 1, type: 1 });
+financeSchema.index({ schoolId: 1, type: 1, academicYear: 1 });
 financeSchema.index({ studentId: 1 });
 financeSchema.index({ staffId: 1 });
 

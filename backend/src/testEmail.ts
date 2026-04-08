@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
-import dotenv from "dotenv";
+import { loadEnvironment } from "./config/env";
 
-dotenv.config();
+loadEnvironment();
 
 const getSmtpConfig = () => {
   const host = process.env.SMTP_HOST || "smtp.gmail.com";

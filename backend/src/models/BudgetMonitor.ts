@@ -7,7 +7,6 @@ const budgetMonitorSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "School",
       required: true,
-      index: true,
     },
 
     // Budget Period
@@ -168,6 +167,6 @@ const budgetMonitorSchema = new mongoose.Schema(
 
 // Indexes
 budgetMonitorSchema.index({ schoolId: 1, fiscalYear: 1, budgetType: 1 });
-budgetMonitorSchema.index({ schoolId: 1, month: 1, year: 1 });
+budgetMonitorSchema.index({ schoolId: 1, fiscalYear: 1, month: 1 });
 
 export default mongoose.model("BudgetMonitor", budgetMonitorSchema);

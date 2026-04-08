@@ -186,6 +186,13 @@ export default function SchoolAdminDashboard() {
     };
 
     fetchDashboard();
+
+    const handleAnnouncementsUpdated = () => {
+      fetchDashboard();
+    };
+
+    window.addEventListener("announcements-updated", handleAnnouncementsUpdated);
+    return () => window.removeEventListener("announcements-updated", handleAnnouncementsUpdated);
   }, []);
 
   const handleDismissAnnouncement = (announcementId?: string) => {

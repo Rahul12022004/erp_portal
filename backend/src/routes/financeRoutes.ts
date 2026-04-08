@@ -1018,20 +1018,31 @@ router.post("/student-fee-assignments/ensure", async (req: Request, res: Respons
       const classLabel = classNameStr || getOptionalString(studentRecord.class);
       if (classLabel) {
         const normalizedLabel = classLabel.replace(/\s+/g, " ").trim();
-        const parts = normalizedLabel.split("-").map((part) => part.trim()).filter(Boolean);
-        const namePart = parts[0] || normalizedLabel;
-        const sectionPart = parts.length > 1 ? parts[parts.length - 1].toUpperCase() : undefined;
+        const parsedClass = parseClassLabel(normalizedLabel);
+        const namePart = parsedClass.name || normalizedLabel;
+        const sectionPart = parsedClass.section || undefined;
+        const escapedName = namePart.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const escapedSection = sectionPart
+          ? sectionPart.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+          : "";
 
         let classDoc = await Class.findOne({
           schoolId: new mongoose.Types.ObjectId(schoolIdStr),
-          name: namePart,
-          ...(sectionPart ? { section: sectionPart } : {}),
+          name: new RegExp(`^${escapedName}$`, "i"),
+          ...(sectionPart ? { section: new RegExp(`^${escapedSection}$`, "i") } : {}),
         });
 
         if (!classDoc) {
           classDoc = await Class.findOne({
             schoolId: new mongoose.Types.ObjectId(schoolIdStr),
-            name: normalizedLabel,
+            name: new RegExp(`^${normalizedLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+          });
+        }
+
+        if (!classDoc && sectionPart) {
+          classDoc = await Class.findOne({
+            schoolId: new mongoose.Types.ObjectId(schoolIdStr),
+            section: new RegExp(`^${escapedSection}$`, "i"),
           });
         }
 
@@ -1467,23 +1478,67 @@ router.get("/class/:classId/summary", async (req: Request, res: Response) => {
 
 /**
  * GET /api/finance/:schoolId/students/summary
- * Legacy endpoint - redirects to new API
+ * Optimized student finance summary with pagination.
  */
 router.get("/:schoolId/students/summary", async (req: Request, res: Response) => {
   try {
     const schoolId = getSingleString(req.params.schoolId);
+    const legacyMode = getSingleString(req.query.legacy).toLowerCase() === "true";
 
     if (!schoolId) {
       return res.status(400).json({ error: "schoolId is required" });
     }
 
-    // Use service layer so overdue late fee is auto-applied consistently.
-    const assignments = await financeService.getStudentFeeAssignments(schoolId, {});
+    if (legacyMode) {
+      const assignments = await financeService.getStudentFeeAssignments(schoolId, {});
+      const transformed = assignments.map(mapLegacyStudentAssignment);
+      return res.json(transformed);
+    }
 
-    // Transform snake_case to camelCase
-    const transformed = assignments.map(mapLegacyStudentAssignment);
+    const page = Number.parseInt(getSingleString(req.query.page), 10) || 1;
+    const limit = Number.parseInt(getSingleString(req.query.limit), 10) || 50;
+    const classId = getSingleString(req.query.classId);
+    const academicYear = getSingleString(req.query.academicYear);
+    const search = getSingleString(req.query.search);
+    const includeOptions = getSingleString(req.query.includeOptions).toLowerCase() === "true";
 
-    res.json(transformed);
+    const summary = await financeService.getStudentFeeSummaries(schoolId, {
+      classId,
+      academicYear,
+      search,
+      page,
+      limit,
+    });
+
+    if (!includeOptions) {
+      return res.json({
+        success: true,
+        data: summary,
+      });
+    }
+
+    const [classFeeStructures, classes] = await Promise.all([
+      financeService.getClassFeeStructuresWithStats(schoolId),
+      Class.find({ schoolId })
+        .select("_id name section academicYear studentCount")
+        .sort({ name: 1, section: 1 })
+        .lean(),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        ...summary,
+        classFeeStructures,
+        classes: classes.map((schoolClass) => ({
+          _id: toIdString(schoolClass._id),
+          name: toStringValue(schoolClass.name),
+          section: toOptionalString(schoolClass.section),
+          academicYear: toOptionalString((schoolClass as LooseRecord).academicYear),
+          studentCount: toNumberValue((schoolClass as LooseRecord).studentCount),
+        })),
+      },
+    });
   } catch (error) {
     console.error("GET STUDENTS SUMMARY ERROR:", error);
     res.status(500).json({

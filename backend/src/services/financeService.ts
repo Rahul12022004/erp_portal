@@ -30,6 +30,13 @@ type AssignmentQuery = {
   section_id?: string;
   academic_year?: string;
 };
+type StudentSummaryQuery = {
+  classId?: string;
+  academicYear?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+};
 
 type LateFeeType = "none" | "fixed" | "daily" | "percentage";
 
@@ -178,6 +185,10 @@ const generateReceiptNumber = (schoolId: string): string => {
   const timestamp = Date.now();
   const random = Math.floor(Math.random() * 10000);
   return `RCP-${schoolId.slice(-6)}-${timestamp}-${random}`;
+};
+const toPositiveInteger = (value: unknown, fallback: number) => {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
 const isStudentEligibleForTransport = (student: LooseRecord | null | undefined): boolean => {
@@ -822,6 +833,382 @@ export const financeService = {
     }
 
     return assignments;
+  },
+
+  async getStudentFeeSummaries(
+    schoolId: string,
+    filters: StudentSummaryQuery = {}
+  ) {
+    const schoolObjectId = new mongoose.Types.ObjectId(schoolId);
+    const page = toPositiveInteger(filters.page, 1);
+    const limit = Math.min(toPositiveInteger(filters.limit, 50), 50);
+    const skip = (page - 1) * limit;
+    const trimmedSearch = String(filters.search || "").trim();
+    const trimmedAcademicYear = String(filters.academicYear || "").trim();
+    const classId = String(filters.classId || "").trim();
+
+    const studentMatch: LooseRecord = {
+      schoolId: schoolObjectId,
+    };
+
+    if (classId && mongoose.Types.ObjectId.isValid(classId)) {
+      studentMatch.class_id = new mongoose.Types.ObjectId(classId);
+    }
+
+    if (trimmedSearch) {
+      const searchRegex = new RegExp(escapeRegex(trimmedSearch), "i");
+      studentMatch.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { class: searchRegex },
+        { rollNumber: searchRegex },
+        { roll_no: searchRegex },
+        { registration_no: searchRegex },
+        { admissionNumber: searchRegex },
+      ];
+    }
+
+    const assignmentExpr: LooseRecord[] = [
+      { $eq: ["$school_id", schoolObjectId] },
+      { $eq: ["$student_id", "$$studentId"] },
+    ];
+
+    if (trimmedAcademicYear) {
+      assignmentExpr.push({ $eq: ["$academic_year", trimmedAcademicYear] });
+    }
+
+    const pipeline: Record<string, unknown>[] = [
+      { $match: studentMatch },
+      {
+        $lookup: {
+          from: Class.collection.name,
+          localField: "class_id",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 1, name: 1, section: 1 } }],
+          as: "classDoc",
+        },
+      },
+      {
+        $lookup: {
+          from: StudentFeeAssignment.collection.name,
+          let: { studentId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: assignmentExpr,
+                },
+              },
+            },
+            { $sort: { academic_year: -1, created_at: -1, _id: -1 } },
+            {
+              $project: {
+                _id: 1,
+                academic_year: 1,
+                academic_fee: 1,
+                transport_fee: 1,
+                other_fee: 1,
+                total_fee: 1,
+                paid_amount: 1,
+                due_amount: 1,
+                fee_status: 1,
+                due_date: 1,
+              },
+            },
+          ],
+          as: "assignments",
+        },
+      },
+      {
+        $addFields: {
+          classDoc: { $arrayElemAt: ["$classDoc", 0] },
+          primaryAssignment: { $arrayElemAt: ["$assignments", 0] },
+          olderAssignments: {
+            $cond: [
+              { $gt: [{ $size: "$assignments" }, 1] },
+              { $slice: ["$assignments", 1, { $size: "$assignments" }] },
+              [],
+            ],
+          },
+          outstandingAssignments: {
+            $filter: {
+              input: "$assignments",
+              as: "assignment",
+              cond: { $gt: ["$$assignment.due_amount", 0] },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          classLabel: {
+            $trim: {
+              input: {
+                $concat: [
+                  { $ifNull: ["$classDoc.name", { $ifNull: ["$class", ""] }] },
+                  {
+                    $cond: [
+                      { $gt: [{ $strLenCP: { $ifNull: ["$classDoc.section", ""] } }, 0] },
+                      { $concat: [" - ", "$classDoc.section"] },
+                      "",
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          currentTotalFee: { $ifNull: ["$primaryAssignment.total_fee", 0] },
+          currentPaidAmount: { $ifNull: ["$primaryAssignment.paid_amount", 0] },
+          currentDueAmount: { $max: [{ $ifNull: ["$primaryAssignment.due_amount", 0] }, 0] },
+          olderPendingAmount: {
+            $reduce: {
+              input: "$olderAssignments",
+              initialValue: 0,
+              in: { $add: ["$$value", { $max: [{ $ifNull: ["$$this.due_amount", 0] }, 0] }] },
+            },
+          },
+          pendingBalance: {
+            $reduce: {
+              input: "$assignments",
+              initialValue: 0,
+              in: { $add: ["$$value", { $max: [{ $ifNull: ["$$this.due_amount", 0] }, 0] }] },
+            },
+          },
+          outstandingStatuses: {
+            $map: {
+              input: "$outstandingAssignments",
+              as: "assignment",
+              in: {
+                $toLower: {
+                  $ifNull: ["$$assignment.fee_status", "pending"],
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          summaryStatus: {
+            $switch: {
+              branches: [
+                {
+                  case: { $eq: [{ $size: "$outstandingAssignments" }, 0] },
+                  then: {
+                    $cond: [
+                      { $gt: ["$currentTotalFee", 0] },
+                      "paid",
+                      "pending",
+                    ],
+                  },
+                },
+                {
+                  case: { $in: ["overdue", "$outstandingStatuses"] },
+                  then: "overdue",
+                },
+                {
+                  case: { $in: ["partial", "$outstandingStatuses"] },
+                  then: "partial",
+                },
+              ],
+              default: "pending",
+            },
+          },
+        },
+      },
+      {
+        $facet: {
+          items: [
+            { $sort: { classLabel: 1, name: 1, _id: 1 } },
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: 1,
+                name: 1,
+                email: 1,
+                classLabel: 1,
+                class_id: 1,
+                rollNumber: { $ifNull: ["$rollNumber", { $ifNull: ["$roll_no", ""] }] },
+                needsTransport: {
+                  $or: [
+                    { $eq: ["$needsTransport", true] },
+                    { $eq: ["$transport_status", "ACTIVE"] },
+                    { $ne: ["$transport_route_id", null] },
+                  ],
+                },
+                financeId: "$primaryAssignment._id",
+                academicYear: "$primaryAssignment.academic_year",
+                dueDate: "$primaryAssignment.due_date",
+                totalFee: "$currentTotalFee",
+                paidAmount: "$currentPaidAmount",
+                currentDueAmount: "$currentDueAmount",
+                olderPendingAmount: "$olderPendingAmount",
+                pendingBalance: "$pendingBalance",
+                feeStatus: "$summaryStatus",
+                currentFeeStatus: {
+                  $toLower: {
+                    $ifNull: ["$primaryAssignment.fee_status", "pending"],
+                  },
+                },
+                academicFee: { $ifNull: ["$primaryAssignment.academic_fee", 0] },
+                transportFee: { $ifNull: ["$primaryAssignment.transport_fee", 0] },
+                otherFee: { $ifNull: ["$primaryAssignment.other_fee", 0] },
+                outstandingAssignments: {
+                  $map: {
+                    input: "$outstandingAssignments",
+                    as: "assignment",
+                    in: {
+                      assignmentId: "$$assignment._id",
+                      academicYear: "$$assignment.academic_year",
+                      dueAmount: { $max: [{ $ifNull: ["$$assignment.due_amount", 0] }, 0] },
+                      dueDate: "$$assignment.due_date",
+                      status: {
+                        $toLower: {
+                          $ifNull: ["$$assignment.fee_status", "pending"],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+          metrics: [
+            {
+              $group: {
+                _id: null,
+                totalStudents: { $sum: 1 },
+                currentTotalFee: { $sum: "$currentTotalFee" },
+                currentPaidAmount: { $sum: "$currentPaidAmount" },
+                currentPendingAmount: { $sum: "$currentDueAmount" },
+                olderPendingAmount: { $sum: "$olderPendingAmount" },
+                outstandingBalance: { $sum: "$pendingBalance" },
+                paidStudentsCount: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $gt: ["$currentTotalFee", 0] },
+                          { $lte: ["$currentDueAmount", 0] },
+                        ],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                dueStudentsCount: {
+                  $sum: {
+                    $cond: [{ $gt: ["$currentDueAmount", 0] }, 1, 0],
+                  },
+                },
+                pendingCount: {
+                  $sum: { $cond: [{ $eq: ["$summaryStatus", "pending"] }, 1, 0] },
+                },
+                partialCount: {
+                  $sum: { $cond: [{ $eq: ["$summaryStatus", "partial"] }, 1, 0] },
+                },
+                paidCount: {
+                  $sum: { $cond: [{ $eq: ["$summaryStatus", "paid"] }, 1, 0] },
+                },
+                overdueCount: {
+                  $sum: { $cond: [{ $eq: ["$summaryStatus", "overdue"] }, 1, 0] },
+                },
+              },
+            },
+          ],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    ];
+
+    const [result] = await Student.aggregate(pipeline as unknown as mongoose.PipelineStage[]);
+    const items = Array.isArray(result?.items) ? result.items : [];
+    const metricsDoc = Array.isArray(result?.metrics) && result.metrics[0] ? result.metrics[0] : null;
+    const totalItems = Number(
+      Array.isArray(result?.totalCount) && result.totalCount[0]?.count
+        ? result.totalCount[0].count
+        : 0
+    );
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+
+    const mappedItems = items.map((item: LooseRecord) => ({
+      financeId: toStringValue(item.financeId) || null,
+      student: {
+        _id: toStringValue(item._id),
+        name: toStringValue(item.name),
+        class: toStringValue(item.classLabel) || toStringValue(item.class),
+        classId: toStringValue(item.class_id),
+        email: toStringValue(item.email),
+        rollNumber: toStringValue(item.rollNumber),
+        needsTransport: Boolean(item.needsTransport),
+      },
+      studentId: toStringValue(item._id),
+      totalFee: toNumber(item.totalFee),
+      paidAmount: toNumber(item.paidAmount),
+      remainingAmount: toNumber(item.pendingBalance),
+      pendingBalance: toNumber(item.pendingBalance),
+      currentDueAmount: toNumber(item.currentDueAmount),
+      olderPendingAmount: toNumber(item.olderPendingAmount),
+      status: toStringValue(item.feeStatus || "pending").toLowerCase(),
+      paymentStatus: toStringValue(item.feeStatus || "pending").toLowerCase(),
+      dueDate: toStringValue(item.dueDate) || null,
+      effectiveDueDate: toStringValue(item.dueDate) || null,
+      academicYear: toStringValue(item.academicYear) || null,
+      feeComponents: [
+        ...(toNumber(item.academicFee) > 0
+          ? [{ label: "Academic Fee", amount: toNumber(item.academicFee) }]
+          : []),
+        ...(toNumber(item.transportFee) > 0
+          ? [{ label: "Transport Fee", amount: toNumber(item.transportFee) }]
+          : []),
+        ...(toNumber(item.otherFee) > 0
+          ? [{ label: "Other Fee", amount: toNumber(item.otherFee) }]
+          : []),
+      ],
+      latestReceipt: null,
+      paymentHistory: [],
+      isOverdue: toStringValue(item.feeStatus) === "overdue",
+      outstandingAssignments: Array.isArray(item.outstandingAssignments)
+        ? item.outstandingAssignments.map((assignment) => {
+            const record = asRecord(assignment) || {};
+            return {
+              assignmentId: toStringValue(record.assignmentId),
+              academicYear: toStringValue(record.academicYear),
+              dueAmount: toNumber(record.dueAmount),
+              dueDate: toStringValue(record.dueDate) || null,
+              status: toStringValue(record.status || "pending").toLowerCase(),
+            };
+          })
+        : [],
+    }));
+
+    return {
+      items: mappedItems,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+      metrics: {
+        totalStudents: toNumber(metricsDoc?.totalStudents),
+        currentTotalFee: toNumber(metricsDoc?.currentTotalFee),
+        currentPaidAmount: toNumber(metricsDoc?.currentPaidAmount),
+        currentPendingAmount: toNumber(metricsDoc?.currentPendingAmount),
+        olderPendingAmount: toNumber(metricsDoc?.olderPendingAmount),
+        outstandingBalance: toNumber(metricsDoc?.outstandingBalance),
+        paidStudentsCount: toNumber(metricsDoc?.paidStudentsCount),
+        dueStudentsCount: toNumber(metricsDoc?.dueStudentsCount),
+        pendingCount: toNumber(metricsDoc?.pendingCount),
+        partialCount: toNumber(metricsDoc?.partialCount),
+        paidCount: toNumber(metricsDoc?.paidCount),
+        overdueCount: toNumber(metricsDoc?.overdueCount),
+      },
+    };
   },
 
   /**

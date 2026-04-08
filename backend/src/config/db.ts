@@ -1,103 +1,59 @@
 import mongoose from "mongoose";
+import { loadEnvironment } from "./env";
 
-let databaseConnected = false;
 let lastDatabaseError: string | null = null;
-let reconnectInFlight: Promise<void> | null = null;
-let lastReconnectAttemptAt = 0;
-
-mongoose.connection.on("connected", () => {
-  databaseConnected = true;
-  lastDatabaseError = null;
-});
-
-mongoose.connection.on("disconnected", () => {
-  databaseConnected = false;
-});
-
-mongoose.connection.on("error", (error) => {
-  databaseConnected = false;
-  lastDatabaseError = error.message;
-});
 
 export function getDatabaseStatus() {
   return {
-    connected: databaseConnected,
+    connected: mongoose.connection.readyState === 1,
     readyState: mongoose.connection.readyState,
     lastError: lastDatabaseError,
   };
 }
 
-export async function ensureDatabaseConnection(minRetryIntervalMs = 5000) {
-  if (databaseConnected) {
-    return true;
+function getMongoUri() {
+  loadEnvironment();
+
+  const mongoUri = process.env.MONGO_URI?.trim();
+
+  if (!mongoUri) {
+    throw new Error("Missing MONGO_URI. Set it in backend/.env (dev) or backend/.env.production (prod)");
   }
 
-  if (reconnectInFlight) {
-    await reconnectInFlight;
-    return databaseConnected;
+  const isSrvUri = mongoUri.startsWith("mongodb+srv://");
+  const isDirectUri = mongoUri.startsWith("mongodb://");
+
+  if (!isSrvUri && !isDirectUri) {
+    throw new Error("MONGO_URI must start with mongodb+srv:// or mongodb://");
   }
 
-  const now = Date.now();
-  if (now - lastReconnectAttemptAt < minRetryIntervalMs) {
-    return databaseConnected;
-  }
-
-  lastReconnectAttemptAt = now;
-  reconnectInFlight = connectDB().finally(() => {
-    reconnectInFlight = null;
-  });
-
-  await reconnectInFlight;
-  return databaseConnected;
+  return mongoUri;
 }
 
 const connectDB = async () => {
-  const defaultLocalUri = "mongodb://127.0.0.1:27017/erp_portal";
-
-  const candidateUris =
-    process.env.NODE_ENV === "production"
-      ? [process.env.PROD_MONGO_URI?.trim(), process.env.MONGO_URI?.trim(), defaultLocalUri]
-      : [process.env.LOCAL_MONGO_URI?.trim(), process.env.MONGO_URI?.trim(), defaultLocalUri];
-
-  const urisToTry = [...new Set(candidateUris.filter((uri): uri is string => Boolean(uri)))];
-
-  if (process.env.NODE_ENV === "production") {
-    if (!process.env.PROD_MONGO_URI && !process.env.MONGO_URI) {
-      console.warn("PROD_MONGO_URI and MONGO_URI not found. Falling back to local MongoDB at mongodb://127.0.0.1:27017/erp_portal");
-    }
-  } else {
-    if (!process.env.LOCAL_MONGO_URI && !process.env.MONGO_URI) {
-      console.warn("LOCAL_MONGO_URI and MONGO_URI not found. Falling back to local MongoDB at mongodb://127.0.0.1:27017/erp_portal");
-    }
+  if (mongoose.connection.readyState === 1) {
+    return mongoose;
   }
 
-  let lastError: unknown = null;
-
-  for (const uri of urisToTry) {
-    try {
-      await mongoose.connect(uri, {
-        serverSelectionTimeoutMS: 5000,
-      });
-
-      databaseConnected = true;
-      lastDatabaseError = null;
-      console.log(`MongoDB Connected ✅ (${uri})`);
-      return;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(`MongoDB connect failed for ${uri}. Reason: ${message}`);
-    }
+  if (mongoose.connection.readyState === 2) {
+    return mongoose;
   }
 
-  databaseConnected = false;
-  const message = lastError instanceof Error ? lastError.message : String(lastError);
-  lastDatabaseError = message;
-  console.warn("MongoDB connection unavailable. Running backend without DB connection.");
-  console.warn(`Reason: ${message}`);
-  console.warn(
-    "Start MongoDB locally or set backend/.env MONGO_URI to a reachable MongoDB instance."
-  );
+  const mongoUri = getMongoUri();
+
+  try {
+    const connection = await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 10000,
+    });
+    lastDatabaseError = null;
+    console.log("MongoDB connected successfully");
+    return connection;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    lastDatabaseError = message;
+    console.error(`MongoDB connection failed: ${message}`);
+    process.exit(1);
+  }
 };
 
 export default connectDB;

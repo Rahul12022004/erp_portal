@@ -43,5 +43,7 @@ studentFeeAssignmentSchema.index(
 studentFeeAssignmentSchema.index({ school_id: 1, student_id: 1, fee_status: 1 });
 studentFeeAssignmentSchema.index({ school_id: 1, class_fee_structure_id: 1, academic_year: 1 });
 studentFeeAssignmentSchema.index({ school_id: 1, academic_year: 1, fee_status: 1 });
+studentFeeAssignmentSchema.index({ school_id: 1, student_id: 1, academic_year: -1, created_at: -1 });
+studentFeeAssignmentSchema.index({ school_id: 1, created_at: -1 });
 
 export default mongoose.model("StudentFeeAssignment", studentFeeAssignmentSchema);
