@@ -52,10 +52,12 @@ const schoolSchema = new mongoose.Schema(
 
     systemInfo: {
       schoolType: String,
+      schoolNumber: String,
+      affiliationNo: String,
       maxStudents: Number,
       subscriptionPlan: String,
-      subscriptionEndDate: String, 
-      
+      subscriptionEndDate: String,
+
     },
 
     modules: [String],

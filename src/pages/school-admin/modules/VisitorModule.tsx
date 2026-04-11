@@ -42,6 +42,8 @@ type VisitorForm = {
   mobile: string;
   email: string;
   address: string;
+  vehicleNumber: string;
+  vehicleInfo: string;
   idType: string;
   idNumber: string;
   idProof: string;
@@ -87,6 +89,8 @@ const emptyForm = (): VisitorForm => ({
   mobile: "",
   email: "",
   address: "",
+  vehicleNumber: "",
+  vehicleInfo: "",
   idType: "Aadhar",
   idNumber: "",
   idProof: "",
@@ -141,6 +145,8 @@ export default function VisitorModule() {
   const [makePassCollapsed, setMakePassCollapsed] = useState(false);
   const [scanInput, setScanInput] = useState("");
   const [scanLoading, setScanLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDateFilter, setSelectedDateFilter] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [barcodeUrl, setBarcodeUrl] = useState("");
 
@@ -277,6 +283,44 @@ export default function VisitorModule() {
     () => records.find((record) => record._id === selectedId) || null,
     [records, selectedId],
   );
+  const passPersonToMeet = form.personToMeetType === "Student" ? form.studentName : form.personToMeet;
+  const filteredRecords = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    return records.filter((record) => {
+      const matchesDate = !selectedDateFilter || record.visitDate === selectedDateFilter || record.regDate === selectedDateFilter;
+      if (!matchesDate) return false;
+
+      if (!query) return true;
+
+      return [
+        record.passId,
+        record.fullName,
+        record.mobile,
+        record.email,
+        record.personToMeet,
+        record.studentName,
+        record.vehicleNumber,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [records, searchTerm, selectedDateFilter]);
+  const visibleSelectedRecord = useMemo(
+    () => filteredRecords.find((record) => record._id === selectedId) || null,
+    [filteredRecords, selectedId],
+  );
+
+  useEffect(() => {
+    if (editing || filteredRecords.length === 0) {
+      return;
+    }
+
+    const isSelectedVisible = filteredRecords.some((record) => record._id === selectedId);
+    if (!isSelectedVisible) {
+      hydrateRecord(filteredRecords[0]);
+    }
+  }, [filteredRecords, selectedId, editing]);
 
   const updateField = (name: keyof VisitorForm, value: string) => {
     setForm((current) => {
@@ -367,9 +411,15 @@ export default function VisitorModule() {
     }
     try {
       setSaving(true);
+      const now = new Date();
+      const autoVisitDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const autoEntryTime = `${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} ${now.getHours() >= 12 ? "PM" : "AM"}`;
       const payload = {
         schoolId,
         ...form,
+        regDate: selectedId ? form.regDate : autoVisitDate,
+        visitDate: selectedId ? form.visitDate : autoVisitDate,
+        entryTime: selectedId ? form.entryTime : autoEntryTime,
         personToMeet: form.personToMeetType === "Student" ? form.studentName : form.personToMeet,
       };
       const response = await fetch(
@@ -422,9 +472,7 @@ export default function VisitorModule() {
       }
       const updated = data.data as VisitorRecord;
       setRecords((current) => current.map((item) => (item._id === updated._id ? updated : item)));
-      if (selectedId === updated._id) {
-        hydrateRecord(updated);
-      }
+      hydrateRecord(updated);
       setScanInput("");
       toast.success(`Exit time recorded for ${updated.fullName || updated.passId}.`);
     } catch (scanError) {
@@ -614,6 +662,8 @@ export default function VisitorModule() {
               {renderInput("Mobile Number", "mobile", undefined, false, editing ? undefined : mask(form.mobile))}
               {renderInput("Email ID", "email")}
               <div className="md:col-span-2">{renderInput("Address", "address", undefined, true)}</div>
+              {renderInput("Vehicle Number", "vehicleNumber")}
+              {renderInput("Vehicle Information", "vehicleInfo", undefined, true)}
               {renderInput("ID Type", "idType", idTypes)}
               {renderInput("ID Number", "idNumber", undefined, false, editing ? undefined : mask(form.idNumber))}
               <div className="space-y-2 md:col-span-2">
@@ -628,8 +678,6 @@ export default function VisitorModule() {
                   </div>
                 </div>
               </div>
-              {renderInput("Visit Date", "visitDate")}
-              {renderInput("Entry Time", "entryTime")}
               {renderInput("Exit Time", "exitTime")}
               {renderInput("Visit Type", "visitType", visitTypes)}
               <div className="md:col-span-2">{renderInput("Purpose of Visit", "purpose", undefined, true)}</div>
@@ -720,6 +768,296 @@ export default function VisitorModule() {
             Record Exit
           </button>
         </div>
+      </section>
+      <section className="rounded-[30px] border border-border bg-card p-6 shadow-sm">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">Visitor Pass Card</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Browse passes by date, search them quickly, and open any pass in compact card format.
+            </p>
+          </div>
+          {form.passId ? (
+            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[form.passStatus]}`}>
+              {form.passStatus}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mb-5 grid gap-4 lg:grid-cols-[1fr,220px]">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground">Search Passes</p>
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by pass ID, visitor name, mobile, vehicle number"
+              className={fieldClass}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground">Filter By Date</p>
+            <input
+              type="date"
+              value={selectedDateFilter}
+              onChange={(event) => setSelectedDateFilter(event.target.value)}
+              className={fieldClass}
+            />
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <div className="mb-3">
+            <p className="text-sm font-medium text-slate-700">
+              {selectedDateFilter ? `Passes for ${selectedDateFilter}` : "All Visitor Passes"}
+            </p>
+          </div>
+          {filteredRecords.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {filteredRecords.map((record) => {
+                const active = record._id === selectedId;
+                return (
+                  <button
+                    key={record._id}
+                    type="button"
+                    onClick={() => hydrateRecord(record)}
+                    className={`min-h-[145px] rounded-[28px] border px-5 py-4 text-left transition ${
+                      active
+                        ? "border-primary bg-emerald-50/30 shadow-sm"
+                        : "border-slate-200 bg-white hover:border-primary/40 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-[15px] font-semibold leading-6 text-slate-900">
+                          {record.fullName || "Unnamed Visitor"}
+                        </p>
+                        <p className="mt-1 text-[12px] font-medium tracking-[0.12em] text-slate-500">
+                          {record.passId}
+                        </p>
+                      </div>
+                      <span className={`inline-flex shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${statusClasses[record.passStatus]}`}>
+                        {record.passStatus}
+                      </span>
+                    </div>
+                    <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-4 text-xs text-slate-600">
+                      <div>
+                        <p className="text-[12px] text-slate-400">Date</p>
+                        <p className="mt-1 text-[13px] font-medium text-slate-900">
+                          {printable(record.visitDate || record.regDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] text-slate-400">Entry</p>
+                        <p className="mt-1 text-[13px] font-medium text-slate-900">{printable(record.entryTime)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] text-slate-400">Type</p>
+                        <p className="mt-1 text-[13px] font-medium text-slate-900">{printable(record.visitType)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] text-slate-400">Vehicle</p>
+                        <p className="mt-1 text-[13px] font-medium text-slate-900">{printable(record.vehicleNumber)}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`pass-skeleton-${index}`}
+                  className="min-h-[145px] animate-pulse rounded-[28px] border border-slate-200 bg-slate-50 px-5 py-4"
+                >
+                  {index === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center text-center">
+                      <div className="h-5 w-44 rounded-full bg-slate-200" />
+                      <p className="mt-4 text-sm font-medium text-slate-600">
+                        No visitor passes for the current date
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Try another date or clear search to see available passes.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="h-5 w-40 rounded-full bg-slate-200" />
+                          <div className="mt-3 h-4 w-32 rounded-full bg-slate-200" />
+                        </div>
+                        <div className="h-8 w-20 rounded-full bg-amber-100" />
+                      </div>
+                      <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-4">
+                        {Array.from({ length: 4 }).map((__, detailIndex) => (
+                          <div key={`pass-skeleton-detail-${index}-${detailIndex}`}>
+                            <div className="h-3 w-14 rounded-full bg-slate-200" />
+                            <div className="mt-2 h-4 w-20 rounded-full bg-slate-200" />
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {form.passId && visibleSelectedRecord ? (
+          <div className="mx-auto max-w-5xl overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-primary px-4 py-3.5 text-white">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex items-center gap-4">
+                  {school?.schoolInfo?.logo ? (
+                    <img
+                      src={school.schoolInfo.logo}
+                      alt={school?.schoolInfo?.name || "School"}
+                      className="h-12 w-12 rounded-2xl border border-white/20 object-cover bg-white/10"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-xs font-semibold uppercase">
+                      VP
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">Visitor Pass</p>
+                    <h3 className="mt-1 text-xl font-semibold">{school?.schoolInfo?.name || "School"}</h3>
+                    <p className="mt-1 text-xs text-white/75">
+                      {school?.schoolInfo?.phone || school?.schoolInfo?.email || "School reception"}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Pass ID</p>
+                  <p className="mt-1 text-base font-semibold">{form.passId}</p>
+                  <p className="mt-1 text-xs text-white/70">
+                    Generated {printable(form.regDate)} at {printable(form.entryTime)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-0 lg:grid-cols-[1.5fr,0.7fr]">
+              <div className="space-y-4 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                    {form.photo ? (
+                      <img src={form.photo} alt={form.fullName || "Visitor"} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">No Photo</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-lg font-semibold text-slate-900">{printable(form.fullName)}</h4>
+                    <p className="mt-1 text-xs text-slate-500">{printable(form.visitType)} visitor</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Mobile</p>
+                        <p className="mt-1 text-sm font-medium text-slate-900">{mask(form.mobile)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">ID Proof</p>
+                        <p className="mt-1 text-sm font-medium text-slate-900">
+                          {printable(form.idType)} / {mask(form.idNumber)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Vehicle</p>
+                        <p className="mt-1 text-sm font-medium text-slate-900">{printable(form.vehicleNumber)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Visit Details</p>
+                    <div className="mt-3 space-y-2.5 text-sm text-slate-700">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Visit Date</span>
+                        <span className="font-medium text-slate-900">{printable(form.visitDate)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Entry Time</span>
+                        <span className="font-medium text-slate-900">{printable(form.entryTime)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Exit Time</span>
+                        <span className="font-medium text-slate-900">{printable(form.exitTime)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Department</span>
+                        <span className="font-medium text-slate-900">{printable(form.department)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Vehicle No.</span>
+                        <span className="font-medium text-slate-900">{printable(form.vehicleNumber)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Meeting Info</p>
+                    <div className="mt-3 space-y-2.5 text-sm text-slate-700">
+                      <div>
+                        <p className="text-slate-500">Person To Meet</p>
+                        <p className="mt-1 font-medium text-slate-900">{printable(passPersonToMeet)}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Purpose</p>
+                        <p className="mt-1 font-medium text-slate-900">{printable(form.purpose)}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Address</p>
+                        <p className="mt-1 font-medium text-slate-900">{printable(form.address)}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Vehicle Info</p>
+                        <p className="mt-1 font-medium text-slate-900">{printable(form.vehicleInfo)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 bg-slate-50 p-4 lg:border-l lg:border-t-0">
+                <div className="flex h-full flex-col justify-between gap-3">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-3 text-center">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">QR Scan</p>
+                    <div className="mt-2.5 flex justify-center">
+                      {qrCodeUrl ? (
+                        <img src={qrCodeUrl} alt="Visitor QR Code" className="h-24 w-24 rounded-2xl border border-slate-200 bg-white p-2" />
+                      ) : (
+                        <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-400">
+                          <QrCode className="h-8 w-8" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-3 text-center">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Barcode</p>
+                    <div className="mt-3 flex min-h-[50px] items-center justify-center">
+                      {barcodeUrl ? (
+                        <img src={barcodeUrl} alt="Visitor Barcode" className="w-full max-w-[170px]" />
+                      ) : null}
+                    </div>
+                    <p className="mt-2.5 text-[11px] font-semibold tracking-[0.14em] text-slate-500">{form.passId}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto max-w-5xl rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-6 py-14 text-center">
+            <p className="text-base font-medium text-slate-700">No visitor pass for the current date</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Change the date filter or search term to preview another pass.
+            </p>
+          </div>
+        )}
       </section>
     </div>
   );

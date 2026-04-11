@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Download, IdCard, Printer, UserPlus, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
@@ -20,6 +20,16 @@ type Student = {
   dateOfBirth?: string;
   bloodGroup?: string;
   gender?: string;
+  father_name?: string;
+  mother_name?: string;
+  fatherPhone?: string;
+  motherPhone?: string;
+  fatherEmail?: string;
+  motherEmail?: string;
+  fatherAadharNumber?: string;
+  motherAadharNumber?: string;
+  fatherAadharCardDocument?: string;
+  motherAadharCardDocument?: string;
   photo?: string;
   aadharCardDocument?: string;
   bodCertificate?: string;
@@ -50,6 +60,16 @@ type AdmissionForm = {
   rollNumber: string;
   phone: string;
   aadharNumber: string;
+  fatherName: string;
+  fatherPhone: string;
+  fatherEmail: string;
+  fatherAadharNumber: string;
+  fatherAadharCardDocument: string;
+  motherName: string;
+  motherPhone: string;
+  motherEmail: string;
+  motherAadharNumber: string;
+  motherAadharCardDocument: string;
   placeOfBirth: string;
   state: string;
   nationality: string;
@@ -96,18 +116,6 @@ type SchoolImportClassPreview = {
   name: string;
   section: string;
   label: string;
-};
-
-type SchoolNameSession = {
-  name?: string;
-  schoolInfo?: {
-    name?: string;
-    logo?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    website?: string;
-  };
 };
 
 type SchoolDataImportRow = {
@@ -162,6 +170,16 @@ const emptyForm: AdmissionForm = {
   rollNumber: "",
   phone: "",
   aadharNumber: "",
+  fatherName: "",
+  fatherPhone: "",
+  fatherEmail: "",
+  fatherAadharNumber: "",
+  fatherAadharCardDocument: "",
+  motherName: "",
+  motherPhone: "",
+  motherEmail: "",
+  motherAadharNumber: "",
+  motherAadharCardDocument: "",
   placeOfBirth: "",
   state: "",
   nationality: "Indian",
@@ -405,10 +423,31 @@ const generateAdmissionNumber = (count: number) => {
   return `ADM-${year}-${seq}`;
 };
 
+function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 border-b border-slate-100 pb-3">
+        <h4 className="text-base font-semibold text-slate-900">{title}</h4>
+        <p className="mt-1 text-sm text-slate-500">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export default function AdmissionsModule() {
   const today = new Date().toISOString().slice(0, 10);
   const [formData, setFormData] = useState<AdmissionForm>({ ...emptyForm, formDate: today });
   const [recentAdmissions, setRecentAdmissions] = useState<Student[]>([]);
+  const [schoolClasses, setSchoolClasses] = useState<SchoolClassSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [excelSaving, setExcelSaving] = useState(false);
@@ -428,6 +467,8 @@ export default function AdmissionsModule() {
   const [photoPreview, setPhotoPreview] = useState("");
   const [rteDocumentName, setRteDocumentName] = useState("");
   const [bodCertificateName, setBodyCertificateName] = useState("");
+  const [fatherAadharCardName, setFatherAadharCardName] = useState("");
+  const [motherAadharCardName, setMotherAadharCardName] = useState("");
   const [idCardStudent, setIdCardStudent] = useState<Student | null>(null);
   const [docModalStudent, setDocModalStudent] = useState<Student | null>(null);
   const [docUploading, setDocUploading] = useState(false);
@@ -438,8 +479,8 @@ export default function AdmissionsModule() {
   const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "pending">("all");
   const [showTransportTerms, setShowTransportTerms] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const schoolSession = readStoredSchoolSession() as SchoolNameSession | null;
-  const schoolDisplayName = schoolSession?.schoolInfo?.name ?? schoolSession?.name ?? "School";
+  const schoolSession = readStoredSchoolSession();
+  const schoolDisplayName = schoolSession?.schoolInfo?.name ?? schoolSession?.adminInfo?.name ?? "School";
   const schoolLogo = schoolSession?.schoolInfo?.logo ?? "";
   const schoolPhone = schoolSession?.schoolInfo?.phone ?? "";
   const schoolEmail = schoolSession?.schoolInfo?.email ?? "";
@@ -452,12 +493,44 @@ export default function AdmissionsModule() {
     void fetchAdmissions();
   }, []);
 
+  const classNameOptions = useMemo(() => {
+    const uniqueClassNames = new Set(
+      schoolClasses
+        .map((schoolClass) => normalizeTextValue(schoolClass.name))
+        .filter(Boolean)
+    );
+    return Array.from(uniqueClassNames).sort((a, b) => a.localeCompare(b));
+  }, [schoolClasses]);
+
+  const classSectionOptions = useMemo(() => {
+    if (!formData.class) return [];
+
+    const sections = new Set(
+      schoolClasses
+        .filter((schoolClass) => normalizeTextValue(schoolClass.name) === formData.class)
+        .map((schoolClass) => normalizeUpperText(schoolClass.section))
+        .filter(Boolean)
+    );
+
+    return Array.from(sections).sort((a, b) => a.localeCompare(b));
+  }, [schoolClasses, formData.class]);
+
   // Auto-generate form and admission numbers when admissions list loads
   useEffect(() => {
     const formNum = generateFormNumber(recentAdmissions.length);
     const admNum = generateAdmissionNumber(recentAdmissions.length);
     setFormData((prev) => ({ ...prev, formNumber: formNum, admissionNumber: admNum }));
   }, [recentAdmissions.length]);
+
+  useEffect(() => {
+    if (classSectionOptions.length === 0) {
+      return;
+    }
+
+    if (!classSectionOptions.includes(formData.classSection)) {
+      setFormData((prev) => ({ ...prev, classSection: "" }));
+    }
+  }, [classSectionOptions, formData.classSection]);
 
   const clearSchoolDataImportPreview = () => {
     setSchoolDataImportFileName("");
@@ -478,19 +551,30 @@ export default function AdmissionsModule() {
       if (!school?._id) {
         setError("School not found. Please log in again.");
         setRecentAdmissions([]);
+        setSchoolClasses([]);
         return;
       }
 
-      const res = await fetch(`${API_URL}/api/students/${school._id}`);
-      if (!res.ok) {
-        throw new Error(`Failed to load admissions (${res.status})`);
+      const [studentsRes, classesRes] = await Promise.all([
+        fetch(`${API_URL}/api/students/${school._id}`),
+        fetch(`${API_URL}/api/classes/${school._id}`),
+      ]);
+
+      if (!studentsRes.ok) {
+        throw new Error(`Failed to load admissions (${studentsRes.status})`);
+      }
+      if (!classesRes.ok) {
+        throw new Error(`Failed to load classes (${classesRes.status})`);
       }
 
-      const data = await res.json();
-      setRecentAdmissions(Array.isArray(data) ? data : []);
+      const admissionsData = await studentsRes.json().catch(() => []);
+      const classesData = await classesRes.json().catch(() => []);
+      setRecentAdmissions(Array.isArray(admissionsData) ? admissionsData : []);
+      setSchoolClasses(Array.isArray(classesData) ? classesData : []);
     } catch (err) {
       console.error("Fetch admissions error:", err);
       setRecentAdmissions([]);
+      setSchoolClasses([]);
       setError(err instanceof Error ? err.message : "Failed to fetch admissions");
     } finally {
       setLoading(false);
@@ -603,6 +687,16 @@ export default function AdmissionsModule() {
         rollNumber: formData.rollNumber,
         phone: formData.phone,
         aadharNumber: formData.aadharNumber,
+        father_name: formData.fatherName,
+        fatherPhone: formData.fatherPhone,
+        fatherEmail: formData.fatherEmail,
+        fatherAadharNumber: formData.fatherAadharNumber,
+        fatherAadharCardDocument: formData.fatherAadharCardDocument || undefined,
+        mother_name: formData.motherName,
+        motherPhone: formData.motherPhone,
+        motherEmail: formData.motherEmail,
+        motherAadharNumber: formData.motherAadharNumber,
+        motherAadharCardDocument: formData.motherAadharCardDocument || undefined,
         placeOfBirth: formData.placeOfBirth,
         state: formData.state,
         nationality: formData.nationality,
@@ -647,6 +741,8 @@ export default function AdmissionsModule() {
       setPhotoPreview("");
       setBodyCertificateName("");
       setRteDocumentName("");
+      setFatherAadharCardName("");
+      setMotherAadharCardName("");
       setFormData({ ...emptyForm, formDate: new Date().toISOString().slice(0, 10) });
       await fetchAdmissions();
     } catch (err) {
@@ -1106,6 +1202,28 @@ export default function AdmissionsModule() {
     e.target.value = "";
   };
 
+  const handleParentAadharCardSelect = async (
+    e: ChangeEvent<HTMLInputElement>,
+    field: "fatherAadharCardDocument" | "motherAadharCardDocument"
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const dataUrl = await fileToBase64(file);
+      if (field === "fatherAadharCardDocument") {
+        setFatherAadharCardName(file.name);
+      } else {
+        setMotherAadharCardName(file.name);
+      }
+      setFormData((prev) => ({ ...prev, [field]: dataUrl }));
+    } catch {
+      setError("Failed to process parent Aadhaar card. Please try again.");
+    }
+
+    e.target.value = "";
+  };
+
   const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
@@ -1117,7 +1235,7 @@ export default function AdmissionsModule() {
     const school = readStoredSchoolSession();
     const schoolName =
       school?.schoolInfo?.name ||
-      school?.name ||
+      school?.adminInfo?.name ||
       "School";
 
     const pdf = new jsPDF({ unit: "pt", format: "a4" });
@@ -1198,8 +1316,8 @@ export default function AdmissionsModule() {
       setError("ID card is available only after admission is completed.");
       return;
     }
-    const sch = readStoredSchoolSession() as SchoolNameSession | null;
-    const schoolName = sch?.schoolInfo?.name ?? sch?.name ?? "School";
+    const sch = readStoredSchoolSession();
+    const schoolName = sch?.schoolInfo?.name ?? sch?.adminInfo?.name ?? "School";
     const schoolLogoUrl = sch?.schoolInfo?.logo ?? "";
     const schoolAddressText = sch?.schoolInfo?.address ?? "";
     const schoolPhoneText = sch?.schoolInfo?.phone ?? "";
@@ -1270,7 +1388,7 @@ export default function AdmissionsModule() {
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
+      .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
   const renderCardHtml = (
@@ -1399,6 +1517,10 @@ export default function AdmissionsModule() {
         {error && <p className="text-red-600 text-sm mt-4">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <FormSection
+            title="Admission and Student Details"
+            description="Basic registration, class details, and the student's personal information."
+          >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="space-y-1 text-sm text-slate-700">
               <span className="text-xs font-medium">Form Number</span>
@@ -1453,24 +1575,44 @@ export default function AdmissionsModule() {
             </label>
             <label className="space-y-1 text-sm text-slate-700">
               <span className="text-xs font-medium">Class</span>
-              <input
-                type="text"
-                placeholder="Class"
+              <select
                 className="w-full border rounded p-2"
                 value={formData.class}
-                onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, class: e.target.value, classSection: "" })}
                 required
-              />
+              >
+                <option value="">Select Class</option>
+                {classNameOptions.map((className) => (
+                  <option key={className} value={className}>
+                    {className}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="space-y-1 text-sm text-slate-700">
               <span className="text-xs font-medium">Section</span>
-              <input
-                type="text"
-                placeholder="Section"
-                className="w-full border rounded p-2"
-                value={formData.classSection}
-                onChange={(e) => setFormData({ ...formData, classSection: e.target.value })}
-              />
+              {classSectionOptions.length > 0 ? (
+                <select
+                  className="w-full border rounded p-2"
+                  value={formData.classSection}
+                  onChange={(e) => setFormData({ ...formData, classSection: e.target.value })}
+                >
+                  <option value="">Select Section</option>
+                  {classSectionOptions.map((section) => (
+                    <option key={section} value={section}>
+                      {section}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Section"
+                  className="w-full border rounded p-2"
+                  value={formData.classSection}
+                  onChange={(e) => setFormData({ ...formData, classSection: e.target.value })}
+                />
+              )}
             </label>
             <label className="space-y-1 text-sm text-slate-700">
               <span className="text-xs font-medium">Academic Year</span>
@@ -1640,7 +1782,165 @@ export default function AdmissionsModule() {
               />
             </label>
           </div>
+          </FormSection>
 
+          <FormSection
+            title="Parent Details"
+            description="Add father and mother names with their phone numbers, emails, and Aadhaar details."
+          >
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h5 className="mb-3 text-sm font-semibold text-slate-900">Father Details</h5>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="space-y-1 text-sm text-slate-700 md:col-span-2">
+                    <span className="text-xs font-medium">Father Name</span>
+                    <input
+                      type="text"
+                      placeholder="Father Name"
+                      className="w-full border rounded p-2"
+                      value={formData.fatherName}
+                      onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs font-medium">Father Contact Number</span>
+                    <input
+                      type="tel"
+                      placeholder="Father Contact Number"
+                      className="w-full border rounded p-2"
+                      value={formData.fatherPhone}
+                      onChange={(e) => setFormData({ ...formData, fatherPhone: e.target.value })}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs font-medium">Father Email</span>
+                    <input
+                      type="email"
+                      placeholder="father@example.com"
+                      className="w-full border rounded p-2"
+                      value={formData.fatherEmail}
+                      onChange={(e) => setFormData({ ...formData, fatherEmail: e.target.value })}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700 md:col-span-2">
+                    <span className="text-xs font-medium">Father Aadhaar Number</span>
+                    <input
+                      type="text"
+                      placeholder="Father Aadhaar Number"
+                      className="w-full border rounded p-2"
+                      value={formData.fatherAadharNumber}
+                      onChange={(e) => setFormData({ ...formData, fatherAadharNumber: e.target.value })}
+                    />
+                  </label>
+                  <div className="space-y-1 text-sm text-slate-700 md:col-span-2">
+                    <span className="text-xs font-medium">Father Aadhaar Card Upload</span>
+                    <div className="rounded border bg-white p-2">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => void handleParentAadharCardSelect(e, "fatherAadharCardDocument")}
+                        className="block text-sm text-gray-500 file:mr-3 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      {fatherAadharCardName && (
+                        <div className="mt-2 flex items-center justify-between rounded bg-blue-50 p-2">
+                          <p className="text-xs text-gray-700">Uploaded: {fatherAadharCardName}</p>
+                          <button
+                            type="button"
+                            className="text-xs text-red-500 hover:underline"
+                            onClick={() => {
+                              setFatherAadharCardName("");
+                              setFormData((prev) => ({ ...prev, fatherAadharCardDocument: "" }));
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">PDF, DOC, DOCX, JPG, or PNG</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h5 className="mb-3 text-sm font-semibold text-slate-900">Mother Details</h5>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="space-y-1 text-sm text-slate-700 md:col-span-2">
+                    <span className="text-xs font-medium">Mother Name</span>
+                    <input
+                      type="text"
+                      placeholder="Mother Name"
+                      className="w-full border rounded p-2"
+                      value={formData.motherName}
+                      onChange={(e) => setFormData({ ...formData, motherName: e.target.value })}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs font-medium">Mother Contact Number</span>
+                    <input
+                      type="tel"
+                      placeholder="Mother Contact Number"
+                      className="w-full border rounded p-2"
+                      value={formData.motherPhone}
+                      onChange={(e) => setFormData({ ...formData, motherPhone: e.target.value })}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs font-medium">Mother Email</span>
+                    <input
+                      type="email"
+                      placeholder="mother@example.com"
+                      className="w-full border rounded p-2"
+                      value={formData.motherEmail}
+                      onChange={(e) => setFormData({ ...formData, motherEmail: e.target.value })}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700 md:col-span-2">
+                    <span className="text-xs font-medium">Mother Aadhaar Number</span>
+                    <input
+                      type="text"
+                      placeholder="Mother Aadhaar Number"
+                      className="w-full border rounded p-2"
+                      value={formData.motherAadharNumber}
+                      onChange={(e) => setFormData({ ...formData, motherAadharNumber: e.target.value })}
+                    />
+                  </label>
+                  <div className="space-y-1 text-sm text-slate-700 md:col-span-2">
+                    <span className="text-xs font-medium">Mother Aadhaar Card Upload</span>
+                    <div className="rounded border bg-white p-2">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => void handleParentAadharCardSelect(e, "motherAadharCardDocument")}
+                        className="block text-sm text-gray-500 file:mr-3 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      {motherAadharCardName && (
+                        <div className="mt-2 flex items-center justify-between rounded bg-blue-50 p-2">
+                          <p className="text-xs text-gray-700">Uploaded: {motherAadharCardName}</p>
+                          <button
+                            type="button"
+                            className="text-xs text-red-500 hover:underline"
+                            onClick={() => {
+                              setMotherAadharCardName("");
+                              setFormData((prev) => ({ ...prev, motherAadharCardDocument: "" }));
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">PDF, DOC, DOCX, JPG, or PNG</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Documents"
+            description="Upload the supporting admission documents and review the photo preview."
+          >
           {/* Student Photo */}
           <div className="border rounded p-3 bg-gray-50">
             <p className="text-sm font-medium mb-2">Student Photo</p>
@@ -1680,9 +1980,12 @@ export default function AdmissionsModule() {
               <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, JPG, or PNG</p>
             </div>
           </div>
+          </FormSection>
 
-
-
+          <FormSection
+            title="Address Details"
+            description="Keep the student's residential address and identification notes separate for easier review."
+          >
           <label className="space-y-1 text-sm text-slate-700">
             <span className="text-xs font-medium">Residential Address</span>
             <textarea
@@ -1704,7 +2007,12 @@ export default function AdmissionsModule() {
               onChange={(e) => setFormData({ ...formData, identificationMarks: e.target.value })}
             />
           </label>
+          </FormSection>
 
+          <FormSection
+            title="Academic and Health"
+            description="Academic background, achievements, behaviour, health notes, and language preferences."
+          >
           <label className="space-y-1 text-sm text-slate-700">
             <span className="text-xs font-medium">Previous Academic Record</span>
             <textarea
@@ -1759,7 +2067,12 @@ export default function AdmissionsModule() {
               onChange={(e) => setFormData({ ...formData, languagePreferences: e.target.value })}
             />
           </label>
+          </FormSection>
 
+          <FormSection
+            title="Consent and Transport"
+            description="Confirm parent consent and capture the student's transport requirement."
+          >
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <input
@@ -1871,6 +2184,7 @@ export default function AdmissionsModule() {
               </div>
             )}
           </div>
+          </FormSection>
 
           <button
             type="submit"

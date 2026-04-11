@@ -260,6 +260,8 @@ export default function SchoolsPage() {
                 <p><b>Website:</b> {viewData.schoolInfo?.website}</p>
                 <p><b>Address:</b> {viewData.schoolInfo?.address}</p>
                 <p><b>Type:</b> {viewData.systemInfo?.schoolType}</p>
+                <p><b>School Number:</b> {viewData.systemInfo?.schoolNumber || "-"}</p>
+                <p><b>Affiliation No:</b> {viewData.systemInfo?.affiliationNo || "-"}</p>
               </div>
             </div>
 

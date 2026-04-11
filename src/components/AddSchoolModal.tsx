@@ -70,6 +70,8 @@ type SchoolFormData = {
   adminPassword: string;
   adminPhone: string;
   schoolType: string;
+  schoolNumber: string;
+  affiliationNo: string;
   maxStudents: string;
   subscriptionPlan: string;
   logo: string;
@@ -123,6 +125,8 @@ const DEFAULT_FORM_DATA: SchoolFormData = {
   adminPassword: "",
   adminPhone: "",
   schoolType: "Private",
+  schoolNumber: "",
+  affiliationNo: "",
   maxStudents: "",
   subscriptionPlan: "Basic",
   logo: "",
@@ -144,6 +148,8 @@ const getInitialFormData = (editData?: SchoolRecord | null): SchoolFormData => {
     adminPassword: "",
     adminPhone: editData.adminInfo?.phone || "",
     schoolType: editData.systemInfo?.schoolType || "Private",
+    schoolNumber: editData.systemInfo?.schoolNumber || "",
+    affiliationNo: editData.systemInfo?.affiliationNo || "",
     maxStudents: String(editData.systemInfo?.maxStudents ?? ""),
     subscriptionPlan:
       (editData.systemInfo?.subscriptionPlan as SubscriptionPlan | undefined) || "Basic",
@@ -228,6 +234,8 @@ export function AddSchoolModal({ onClose, onSuccess, editData }: AddSchoolModalP
           adminPassword: formData.adminPassword,
           adminPhone: formData.adminPhone,
           schoolType: formData.schoolType,
+          schoolNumber: formData.schoolNumber,
+          affiliationNo: formData.affiliationNo,
           maxStudents: formData.maxStudents,
           subscriptionPlan: formData.subscriptionPlan,
           logo: formData.logo, // ✅ important
@@ -325,6 +333,8 @@ export function AddSchoolModal({ onClose, onSuccess, editData }: AddSchoolModalP
             </select>
 
             <Input label="Max Students" value={formData.maxStudents} onChange={(v)=>update("maxStudents",v)} />
+            <Input label="School Number" value={formData.schoolNumber} onChange={(v)=>update("schoolNumber",v)} />
+            <Input label="Affiliation No" value={formData.affiliationNo} onChange={(v)=>update("affiliationNo",v)} />
           </div>
 
           {/* SUBSCRIPTION */}

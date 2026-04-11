@@ -24,6 +24,14 @@ type TransportBus = {
   driverPhone: string;
   driverLicenseNumber: string;
   driverLicensePhoto?: string;
+  rcDocument?: string;
+  rcExpiryDate?: string;
+  pollutionDocument?: string;
+  pollutionExpiryDate?: string;
+  insuranceDocument?: string;
+  insuranceExpiryDate?: string;
+  fitnessCertificateDocument?: string;
+  fitnessExpiryDate?: string;
   conductorName: string;
   conductorPhone?: string;
   conductorInfo?: string;
@@ -48,6 +56,14 @@ type TransportForm = {
   driverPhone: string;
   driverLicenseNumber: string;
   driverLicensePhoto: string;
+  rcDocument: string;
+  rcExpiryDate: string;
+  pollutionDocument: string;
+  pollutionExpiryDate: string;
+  insuranceDocument: string;
+  insuranceExpiryDate: string;
+  fitnessCertificateDocument: string;
+  fitnessExpiryDate: string;
   conductorName: string;
   conductorPhone: string;
   conductorInfo: string;
@@ -62,6 +78,14 @@ const emptyForm: TransportForm = {
   driverPhone: "",
   driverLicenseNumber: "",
   driverLicensePhoto: "",
+  rcDocument: "",
+  rcExpiryDate: "",
+  pollutionDocument: "",
+  pollutionExpiryDate: "",
+  insuranceDocument: "",
+  insuranceExpiryDate: "",
+  fitnessCertificateDocument: "",
+  fitnessExpiryDate: "",
   conductorName: "",
   conductorPhone: "",
   conductorInfo: "",
@@ -78,7 +102,11 @@ export default function TransportModule() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [routeStopInput, setRouteStopInput] = useState("");
-  const [viewLicence, setViewLicence] = useState<string | null>(null);
+  const [viewDocument, setViewDocument] = useState<{
+    src: string;
+    title: string;
+    downloadName: string;
+  } | null>(null);
   const [expandedBusId, setExpandedBusId] = useState<string | null>(null);
   const [readingOdometer, setReadingOdometer] = useState("");
   const [readingFuelAmount, setReadingFuelAmount] = useState("");
@@ -186,6 +214,14 @@ export default function TransportModule() {
       driverPhone: bus.driverPhone || "",
       driverLicenseNumber: bus.driverLicenseNumber || "",
       driverLicensePhoto: bus.driverLicensePhoto || "",
+      rcDocument: bus.rcDocument || "",
+      rcExpiryDate: bus.rcExpiryDate || "",
+      pollutionDocument: bus.pollutionDocument || "",
+      pollutionExpiryDate: bus.pollutionExpiryDate || "",
+      insuranceDocument: bus.insuranceDocument || "",
+      insuranceExpiryDate: bus.insuranceExpiryDate || "",
+      fitnessCertificateDocument: bus.fitnessCertificateDocument || "",
+      fitnessExpiryDate: bus.fitnessExpiryDate || "",
       conductorName: bus.conductorName,
       conductorPhone: bus.conductorPhone || "",
       conductorInfo: bus.conductorInfo || "",
@@ -202,6 +238,24 @@ export default function TransportModule() {
     reader.onloadend = () => {
       const base64 = typeof reader.result === "string" ? reader.result : "";
       setFormData((current) => ({ ...current, driverLicensePhoto: base64 }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBusDocumentUpload = (
+    field:
+      | "rcDocument"
+      | "pollutionDocument"
+      | "insuranceDocument"
+      | "fitnessCertificateDocument"
+  ) => (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = typeof reader.result === "string" ? reader.result : "";
+      setFormData((current) => ({ ...current, [field]: base64 }));
     };
     reader.readAsDataURL(file);
   };
@@ -401,7 +455,13 @@ export default function TransportModule() {
                     <span className="text-sm text-red-700 flex-1">PDF uploaded</span>
                     <button
                       type="button"
-                      onClick={() => setViewLicence(formData.driverLicensePhoto)}
+                      onClick={() =>
+                        setViewDocument({
+                          src: formData.driverLicensePhoto,
+                          title: "Driver Licence",
+                          downloadName: "driver-licence",
+                        })
+                      }
                       className="text-xs text-blue-600 hover:underline"
                     >
                       Preview
@@ -438,6 +498,147 @@ export default function TransportModule() {
               value={formData.conductorInfo}
               onChange={(e) => setFormData({ ...formData, conductorInfo: e.target.value })}
             />
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+            <p className="font-medium text-slate-900">Vehicle Documents & Expiry</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">RC Document</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="w-full border rounded p-2"
+                  onChange={handleBusDocumentUpload("rcDocument")}
+                />
+                {formData.rcDocument && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setViewDocument({
+                        src: formData.rcDocument,
+                        title: "RC Document",
+                        downloadName: "rc-document",
+                      })
+                    }
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    View uploaded RC
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">RC Expiry Date</label>
+                <input
+                  type="date"
+                  className="w-full border rounded p-2"
+                  value={formData.rcExpiryDate}
+                  onChange={(e) => setFormData({ ...formData, rcExpiryDate: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Pollution Certificate</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="w-full border rounded p-2"
+                  onChange={handleBusDocumentUpload("pollutionDocument")}
+                />
+                {formData.pollutionDocument && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setViewDocument({
+                        src: formData.pollutionDocument,
+                        title: "Pollution Certificate",
+                        downloadName: "pollution-certificate",
+                      })
+                    }
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    View uploaded Pollution Certificate
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Pollution Expiry Date</label>
+                <input
+                  type="date"
+                  className="w-full border rounded p-2"
+                  value={formData.pollutionExpiryDate}
+                  onChange={(e) => setFormData({ ...formData, pollutionExpiryDate: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Insurance Document</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="w-full border rounded p-2"
+                  onChange={handleBusDocumentUpload("insuranceDocument")}
+                />
+                {formData.insuranceDocument && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setViewDocument({
+                        src: formData.insuranceDocument,
+                        title: "Insurance Document",
+                        downloadName: "insurance-document",
+                      })
+                    }
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    View uploaded Insurance
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Insurance Expiry Date</label>
+                <input
+                  type="date"
+                  className="w-full border rounded p-2"
+                  value={formData.insuranceExpiryDate}
+                  onChange={(e) => setFormData({ ...formData, insuranceExpiryDate: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Fitness Certificate</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="w-full border rounded p-2"
+                  onChange={handleBusDocumentUpload("fitnessCertificateDocument")}
+                />
+                {formData.fitnessCertificateDocument && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setViewDocument({
+                        src: formData.fitnessCertificateDocument,
+                        title: "Fitness Certificate",
+                        downloadName: "fitness-certificate",
+                      })
+                    }
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    View uploaded Fitness Certificate
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Fitness Expiry Date</label>
+                <input
+                  type="date"
+                  className="w-full border rounded p-2"
+                  value={formData.fitnessExpiryDate}
+                  onChange={(e) => setFormData({ ...formData, fitnessExpiryDate: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -593,39 +794,114 @@ export default function TransportModule() {
                 <p>
                   <span className="font-medium">Conductor Info:</span> {bus.conductorInfo || "-"}
                 </p>
+                <p>
+                  <span className="font-medium">RC Expiry:</span> {bus.rcExpiryDate || "-"}
+                </p>
+                <p>
+                  <span className="font-medium">Pollution Expiry:</span> {bus.pollutionExpiryDate || "-"}
+                </p>
+                <p>
+                  <span className="font-medium">Insurance Expiry:</span> {bus.insuranceExpiryDate || "-"}
+                </p>
+                <p>
+                  <span className="font-medium">Fitness Expiry:</span> {bus.fitnessExpiryDate || "-"}
+                </p>
               </div>
 
-              {bus.driverLicensePhoto && (
-                <div className="rounded-lg border p-3">
-                  <p className="mb-1 text-xs text-muted-foreground">Driver Licence</p>
-                  {bus.driverLicensePhoto.startsWith("data:application/pdf") ? (
-                    <button
-                      type="button"
-                      onClick={() => setViewLicence(bus.driverLicensePhoto!)}
-                      className="flex w-full items-center gap-2 rounded bg-red-50 px-3 py-2 text-sm text-red-700 hover:bg-red-100"
-                    >
-                      <FileText className="h-5 w-5 text-red-500" />
-                      <span className="flex-1 text-left">View Licence PDF</span>
-                      <ExternalLink className="h-4 w-4" />
-                    </button>
-                  ) : (
-                    <div className="relative">
-                      <img
-                        src={bus.driverLicensePhoto}
-                        alt="Driver licence"
-                        className="h-28 w-full cursor-pointer rounded object-cover hover:opacity-90"
-                        onClick={() => setViewLicence(bus.driverLicensePhoto!)}
-                        title="Click to view full size"
-                      />
+              {(bus.driverLicensePhoto ||
+                bus.rcDocument ||
+                bus.pollutionDocument ||
+                bus.insuranceDocument ||
+                bus.fitnessCertificateDocument) && (
+                <div className="rounded-lg border p-3 space-y-2">
+                  <p className="mb-1 text-xs text-muted-foreground">Vehicle Documents</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {bus.driverLicensePhoto && (
                       <button
                         type="button"
-                        onClick={() => setViewLicence(bus.driverLicensePhoto!)}
-                        className="absolute bottom-1 right-1 rounded bg-black/60 px-2 py-0.5 text-xs text-white hover:bg-black/80"
+                        onClick={() =>
+                          setViewDocument({
+                            src: bus.driverLicensePhoto!,
+                            title: "Driver Licence",
+                            downloadName: "driver-licence",
+                          })
+                        }
+                        className="flex w-full items-center gap-2 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                       >
-                        View Full
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span className="flex-1 text-left">Driver Licence</span>
+                        <ExternalLink className="h-4 w-4" />
                       </button>
-                    </div>
-                  )}
+                    )}
+                    {bus.rcDocument && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setViewDocument({
+                            src: bus.rcDocument!,
+                            title: "RC Document",
+                            downloadName: "rc-document",
+                          })
+                        }
+                        className="flex w-full items-center gap-2 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                      >
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span className="flex-1 text-left">RC Document</span>
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                    )}
+                    {bus.pollutionDocument && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setViewDocument({
+                            src: bus.pollutionDocument!,
+                            title: "Pollution Certificate",
+                            downloadName: "pollution-certificate",
+                          })
+                        }
+                        className="flex w-full items-center gap-2 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                      >
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span className="flex-1 text-left">Pollution Certificate</span>
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                    )}
+                    {bus.insuranceDocument && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setViewDocument({
+                            src: bus.insuranceDocument!,
+                            title: "Insurance Document",
+                            downloadName: "insurance-document",
+                          })
+                        }
+                        className="flex w-full items-center gap-2 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                      >
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span className="flex-1 text-left">Insurance Document</span>
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                    )}
+                    {bus.fitnessCertificateDocument && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setViewDocument({
+                            src: bus.fitnessCertificateDocument!,
+                            title: "Fitness Certificate",
+                            downloadName: "fitness-certificate",
+                          })
+                        }
+                        className="flex w-full items-center gap-2 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                      >
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span className="flex-1 text-left">Fitness Certificate</span>
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -795,7 +1071,13 @@ export default function TransportModule() {
                               {log.fuelSlip && (
                                 <button
                                   type="button"
-                                  onClick={() => setViewLicence(log.fuelSlip || null)}
+                                  onClick={() =>
+                                    setViewDocument({
+                                      src: log.fuelSlip || "",
+                                      title: "Fuel Slip",
+                                      downloadName: log.fuelSlipFileName || "fuel-slip",
+                                    })
+                                  }
                                   className="mt-1 text-xs text-blue-600 hover:underline"
                                 >
                                   View Fuel Slip{log.fuelSlipFileName ? ` (${log.fuelSlipFileName})` : ""}
@@ -814,28 +1096,28 @@ export default function TransportModule() {
       )}
 
       {/* Licence Viewer Modal */}
-      {viewLicence && (
+      {viewDocument && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setViewLicence(null)}
+          onClick={() => setViewDocument(null)}
         >
           <div
             className="relative w-full max-w-3xl rounded-xl bg-white shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b px-4 py-3">
-              <p className="font-semibold text-sm">Driver Licence</p>
+              <p className="font-semibold text-sm">{viewDocument.title}</p>
               <div className="flex items-center gap-2">
                 <a
-                  href={viewLicence}
-                  download="driver-licence"
+                  href={viewDocument.src}
+                  download={viewDocument.downloadName}
                   className="flex items-center gap-1 rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
                 >
                   <ExternalLink className="h-3 w-3" />
                   Download
                 </a>
                 <button
-                  onClick={() => setViewLicence(null)}
+                  onClick={() => setViewDocument(null)}
                   className="rounded p-1 hover:bg-gray-100"
                 >
                   <X className="h-5 w-5" />
@@ -843,16 +1125,16 @@ export default function TransportModule() {
               </div>
             </div>
             <div className="max-h-[80vh] overflow-auto">
-              {viewLicence.startsWith("data:application/pdf") ? (
+              {viewDocument.src.startsWith("data:application/pdf") ? (
                 <iframe
-                  src={viewLicence}
+                  src={viewDocument.src}
                   className="h-[75vh] w-full border-0"
-                  title="Driver Licence PDF"
+                  title={viewDocument.title}
                 />
               ) : (
                 <img
-                  src={viewLicence}
-                  alt="Driver licence"
+                  src={viewDocument.src}
+                  alt={viewDocument.title}
                   className="w-full object-contain"
                 />
               )}

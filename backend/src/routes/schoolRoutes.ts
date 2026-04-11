@@ -605,6 +605,8 @@ router.post("/", async (req, res) => {
       },
       systemInfo: {
         schoolType: req.body.schoolType,
+        schoolNumber: req.body.schoolNumber,
+        affiliationNo: req.body.affiliationNo,
         maxStudents: req.body.maxStudents,
         subscriptionPlan,
         subscriptionEndDate: getEndDate(subscriptionPlan),
@@ -660,6 +662,8 @@ router.put("/:id", async (req, res) => {
           "adminInfo.image": req.body.adminImage,
 
           "systemInfo.schoolType": req.body.schoolType,
+          "systemInfo.schoolNumber": req.body.schoolNumber,
+          "systemInfo.affiliationNo": req.body.affiliationNo,
           "systemInfo.maxStudents": req.body.maxStudents,
           "systemInfo.subscriptionPlan": subscriptionPlan,
           "systemInfo.subscriptionEndDate": getEndDate(subscriptionPlan),

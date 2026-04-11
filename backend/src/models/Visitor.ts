@@ -30,6 +30,8 @@ const visitorSchema = new mongoose.Schema(
     mobile: { type: String, default: "" },
     email: { type: String, default: "" },
     address: { type: String, default: "" },
+    vehicleNumber: { type: String, default: "" },
+    vehicleInfo: { type: String, default: "" },
     visitDate: { type: String, default: "" },
     entryTime: { type: String, default: "" },
     exitTime: { type: String, default: "" },
