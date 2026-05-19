@@ -7,8 +7,8 @@ import Class from "./models/Class";
 import Student from "./models/Student";
 import Announcement from "./models/Announcement";
 import Attendance from "./models/Attendance";
-import Finance from "./models/Finance";
-import InvestorLedger from "./models/InvestorLedger";
+import Finance from "./modules/finance/models/Finance";
+import InvestorLedger from "./modules/finance/models/InvestorLedger";
 import { seedFinanceData } from "./seeds/financeSeeds";
 
 loadEnvironment();

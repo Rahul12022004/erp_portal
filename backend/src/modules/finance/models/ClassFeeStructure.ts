@@ -40,4 +40,3 @@ classFeeStructureSchema.index(
 classFeeStructureSchema.index({ school_id: 1, is_active: 1, academic_year: 1 });
 
 export default mongoose.model("ClassFeeStructure", classFeeStructureSchema);
-

@@ -1,4 +1,4 @@
-import SalaryStructure from "../models/SalaryStructure";
+import SalaryStructure from "../modules/finance/models/SalaryStructure";
 import { Types } from "mongoose";
 
 export interface ISalaryStructure {

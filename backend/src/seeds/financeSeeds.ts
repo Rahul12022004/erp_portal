@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 import Student from "../models/Student";
-import ClassFeeStructure from "../models/ClassFeeStructure";
-import StudentFeeAssignment from "../models/StudentFeeAssignment";
-import StudentFeePayment from "../models/StudentFeePayment";
+import ClassFeeStructure from "../modules/finance/models/ClassFeeStructure";
+import StudentFeeAssignment from "../modules/finance/models/StudentFeeAssignment";
+import StudentFeePayment from "../modules/finance/models/StudentFeePayment";
 
 const SCHOOL_ID = "69c7ec870d7e01a1f062018e"; // Demo School
 

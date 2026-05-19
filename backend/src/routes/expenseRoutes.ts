@@ -1,12 +1,12 @@
 import express, { Request, Response, Router } from "express";
 import mongoose from "mongoose";
 import multer from "multer";
-import Expense from "../models/Expense";
-import ExpenseCategory from "../models/ExpenseCategory";
-import Vendor from "../models/Vendor";
-import ExpenseApprovalConfig from "../models/ExpenseApprovalConfig";
-import BudgetMonitor from "../models/BudgetMonitor";
-import ExpenseAuditLog from "../models/ExpenseAuditLog";
+import Expense from "../modules/finance/models/Expense";
+import ExpenseCategory from "../modules/finance/models/ExpenseCategory";
+import Vendor from "../modules/finance/models/Vendor";
+import ExpenseApprovalConfig from "../modules/finance/models/ExpenseApprovalConfig";
+import BudgetMonitor from "../modules/finance/models/BudgetMonitor";
+import ExpenseAuditLog from "../modules/finance/models/ExpenseAuditLog";
 import { authenticateToken } from "../core/middleware/auth";
 
 const router = express.Router();

@@ -9,7 +9,9 @@ const classSchema = new mongoose.Schema(
     studentCount: { type: Number, default: 0 },
     academicYear: { type: String }, // e.g., "2024-2025"
     description: String,
-    meetLink: String, // Google Meet link
+    meetLink: String,
+    classCode: { type: String, default: "", trim: true },
+    assignedTeachers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Staff" }],
     schoolId: { type: mongoose.Schema.Types.ObjectId, ref: "School", required: true },
   },
   { timestamps: true }

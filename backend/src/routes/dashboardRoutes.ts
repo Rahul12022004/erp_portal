@@ -2,7 +2,7 @@ import express from "express";
 import Announcement from "../models/Announcement";
 import Attendance from "../models/Attendance";
 import Class from "../models/Class";
-import Finance from "../models/Finance";
+import Finance from "../modules/finance/models/Finance";
 import School from "../models/School";
 import Staff from "../models/Staff";
 import Student from "../models/Student";

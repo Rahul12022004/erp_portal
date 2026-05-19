@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import ClassFeeStructure from "../models/ClassFeeStructure";
-import StudentFeeAssignment from "../models/StudentFeeAssignment";
-import StudentFeePayment from "../models/StudentFeePayment";
+import ClassFeeStructure from "../modules/finance/models/ClassFeeStructure";
+import StudentFeeAssignment from "../modules/finance/models/StudentFeeAssignment";
+import StudentFeePayment from "../modules/finance/models/StudentFeePayment";
 import Student from "../models/Student";
 import Class from "../models/Class";
 

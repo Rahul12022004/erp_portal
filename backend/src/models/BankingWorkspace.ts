@@ -98,6 +98,4 @@ const bankingWorkspaceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-bankingWorkspaceSchema.index({ schoolId: 1 }, { unique: true });
-
 export default mongoose.model("BankingWorkspace", bankingWorkspaceSchema);

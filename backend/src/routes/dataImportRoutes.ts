@@ -1,11 +1,11 @@
 import express from "express";
 import mongoose from "mongoose";
 import Class from "../models/Class";
-import ClassFeeStructure from "../models/ClassFeeStructure";
+import ClassFeeStructure from "../modules/finance/models/ClassFeeStructure";
 import DataImportBatch from "../models/DataImportBatch";
 import School from "../models/School";
 import Student from "../models/Student";
-import StudentFeeAssignment from "../models/StudentFeeAssignment";
+import StudentFeeAssignment from "../modules/finance/models/StudentFeeAssignment";
 import Transport from "../models/Transport";
 import { createLog } from "../core/utils/createLog";
 
