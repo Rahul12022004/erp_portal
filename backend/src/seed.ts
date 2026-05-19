@@ -1,15 +1,15 @@
 import mongoose from "mongoose";
 import connectDB from "./core/config/db";
 import { loadEnvironment } from "./core/config/env";
-import School from "./models/School";
-import Staff from "./models/Staff";
-import Class from "./models/Class";
-import Student from "./models/Student";
-import Announcement from "./models/Announcement";
-import Attendance from "./models/Attendance";
+import School from "./modules/school/models/School";
+import Staff from "./modules/staff/models/Staff";
+import Class from "./modules/academics/models/Class";
+import Student from "./modules/students/models/Student";
+import Announcement from "./modules/communication/models/Announcement";
+import Attendance from "./modules/academics/models/Attendance";
 import Finance from "./modules/finance/models/Finance";
 import InvestorLedger from "./modules/finance/models/InvestorLedger";
-import { seedFinanceData } from "./seeds/financeSeeds";
+import { seedFinanceData } from "./modules/finance/seeds/financeSeeds";
 
 loadEnvironment();
 

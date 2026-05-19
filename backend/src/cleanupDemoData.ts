@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import connectDB, { getDatabaseStatus } from "./core/config/db";
 import { loadEnvironment } from "./core/config/env";
-import School from "./models/School";
+import School from "./modules/school/models/School";
 
 loadEnvironment();
 

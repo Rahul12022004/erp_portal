@@ -28,3 +28,5 @@ backend/.env.production
 *.sw?
 .env
 backend/.env
+# Added by code-review-graph
+.code-review-graph/
