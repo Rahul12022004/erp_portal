@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import connectDB from "./config/db";
-import { loadEnvironment } from "./config/env";
+import connectDB from "./core/config/db";
+import { loadEnvironment } from "./core/config/env";
 import School from "./models/School";
 import Staff from "./models/Staff";
 import Class from "./models/Class";

@@ -1,7 +1,7 @@
 import express from "express";
 import Class from "../models/Class";
 import Student from "../models/Student";
-import { createLog } from "../utils/createLog";
+import { createLog } from "../core/utils/createLog";
 
 const router = express.Router();
 
@@ -9,6 +9,141 @@ const buildClassLabel = (name: string, section?: string | null) =>
   section ? `${name} - ${section}` : name;
 
 const normalizeSection = (section?: string | null) => section?.trim().toUpperCase() || "";
+
+async function generateUniqueCode(): Promise<string> {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  for (let attempt = 0; attempt < 20; attempt++) {
+    let code = "";
+    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    const exists = await Class.exists({ classCode: code });
+    if (!exists) return code;
+  }
+  throw new Error("Could not generate unique class code");
+}
+
+// ==========================
+// 📚 GET ALL CLASSES — ?schoolId= query param (used by Academics)
+// ==========================
+router.get("/", async (req, res) => {
+  try {
+    const { schoolId } = req.query as { schoolId?: string };
+    if (!schoolId) return res.status(400).json({ message: "schoolId required" });
+
+    const classes = await Class.find({ schoolId })
+      .populate("classTeacher", "name email position")
+      .populate("assignedTeachers", "name email position")
+      .sort({ name: 1 })
+      .lean();
+
+    // Backfill any class that has no code yet (permanent per academic year)
+    const result = await Promise.all(
+      classes.map(async (cls) => {
+        if (cls.classCode) return cls;
+        const code = await generateUniqueCode();
+        await Class.findByIdAndUpdate(cls._id, { classCode: code });
+        return { ...cls, classCode: code };
+      })
+    );
+
+    res.json(result);
+  } catch (err) {
+    console.error("GET CLASSES (query):", err);
+    res.status(500).json({ message: "Failed to fetch classes" });
+  }
+});
+
+// ==========================
+// 🔍 GET SINGLE CLASS BY ID
+// ==========================
+router.get("/detail/:id", async (req, res) => {
+  try {
+    const cls = await Class.findById(req.params.id)
+      .populate("classTeacher", "name email position")
+      .populate("assignedTeachers", "name email position")
+      .lean();
+    if (!cls) return res.status(404).json({ message: "Class not found" });
+
+    const classLabel = cls.section ? `${cls.name} - ${cls.section}` : cls.name;
+    const studentCount = await Student.countDocuments({ class: classLabel, schoolId: cls.schoolId });
+    res.json({ success: true, data: { ...cls, studentCount } });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch class" });
+  }
+});
+
+// ==========================
+// 👩‍🏫 ASSIGN TEACHER TO CLASS
+// ==========================
+router.post("/:id/assign-teacher", async (req, res) => {
+  try {
+    const { teacherId } = req.body;
+    if (!teacherId) return res.status(400).json({ message: "teacherId required" });
+
+    const cls = await Class.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { assignedTeachers: teacherId } },
+      { new: true }
+    ).populate("assignedTeachers", "name email position").lean();
+
+    if (!cls) return res.status(404).json({ message: "Class not found" });
+    res.json({ success: true, data: cls });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to assign teacher" });
+  }
+});
+
+// ==========================
+// 🔑 GENERATE / REGENERATE CLASS CODE
+// ==========================
+router.post("/:id/generate-code", async (req, res) => {
+  try {
+    const code = await generateUniqueCode();
+    const cls = await Class.findByIdAndUpdate(
+      req.params.id,
+      { classCode: code },
+      { new: true }
+    )
+      .populate("classTeacher", "name email position")
+      .populate("assignedTeachers", "name email position")
+      .lean();
+    if (!cls) return res.status(404).json({ success: false, message: "Class not found" });
+    res.json({ success: true, data: cls });
+  } catch (err) {
+    console.error("GENERATE CODE ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to generate code" });
+  }
+});
+
+// ==========================
+// 🚪 STUDENT JOIN BY CLASS CODE
+// ==========================
+router.post("/join-by-code", async (req, res) => {
+  try {
+    const { code, studentId } = req.body as { code?: string; studentId?: string };
+    if (!code || !studentId) {
+      return res.status(400).json({ success: false, message: "code and studentId required" });
+    }
+
+    const cls = await Class.findOne({ classCode: code.trim().toUpperCase() });
+    if (!cls) return res.status(404).json({ success: false, message: "Invalid class code" });
+
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ success: false, message: "Student not found" });
+
+    const classLabel = buildClassLabel(cls.name, cls.section);
+    if ((student as any).class === classLabel) {
+      return res.status(400).json({ success: false, message: "Already enrolled in this class" });
+    }
+
+    await Student.findByIdAndUpdate(studentId, { class: classLabel });
+    await Class.findByIdAndUpdate(cls._id, { $inc: { studentCount: 1 } });
+
+    res.json({ success: true, data: { className: classLabel, classId: cls._id } });
+  } catch (err) {
+    console.error("JOIN BY CODE ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to join class" });
+  }
+});
 
 // ==========================
 // 📚 GET ALL CLASSES FOR A SCHOOL
@@ -19,19 +154,21 @@ router.get("/:schoolId", async (req, res) => {
       .populate("classTeacher", "name email position")
       .sort({ name: 1 });
 
-    // Count students for each class
+    // Count students + backfill missing class codes
     const classesWithCounts = await Promise.all(
       classes.map(async (cls) => {
         const classLabel = buildClassLabel(cls.name, cls.section);
-        const studentCount = await Student.countDocuments({ 
+        const studentCount = await Student.countDocuments({
           class: classLabel,
           schoolId: req.params.schoolId,
           admissionCompleted: { $ne: false },
         });
-        return {
-          ...cls.toObject(),
-          studentCount,
-        };
+        let { classCode } = cls;
+        if (!classCode) {
+          classCode = await generateUniqueCode();
+          await Class.findByIdAndUpdate(cls._id, { classCode });
+        }
+        return { ...cls.toObject(), studentCount, classCode };
       })
     );
 
@@ -64,6 +201,8 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "This class and section already exist" });
     }
 
+    const classCode = await generateUniqueCode();
+
     const newClass = await Class.create({
       name: name.trim(),
       section: normalizedSection,
@@ -73,6 +212,7 @@ router.post("/", async (req, res) => {
       description,
       meetLink,
       schoolId,
+      classCode,
       studentCount: 0,
     });
 

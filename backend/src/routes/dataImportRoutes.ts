@@ -7,7 +7,7 @@ import School from "../models/School";
 import Student from "../models/Student";
 import StudentFeeAssignment from "../models/StudentFeeAssignment";
 import Transport from "../models/Transport";
-import { createLog } from "../utils/createLog";
+import { createLog } from "../core/utils/createLog";
 
 type ModuleType =
   | "student-master"

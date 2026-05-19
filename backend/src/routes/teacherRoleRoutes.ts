@@ -2,8 +2,8 @@ import express from "express";
 import School from "../models/School";
 import Staff from "../models/Staff";
 import TeacherRoleAssignment from "../models/TeacherRoleAssignment";
-import { createLog } from "../utils/createLog";
-import { sendTeacherRoleCredentialsEmail } from "../utils/sendEmail";
+import { createLog } from "../core/utils/createLog";
+import { sendTeacherRoleCredentialsEmail } from "../core/utils/sendEmail";
 
 const router = express.Router();
 

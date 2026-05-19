@@ -2,11 +2,11 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import School from "../models/School";
 import Staff from "../models/Staff";
-import { createLog } from "../utils/createLog";
-import { sendTeacherCredentialsEmail } from "../utils/sendEmail";
-import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../utils/loginThrottle";
-import { signAuthToken } from "../utils/jwt";
-import { authenticateToken } from "../middleware/auth";
+import { createLog } from "../core/utils/createLog";
+import { sendTeacherCredentialsEmail } from "../core/utils/sendEmail";
+import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../core/utils/loginThrottle";
+import { signAuthToken } from "../core/utils/jwt";
+import { authenticateToken } from "../core/middleware/auth";
 
 const router = express.Router();
 

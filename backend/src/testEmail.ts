@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { loadEnvironment } from "./config/env";
+import { loadEnvironment } from "./core/config/env";
 
 loadEnvironment();
 

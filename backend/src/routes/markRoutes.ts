@@ -6,7 +6,7 @@ import Mark from "../models/Mark";
 import School from "../models/School";
 import Staff from "../models/Staff";
 import Student from "../models/Student";
-import { createLog } from "../utils/createLog";
+import { createLog } from "../core/utils/createLog";
 
 const router = express.Router();
 

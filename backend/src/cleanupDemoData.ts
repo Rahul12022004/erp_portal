@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import connectDB, { getDatabaseStatus } from "./config/db";
-import { loadEnvironment } from "./config/env";
+import connectDB, { getDatabaseStatus } from "./core/config/db";
+import { loadEnvironment } from "./core/config/env";
 import School from "./models/School";
 
 loadEnvironment();

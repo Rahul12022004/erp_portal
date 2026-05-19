@@ -12,8 +12,8 @@ import Staff from "../models/Staff";
 import Finance from "../models/Finance";
 import SalaryRole from "../models/SalaryRole";
 import InvestorLedger from "../models/InvestorLedger";
-import { createLog } from "../utils/createLog";
-import { sendStudentFeeReceiptEmail } from "../utils/sendEmail";
+import { createLog } from "../core/utils/createLog";
+import { sendStudentFeeReceiptEmail } from "../core/utils/sendEmail";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });

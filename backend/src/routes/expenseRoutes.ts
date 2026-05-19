@@ -7,7 +7,7 @@ import Vendor from "../models/Vendor";
 import ExpenseApprovalConfig from "../models/ExpenseApprovalConfig";
 import BudgetMonitor from "../models/BudgetMonitor";
 import ExpenseAuditLog from "../models/ExpenseAuditLog";
-import { authenticateToken } from "../middleware/auth";
+import { authenticateToken } from "../core/middleware/auth";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });

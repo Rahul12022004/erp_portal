@@ -2,7 +2,7 @@ import express from "express";
 
 import LeaveApplication from "../models/LeaveApplication";
 import Staff from "../models/Staff";
-import { createLog } from "../utils/createLog";
+import { createLog } from "../core/utils/createLog";
 
 const router = express.Router();
 

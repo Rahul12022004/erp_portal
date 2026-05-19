@@ -5,8 +5,8 @@ import Finance from "../models/Finance";
 import School from "../models/School";
 import Student from "../models/Student";
 import Transport from "../models/Transport";
-import { getDatabaseStatus } from "../config/db";
-import { createLog } from "../utils/createLog";
+import { getDatabaseStatus } from "../core/config/db";
+import { createLog } from "../core/utils/createLog";
 import {
   buildAppliedStudentFeeStructure,
   findClassFeeStructure,

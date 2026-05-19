@@ -1,6 +1,6 @@
 import express from "express";
 import Transport from "../models/Transport";
-import { createLog } from "../utils/createLog";
+import { createLog } from "../core/utils/createLog";
 
 const router = express.Router();
 

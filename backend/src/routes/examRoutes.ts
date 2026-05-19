@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import Class from "../models/Class";
 import Exam from "../models/Exam";
 import Staff from "../models/Staff";
-import { createLog } from "../utils/createLog";
+import { createLog } from "../core/utils/createLog";
 
 const router = express.Router();
 

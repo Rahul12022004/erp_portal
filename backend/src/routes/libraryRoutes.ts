@@ -2,7 +2,7 @@ import express from "express";
 import LibraryAssignment from "../models/LibraryAssignment";
 import LibraryBook from "../models/LibraryBook";
 import Student from "../models/Student";
-import { createLog } from "../utils/createLog";
+import { createLog } from "../core/utils/createLog";
 
 const router = express.Router();
 

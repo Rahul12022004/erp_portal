@@ -3,7 +3,7 @@ import Attendance from "../models/Attendance";
 import Staff from "../models/Staff";
 import Student from "../models/Student";
 import School from "../models/School";
-import { createLog } from "../utils/createLog";
+import { createLog } from "../core/utils/createLog";
 
 const router = express.Router();
 

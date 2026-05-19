@@ -29,11 +29,11 @@ import Survey from "../models/Survey";
 import TeacherRoleAssignment from "../models/TeacherRoleAssignment";
 import Transport from "../models/Transport";
 import Visitor from "../models/Visitor";
-import { createLog } from "../utils/createLog";
-import { sendSchoolAdminCredentialsEmail } from "../utils/sendEmail";
-import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../utils/loginThrottle";
-import { signAuthToken } from "../utils/jwt";
-import { authenticateToken } from "../middleware/auth";
+import { createLog } from "../core/utils/createLog";
+import { sendSchoolAdminCredentialsEmail } from "../core/utils/sendEmail";
+import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../core/utils/loginThrottle";
+import { signAuthToken } from "../core/utils/jwt";
+import { authenticateToken } from "../core/middleware/auth";
 
 const router = express.Router();
 

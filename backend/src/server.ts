@@ -1,12 +1,13 @@
 import express from "express";
 import cors from "cors";
-import connectDB, { getDatabaseStatus } from "./config/db";
-import { loadEnvironment } from "./config/env";
+import connectDB, { getDatabaseStatus } from "./core/config/db";
+import { loadEnvironment } from "./core/config/env";
 
 import schoolRoutes from "./routes/schoolRoutes";
 import logRoutes from "./routes/logRoutes";
 import dashboardRoutes from "./routes/dashboardRoutes";
 import announcementRoutes from "./routes/announcementRoutes";
+import communicationRoutes from "./routes/communicationRoutes";
 import attendanceRoutes from "./routes/attendanceRoutes";
 import assignmentRoutes from "./routes/assignmentRoutes";
 import examRoutes from "./routes/examRoutes";
@@ -29,8 +30,11 @@ import dataImportRoutes from "./routes/dataImportRoutes";
 import salaryStructureRoutes from "./routes/salaryStructureRoutes";
 import expenseRoutes from "./routes/expenseRoutes";
 import bankingRoutes from "./routes/bankingRoutes";
+import subjectRoutes from "./routes/subjectRoutes";
+import materialRoutes from "./routes/materialRoutes";
+import aiRoutes from "./routes/aiRoutes";
 import { seedDatabase } from "./seed";
-import { authenticateToken } from "./middleware/auth";
+import { authenticateToken } from "./core/middleware/auth";
 
 loadEnvironment();
 
@@ -102,6 +106,7 @@ app.use("/api/schools", schoolRoutes);
 app.use("/api/logs", authenticateToken, logRoutes);
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/announcements", authenticateToken, announcementRoutes);
+app.use("/api/communication", authenticateToken, communicationRoutes);
 app.use("/api/attendance", authenticateToken, attendanceRoutes);
 app.use("/api/assignments", authenticateToken, assignmentRoutes);
 app.use("/api/exams", authenticateToken, examRoutes);
@@ -124,6 +129,9 @@ app.use("/api/data-import", authenticateToken, dataImportRoutes);
 app.use("/api/salary-structures", authenticateToken, salaryStructureRoutes);
 app.use("/api/expenses", authenticateToken, expenseRoutes);
 app.use("/api/banking", authenticateToken, bankingRoutes);
+app.use("/api/subjects", authenticateToken, subjectRoutes);
+app.use("/api/materials", authenticateToken, materialRoutes);
+app.use("/api/ai", authenticateToken, aiRoutes);
 
 // ==========================
 // 🧪 TEST ROUTE
