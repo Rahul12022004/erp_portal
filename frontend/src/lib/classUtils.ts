@@ -9,9 +9,3 @@ export const getUniqueClasses = (classes: SchoolClass[]): SchoolClass[] => {
   }
   return Array.from(seen.values());
 };
-
-/** Returns ALL class _ids that share the given name (across sections). */
-export const getClassIdsForName = (classes: SchoolClass[], name: string): string[] => {
-  const key = name.trim().toLowerCase();
-  return classes.filter((c) => c.name.trim().toLowerCase() === key).map((c) => c._id);
-};

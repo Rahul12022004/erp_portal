@@ -1501,10 +1501,8 @@ export default function FinanceModule() {
         limit: "50",
       });
 
-      if (selectedFeeClass && !isLikelyObjectId(selectedFeeClass)) {
+      if (selectedFeeClass) {
         params.set("className", selectedFeeClass);
-      } else if (selectedFeeClass && isLikelyObjectId(selectedFeeClass)) {
-        params.set("classId", selectedFeeClass);
       }
       if (selectedFinancialYear) {
         params.set("academicYear", selectedFinancialYear);
