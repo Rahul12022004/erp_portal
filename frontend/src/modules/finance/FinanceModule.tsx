@@ -1,6 +1,8 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { ArrowRight, BarChart3, Briefcase, Building, CalendarDays, ChevronDown, ChevronUp, CirclePlus, Download, FileText, FileUp, IndianRupee, Info, Mail, Package, PiggyBank, Plus, Printer, Search, ShieldCheck, Trash2, Wallet, Wrench, LayoutDashboard, type LucideIcon } from "lucide-react";
-import SchoolFinanceDashboard from "./components/SchoolFinanceDashboard";
+import FinanceOverviewPage from "@/pages/school-admin/modules/FinanceOverviewPage";
+import FinanceClassFeeStructuresPage from "@/pages/school-admin/modules/FinanceClassFeeStructuresPage";
+import FinanceStudentFeesPage from "@/pages/school-admin/modules/FinanceStudentFeesPage";
 import SalaryStructureModule from "@/components/SalaryStructureModule";
 import ExpenseModule from "./components/ExpenseModule";
 import BankingModule from "./components/BankingModule";
@@ -9,6 +11,7 @@ import Pagination from "@mui/material/Pagination";
 import { Illustration } from "@/components/shared-assets/illustrations";
 import { API_URL } from "@/lib/api";
 import Select, { type SingleValue, type StylesConfig } from "react-select";
+import { getUniqueClasses } from "@/lib/classUtils";
 
 const STUDENT_RECORDS_PAGE_SIZE = 10;
 
@@ -845,18 +848,8 @@ const getAssignmentStatus = (assignment: StudentFeeAssignment) =>
 const getAssignmentPendingAmount = (assignment: StudentFeeAssignment) =>
   Number(assignment.dueAmount ?? Math.max(Number(assignment.totalFee || 0) - Number(assignment.paidAmount || 0), 0));
 
-const buildClassLabel = (name?: string | null, section?: string | null) => {
-  const trimmedName = String(name || "").trim();
-  const trimmedSection = String(section || "").trim();
-  
-  // If section is empty or already in the name, just return the name
-  if (!trimmedSection || trimmedName.endsWith(` - ${trimmedSection}`)) {
-    return trimmedName;
-  }
-  
-  // Otherwise, append section to name
-  return trimmedName && trimmedSection ? `${trimmedName} - ${trimmedSection}` : trimmedName;
-};
+const buildClassLabel = (name?: string | null, _section?: string | null) =>
+  String(name || "").trim();
 
 const normalizeClassValue = (value?: string | null) =>
   String(value || "")
@@ -955,11 +948,11 @@ const emptyStudentSummaryPagination: StudentSummaryPagination = {
 };
 
 const buildClassOption = (schoolClass: SchoolClass): ClassOption => ({
-  label: buildClassLabel(schoolClass.name, schoolClass.section),
+  label: schoolClass.name.trim(),
   value: schoolClass._id,
   classId: schoolClass._id,
-  className: schoolClass.name,
-  section: schoolClass.section || "",
+  className: schoolClass.name.trim(),
+  section: "",
 });
 
 const normalizeClassFeeStructureRecord = (
@@ -1328,7 +1321,7 @@ const classSelectStyles: StylesConfig<ClassOption, false> = {
 };
 
 export default function FinanceModule() {
-  const [activeTab, setActiveTab] = useState<"student" | "staff" | "dashboard">("dashboard");
+  const [activeTab, setActiveTab] = useState<"overview" | "student" | "staff">("overview");
   const [activeFinanceAction, setActiveFinanceAction] = useState<FinancePhaseAction>("fee-structure");
   const [studentFees, setStudentFees] = useState<StudentFeeSummary[]>([]);
   const [studentSummaryMetrics, setStudentSummaryMetrics] = useState<StudentSummaryMetrics>(emptyStudentSummaryMetrics);
@@ -1503,22 +1496,15 @@ export default function FinanceModule() {
         return;
       }
 
-      const selectedClassId =
-        isLikelyObjectId(selectedFeeClass)
-          ? selectedFeeClass
-          : (
-              schoolClasses.find((schoolClass) =>
-                matchesClassValue(buildClassLabel(schoolClass.name, schoolClass.section), selectedFeeClass)
-              )?._id || ""
-            );
-
       const params = new URLSearchParams({
         page: String(studentRecordsPage),
         limit: "50",
       });
 
-      if (selectedClassId) {
-        params.set("classId", selectedClassId);
+      if (selectedFeeClass && !isLikelyObjectId(selectedFeeClass)) {
+        params.set("className", selectedFeeClass);
+      } else if (selectedFeeClass && isLikelyObjectId(selectedFeeClass)) {
+        params.set("classId", selectedFeeClass);
       }
       if (selectedFinancialYear) {
         params.set("academicYear", selectedFinancialYear);
@@ -1932,9 +1918,9 @@ export default function FinanceModule() {
   };
 
   const isStudent = activeTab === "student";
-  const isDashboard = activeTab === "dashboard";
+  const isDashboard = activeTab === "overview";
   const list = isStudent ? studentFees : staffSalaries;
-  const classStructureOptions = schoolClasses.map(buildClassOption);
+  const classStructureOptions = getUniqueClasses(schoolClasses).map(buildClassOption);
   const classOptionsFromData = Array.from(
     new Set(
       [
@@ -2283,7 +2269,7 @@ export default function FinanceModule() {
       : (normalizedClassName || "");
 
     if (className) {
-      setSelectedFeeClass(String(fallbackOption?.value || normalizedClassName));
+      setSelectedFeeClass(normalizedClassName);
     }
 
     setSelectedClassStructureId(matchedStructureId);
@@ -2323,7 +2309,7 @@ export default function FinanceModule() {
 
   const handleClassFeeStructureSelect = (option: SingleValue<ClassOption>) => {
     setSelectedClassStructureId("");
-    selectClassFeeStructure(option?.label || "", option || null);
+    selectClassFeeStructure(option?.className || option?.label || "", option || null);
   };
 
   const handleStudentClassSelect = (option: SingleValue<ClassOption>) => {
@@ -4021,139 +4007,66 @@ export default function FinanceModule() {
   const showLedgerImportPanel = Boolean(localStorage.getItem("financeImportPanelEnabled"));
 
   return (
-    <div className={`space-y-6 rounded-[28px] p-4 transition-all duration-300 ${isDashboard ? "bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_40%)]" : activeFinancePanelTheme.pageClassName}`}>
+    <div className={`rounded-[28px] p-4 transition-all duration-300 ${isDashboard ? "bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_40%)]" : activeFinancePanelTheme.pageClassName}`}>
       {/* Tab bar */}
-      <div className="border-b flex gap-1 text-sm font-medium">
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={`inline-flex items-center gap-1.5 px-3 pb-2 transition-colors ${
-            activeTab === "dashboard"
-              ? "border-b-2 border-slate-900 text-slate-900"
-              : "text-gray-500 hover:text-slate-700"
-          }`}
-        >
-          <LayoutDashboard className="h-3.5 w-3.5" />
-          Overview
-        </button>
-        <button
-          onClick={() => setActiveTab("student")}
-          className={`px-3 pb-2 transition-colors ${
-            activeTab === "student"
-              ? "border-b-2 border-blue-600 text-blue-600"
-              : "text-gray-500 hover:text-slate-700"
-          }`}
-        >
-          Students Finance
-        </button>
-        <button
-          onClick={() => setActiveTab("staff")}
-          className={`px-3 pb-2 transition-colors ${
-            activeTab === "staff"
-              ? "border-b-2 border-blue-600 text-blue-600"
-              : "text-gray-500 hover:text-slate-700"
-          }`}
-        >
-          Staff Finance
-        </button>
-      </div>
+      <div className="tabs-scroll overflow-x-auto pb-1">
+        <div className="flex min-w-max items-center gap-1.5 rounded-xl bg-slate-100/80 p-1.5">
+          {/* Overview */}
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold whitespace-nowrap transition-all duration-150 ${
+              activeTab === "overview"
+                ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+            }`}
+          >
+            <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
+            Overview
+          </button>
 
-      {/* ── DASHBOARD TAB ── */}
-      {isDashboard && (
-        <SchoolFinanceDashboard
-          selectedFinancialYear={selectedFinancialYear}
-          onFinancialYearChange={setSelectedFinancialYear}
-          onNavigate={(action) => {
-            if (action === "record-payment" || action === "fee-structure") {
-              setActiveTab("student");
-            } else if (action === "salary" || action === "investor-ledger") {
-              setActiveTab("staff");
-            }
-            if (action !== "reports") {
-              setActiveFinanceAction(action as FinancePhaseAction);
-            }
-          }}
-        />
-      )}
+          <span className="h-4 w-px bg-slate-300/60 shrink-0" />
 
-      {/* ── STUDENT / STAFF TABS ── */}
-      {!isDashboard && (
-      <div>
-        <h2 className="text-xl font-semibold">{isStudent ? "Students Finance" : "Staff Finance"}</h2>
-        {isStudent && <p className="text-sm text-slate-500 mt-1">Review current fee position, component breakdown, receipt metadata, printable receipts, and registered-email delivery.</p>}
-      </div>
-      )}
-
-      {!isDashboard && (
-      <section className="rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Finance Dashboard KPIs</h3>
-          <p className="text-xs text-slate-500">Current snapshot</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {topKpiCards.map((card) => (
-            <div key={card.label} className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
-              <p className={`mt-2 text-lg font-bold ${card.accent}`}>{formatCurrency(card.value)}</p>
-              <p className="mt-1 text-xs text-slate-500">{card.helper}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-      )}
-
-      {!isDashboard && (
-      <section className={`overflow-hidden rounded-[28px] border transition-all duration-300 ${activeFinancePanelTheme.shellClassName}`}>
-        <div className="px-6 py-6 lg:px-8">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <div className={`inline-flex items-center rounded-full border bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] transition-colors duration-300 ${activeFinancePanelTheme.badgeClassName}`}>
-                Finance redesign phase 1
-              </div>
-              <h3 className="mt-3 text-xl font-semibold text-slate-900">Finance actions</h3>
-            </div>
-            <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-right shadow-sm backdrop-blur">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Current</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{financePhaseActions.find((action) => action.id === activeFinanceAction)?.title}</p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 xl:gap-4">
-            {financePhaseActions.map((action) => {
-              const Icon = action.icon;
-              const isActiveAction = action.id === activeFinanceAction;
-
-              return (
+          {/* Action tabs */}
+          {financePhaseActions.map((action, idx) => {
+            const Icon = action.icon;
+            const isActive = !isDashboard && activeFinanceAction === action.id;
+            const isPhase2 = action.phase === "Phase 2";
+            const showDivider = idx === 4;
+            return (
+              <span key={action.id} className="flex items-center gap-1.5">
+                {showDivider && <span className="h-4 w-px bg-slate-300/60 shrink-0" />}
                 <button
-                  key={action.id}
-                  type="button"
                   onClick={() => handleFinanceActionSelect(action)}
-                  className={`group flex min-h-[240px] h-full flex-col justify-between rounded-[28px] border bg-gradient-to-br p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg ${action.accentClassName} ${isActiveAction ? "ring-2 ring-slate-900/10 shadow-lg" : ""}`}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold whitespace-nowrap transition-all duration-150 ${
+                    isActive
+                      ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                      : isPhase2
+                      ? "text-slate-400 hover:bg-white/40 hover:text-slate-600"
+                      : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                  }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-current shadow-sm">
-                      <Icon className="h-6 w-6" />
-                    </span>
-                    <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                      {action.phase}
-                    </span>
-                  </div>
-
-                  <div className="mt-10">
-                    <h4 className="text-xl font-semibold leading-tight">{action.title}</h4>
-                    <p className="mt-3 text-sm leading-6 text-current/75">{action.description}</p>
-                  </div>
-
-                  <div className="mt-8 inline-flex items-center gap-2 text-sm font-semibold">
-                    {action.cta}
-                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                  </div>
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="relative">
+                    {action.title}
+                    {isPhase2 && (
+                      <span className="ml-1.5 inline-flex items-center rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-amber-600">
+                        Soon
+                      </span>
+                    )}
+                  </span>
                 </button>
-              );
-            })}
-          </div>
+              </span>
+            );
+          })}
         </div>
-      </section>
-      )}
+      </div>
+
+      {/* Content — keyed so React remounts on tab change → triggers CSS fade-in */}
+      <div key={isDashboard ? "overview" : activeFinanceAction} className="tab-content-enter space-y-6">
+
+      {/* ── OVERVIEW TAB ── */}
+      {isDashboard && <FinanceOverviewPage />}
+
 
       {!isStudent && activeFinanceAction === "school-investment" && (
         <section id="finance-school-investment-section" className="rounded-[28px] border border-emerald-200 bg-[linear-gradient(145deg,#f7fee7_0%,#ffffff_40%,#f8fafc_100%)] p-6 shadow-sm">
@@ -4457,19 +4370,19 @@ export default function FinanceModule() {
       )}
 
       {activeFinanceAction === "expense" && (
-        <section id="finance-expense-section">
+        <section id="finance-expense-section" className={`rounded-[28px] border p-5 ${activeFinancePanelTheme.shellClassName}`}>
           <ExpenseModule />
         </section>
       )}
 
       {activeFinanceAction === "banking" && (
-        <section id="finance-banking-section">
+        <section id="finance-banking-section" className={`rounded-[28px] border p-4 ${activeFinancePanelTheme.shellClassName}`}>
           <BankingModule />
         </section>
       )}
 
       {activeFinanceAction === "asset" && (
-        <section id="finance-asset-section">
+        <section id="finance-asset-section" className={`rounded-[28px] border p-4 ${activeFinancePanelTheme.shellClassName}`}>
           <AssetManagementModule />
         </section>
       )}
@@ -6048,6 +5961,7 @@ export default function FinanceModule() {
           </div>
         </div>
       )}
+      </div>{/* end tab-content-enter wrapper */}
     </div>
   );
 }
