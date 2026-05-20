@@ -281,7 +281,7 @@ export default function FinanceStudentFeesPage() {
   const queryClient = useQueryClient();
 
   const [academicYear, setAcademicYear] = useState("");
-  const [classId, setClassId] = useState("");
+  const [selectedClassName, setSelectedClassName] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -311,12 +311,12 @@ export default function FinanceStudentFeesPage() {
   const effectiveYear = academicYear || yearsQuery.data?.[0] || "";
 
   const summaryQuery = useQuery({
-    queryKey: ["finance-student-fees", schoolId, effectiveYear, classId, debouncedSearch, page],
+    queryKey: ["finance-student-fees", schoolId, effectiveYear, selectedClassName, debouncedSearch, page],
     queryFn: () =>
       getStudentFeeSummaryPage(schoolId, {
         page,
         limit: PAGE_SIZE,
-        className: classId || undefined,
+        className: selectedClassName || undefined,
         academicYear: effectiveYear || undefined,
         search: debouncedSearch || undefined,
       }),
@@ -378,8 +378,8 @@ export default function FinanceStudentFeesPage() {
 
         <select
           className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={classId}
-          onChange={(e) => { setClassId(e.target.value); setPage(1); }}
+          value={selectedClassName}
+          onChange={(e) => { setSelectedClassName(e.target.value); setPage(1); }}
         >
           <option value="">All Classes</option>
           {getUniqueClasses(classesQuery.data ?? []).map((c) => (
