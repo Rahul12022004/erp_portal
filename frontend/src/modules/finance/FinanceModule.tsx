@@ -949,7 +949,7 @@ const emptyStudentSummaryPagination: StudentSummaryPagination = {
 
 const buildClassOption = (schoolClass: SchoolClass): ClassOption => ({
   label: schoolClass.name.trim(),
-  value: schoolClass._id,
+  value: schoolClass.name.trim(),
   classId: schoolClass._id,
   className: schoolClass.name.trim(),
   section: "",
@@ -1952,7 +1952,7 @@ export default function FinanceModule() {
       const matchedClass = classSelectOptions.find((option) =>
         matchesClassValue(option.label, rawClass) || matchesClassValue(option.value, rawClass)
       );
-      const classValue = matchedClass?.value || rawClass;
+      const classValue = matchedClass?.className || matchedClass?.label || rawClass;
       const classLabel = matchedClass?.label || rawClass;
       const combined = `${name}${rollNumber ? ` (${rollNumber})` : ""}${classLabel ? ` - ${classLabel}` : ""}`.toLowerCase();
 
@@ -2314,7 +2314,7 @@ export default function FinanceModule() {
 
   const handleStudentClassSelect = (option: SingleValue<ClassOption>) => {
     setSelectedClassStructureId("");
-    setSelectedFeeClass(option?.value || "");
+    setSelectedFeeClass(option?.className || option?.label || "");
     setSelectedHistoryStudentId("");
     setStudentSearchTerm("");
   };
