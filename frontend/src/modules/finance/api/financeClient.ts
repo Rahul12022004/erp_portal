@@ -4,6 +4,13 @@
  */
 
 import { API_URL } from "@/lib/api";
+import type {
+  ClassFeeStructureRecord,
+  FinanceDashboardSummary,
+  SchoolClass,
+  StudentAssignment,
+  StudentSummaryResponse,
+} from "../types";
 
 const API_BASE = `${API_URL}/api`;
 
@@ -107,6 +114,10 @@ export const updateClassFeeStructure = async (
     default_transport_fee?: number;
     other_fee?: number;
     due_date?: string;
+    late_fee_type?: string;
+    late_fee_amount?: number;
+    late_fee_grace_days?: number;
+    late_fee_description?: string;
   }
 ) => {
   return requestJson<ApiEnvelope<unknown>>(`${API_BASE}/finance/class-fee-structures/${id}`, {
@@ -236,6 +247,91 @@ export const getClassFeeSummary = async (
   return requestJson<ApiEnvelope<unknown>>(
     `${API_BASE}/finance/class/${classId}/summary?schoolId=${encodeURIComponent(schoolId)}&academic_year=${encodeURIComponent(academicYear)}`
   );
+};
+
+// ============================
+// 6. CLASS FEE STRUCTURES (TYPED)
+// ============================
+
+export const getClassFeeStructureList = async (
+  schoolId: string
+): Promise<ClassFeeStructureRecord[]> => {
+  const res = await requestJson<ApiEnvelope<ClassFeeStructureRecord[]>>(
+    `${API_BASE}/finance/class-fee-structures?schoolId=${encodeURIComponent(schoolId)}`
+  );
+  return Array.isArray(res?.data) ? res.data : [];
+};
+
+export const getSchoolClasses = async (schoolId: string): Promise<SchoolClass[]> => {
+  const params = new URLSearchParams({ includeOptions: "true", page: "1", limit: "1" });
+  const res = await requestJson<{ data?: { classes?: SchoolClass[] } }>(
+    `${API_BASE}/finance/${encodeURIComponent(schoolId)}/students/summary?${params.toString()}`
+  );
+  return Array.isArray(res?.data?.classes) ? (res.data.classes as SchoolClass[]) : [];
+};
+
+// ============================
+// 7. OVERVIEW / DASHBOARD
+// ============================
+
+export const getAvailableYears = async (schoolId: string): Promise<string[]> => {
+  const data = await requestJson<{ years?: string[] }>(
+    `${API_BASE}/finance/${encodeURIComponent(schoolId)}/available-years`
+  );
+  return Array.isArray(data?.years) ? data.years : [];
+};
+
+export const getDashboardSummary = async (
+  schoolId: string,
+  academicYear?: string
+): Promise<FinanceDashboardSummary> => {
+  const params = new URLSearchParams();
+  if (academicYear) params.set("academicYear", academicYear);
+  const qs = params.toString();
+  return requestJson<FinanceDashboardSummary>(
+    `${API_BASE}/finance/${encodeURIComponent(schoolId)}/dashboard-summary${qs ? `?${qs}` : ""}`
+  );
+};
+
+export const getAllStudentAssignments = async (
+  schoolId: string,
+  academicYear?: string
+): Promise<StudentAssignment[]> => {
+  const params = new URLSearchParams({ schoolId });
+  if (academicYear) params.set("academic_year", academicYear);
+  const res = await requestJson<ApiEnvelope<StudentAssignment[]>>(
+    `${API_BASE}/finance/student-fee-assignments?${params.toString()}`
+  );
+  return Array.isArray(res?.data) ? res.data : [];
+};
+
+// ============================
+// 8. STUDENT FEE SUMMARY (PAGINATED)
+// ============================
+
+export const getStudentFeeSummaryPage = async (
+  schoolId: string,
+  filters: {
+    page?: number;
+    limit?: number;
+    classId?: string;
+    className?: string;
+    academicYear?: string;
+    search?: string;
+  }
+): Promise<StudentSummaryResponse> => {
+  const params = new URLSearchParams({
+    page: String(filters.page ?? 1),
+    limit: String(filters.limit ?? 20),
+  });
+  if (filters.classId) params.set("classId", filters.classId);
+  if (filters.className) params.set("className", filters.className);
+  if (filters.academicYear) params.set("academicYear", filters.academicYear);
+  if (filters.search) params.set("search", filters.search);
+  const res = await requestJson<{ success: boolean; data: StudentSummaryResponse }>(
+    `${API_BASE}/finance/${encodeURIComponent(schoolId)}/students/summary?${params.toString()}`
+  );
+  return res.data;
 };
 
 // ============================
