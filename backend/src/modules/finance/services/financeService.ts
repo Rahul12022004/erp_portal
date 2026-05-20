@@ -32,6 +32,7 @@ type AssignmentQuery = {
 };
 type StudentSummaryQuery = {
   classId?: string;
+  className?: string;
   academicYear?: string;
   search?: string;
   page?: number;
@@ -846,6 +847,7 @@ export const financeService = {
     const trimmedSearch = String(filters.search || "").trim();
     const trimmedAcademicYear = String(filters.academicYear || "").trim();
     const classId = String(filters.classId || "").trim();
+    const className = String(filters.className || "").trim();
 
     const studentMatch: LooseRecord = {
       schoolId: schoolObjectId,
@@ -853,6 +855,16 @@ export const financeService = {
 
     if (classId && mongoose.Types.ObjectId.isValid(classId)) {
       studentMatch.class_id = new mongoose.Types.ObjectId(classId);
+    } else if (className) {
+      const matchingIds = await Class.find({
+        schoolId: schoolObjectId,
+        name: new RegExp(`^${escapeRegex(className)}$`, "i"),
+      })
+        .distinct("_id")
+        .lean();
+      if (matchingIds.length > 0) {
+        studentMatch.class_id = { $in: matchingIds };
+      }
     }
 
     if (trimmedSearch) {
