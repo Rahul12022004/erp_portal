@@ -1498,12 +1498,14 @@ router.get("/:schoolId/students/summary", async (req: Request, res: Response) =>
     const page = Number.parseInt(getSingleString(req.query.page), 10) || 1;
     const limit = Number.parseInt(getSingleString(req.query.limit), 10) || 50;
     const classId = getSingleString(req.query.classId);
+    const className = getSingleString(req.query.className);
     const academicYear = getSingleString(req.query.academicYear);
     const search = getSingleString(req.query.search);
     const includeOptions = getSingleString(req.query.includeOptions).toLowerCase() === "true";
 
     const summary = await financeService.getStudentFeeSummaries(schoolId, {
       classId,
+      className,
       academicYear,
       search,
       page,
