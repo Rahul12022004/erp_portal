@@ -47,10 +47,10 @@ export default function ExpenseModule() {
   const [activeTab, setActiveTab] = useState<ExpenseTab>("dashboard");
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Tab Navigation */}
-      <div className="overflow-x-auto">
-        <div className="flex min-w-max gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+      <div className="tabs-scroll overflow-x-auto pb-1">
+        <div className="flex min-w-max items-center gap-1 rounded-[22px] bg-[linear-gradient(180deg,#f8fbff_0%,#eef4fb_100%)] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_4px_12px_rgba(148,163,184,0.12)] ring-1 ring-slate-200/70">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -58,13 +58,13 @@ export default function ExpenseModule() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 rounded-[16px] px-3 py-1.5 text-[13px] font-semibold whitespace-nowrap transition-all duration-150 ${
                   isActive
-                    ? "bg-teal-600 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-white hover:text-slate-900"
+                    ? "bg-white text-slate-900 shadow-[0_4px_14px_rgba(148,163,184,0.18)] ring-1 ring-slate-200/80"
+                    : "text-slate-500 hover:bg-white/70 hover:text-slate-800 hover:shadow-sm"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-3.5 w-3.5 shrink-0" />
                 {tab.label}
               </button>
             );

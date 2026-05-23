@@ -79,6 +79,24 @@
   }
 }
 
+@keyframes tab-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content-enter {
+  animation: tab-fade-in 0.18s ease-out both;
+}
+
+/* Hide scrollbar on tab bars while keeping scroll */
+.tabs-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 @layer components {
   .stat-card {
     @apply bg-card rounded-xl border border-border p-6 shadow-sm transition-all duration-200 hover:shadow-md;

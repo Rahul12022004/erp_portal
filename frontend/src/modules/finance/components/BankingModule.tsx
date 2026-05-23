@@ -235,10 +235,10 @@ export default function BankingModule() {
     status: "active",
   });
 
-  const baseSurface = theme === "dark" ? "bg-[#171a1f] text-[#e5e7eb]" : "bg-[#f5f2ea] text-[#1f2937]";
-  const cardSurface = theme === "dark" ? "bg-[#20252c] border-[#343c46]" : "bg-[#fdfcf8] border-[#e6dfd3]";
+  const baseSurface = theme === "dark" ? "bg-[#171a1f] text-[#e5e7eb]" : "bg-transparent text-[#1f2937]";
+  const cardSurface = theme === "dark" ? "bg-[#20252c] border-[#343c46]" : "border-slate-200/85 bg-[linear-gradient(180deg,#ffffff_0%,#f2f7fc_100%)] shadow-[0_10px_28px_rgba(148,163,184,0.14)]";
   const mutedText = theme === "dark" ? "text-[#94a3b8]" : "text-[#6b7280]";
-  const panelSurface = theme === "dark" ? "bg-[#1b2026] border-[#2d3641]" : "bg-white border-[#ddd5c9]";
+  const panelSurface = theme === "dark" ? "bg-[#1b2026] border-[#2d3641]" : "border-slate-200/60 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.1),transparent_34%),linear-gradient(180deg,#faf8ff_0%,#f5f3ff_80%,#ffffff_100%)]";
   const schoolSession = readStoredSchoolSession();
   const schoolId = String(schoolSession?._id || "");
 
@@ -612,41 +612,40 @@ export default function BankingModule() {
   };
 
   return (
-    <section className={`relative overflow-hidden rounded-[24px] border ${panelSurface} shadow-sm`}>
+    <section className={`relative overflow-hidden rounded-[36px] border shadow-[0_18px_45px_rgba(148,163,184,0.16)] ${panelSurface}`}>
       <div className={`grid min-h-[840px] md:grid-cols-[240px_minmax(0,1fr)] ${baseSurface}`}>
-        <aside className={`sticky top-0 h-screen max-h-[840px] border-r px-4 py-5 ${theme === "dark" ? "border-[#2c3440] bg-[#181d23]" : "border-[#e4dccf] bg-[#f8f5ee]"}`}>
+        <aside className={`sticky top-0 h-screen max-h-[840px] border-r px-4 py-5 ${theme === "dark" ? "border-[#2c3440] bg-[#181d23]" : "border-slate-200/70 bg-[linear-gradient(180deg,#f8fbff_0%,#eef4fb_100%)]"}`}>
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-teal-600">School ERP</p>
             <h3 className="mt-2 text-base font-semibold">Banking & Finance</h3>
             <p className={`mt-1 text-xs ${mutedText}`}>Admin control workspace</p>
           </div>
 
-          <nav className="mt-6 space-y-2">
+          <nav className="mt-4 space-y-0.5">
             {navItems.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setActiveTab(key)}
-                className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm transition ${
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
                   activeTab === key
-                    ? "border-teal-500 bg-teal-50 text-teal-800"
+                    ? theme === "dark"
+                      ? "bg-slate-700 text-white"
+                      : "bg-slate-900 text-white"
                     : theme === "dark"
-                      ? "border-[#313a46] bg-[#232a33] text-[#d1d5db] hover:border-teal-400"
-                      : "border-[#e5ddd0] bg-[#fffdfa] text-[#334155] hover:border-teal-400"
+                      ? "text-slate-400 hover:bg-slate-700/60 hover:text-white"
+                      : "text-slate-500 hover:bg-slate-200/70 hover:text-slate-900"
                 }`}
               >
-                <span className="inline-flex items-center gap-2">
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </span>
-                <ChevronRight className="h-3.5 w-3.5" />
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {label}
               </button>
             ))}
           </nav>
         </aside>
 
         <div className="min-w-0">
-          <header className={`sticky top-0 z-20 border-b px-4 py-3 sm:px-5 ${theme === "dark" ? "border-[#2d3641] bg-[#1c2128]/95" : "border-[#e6ddcf] bg-[#f8f5ee]/95"} backdrop-blur`}>
+          <header className={`sticky top-0 z-20 border-b px-4 py-3 sm:px-5 ${theme === "dark" ? "border-[#2d3641] bg-[#1c2128]/95" : "border-slate-200/70 bg-white/80"} backdrop-blur`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className={`text-xs ${mutedText}`}>Finance / Banking</p>
@@ -678,46 +677,27 @@ export default function BankingModule() {
             ) : (
               <>
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className={`rounded-xl border p-3 ${cardSurface}`}>
+              <div className={`rounded-[24px] border p-3 ${cardSurface}`}>
                 <p className={`text-[11px] uppercase ${mutedText}`}>Total Balance</p>
                 <p className="mt-1 text-lg font-semibold" style={monoNumberStyle}>{fmtCurrency(summary?.totalBalance ?? totalBalance)}</p>
                 <p className="mt-1 text-xs text-teal-600">Across all accounts</p>
               </div>
-              <div className={`rounded-xl border p-3 ${cardSurface}`}>
+              <div className={`rounded-[24px] border p-3 ${cardSurface}`}>
                 <p className={`text-[11px] uppercase ${mutedText}`}>Active Accounts</p>
                 <p className="mt-1 text-lg font-semibold" style={monoNumberStyle}>{summary?.activeAccounts ?? activeAccounts}</p>
                 <p className="mt-1 text-xs text-teal-600">Status = Active</p>
               </div>
-              <div className={`rounded-xl border p-3 ${cardSurface}`}>
+              <div className={`rounded-[24px] border p-3 ${cardSurface}`}>
                 <p className={`text-[11px] uppercase ${mutedText}`}>This Month Inflow</p>
                 <p className="mt-1 text-lg font-semibold" style={monoNumberStyle}>{fmtCurrency(summary?.thisMonthInflow ?? thisMonthInflow)}</p>
                 <p className="mt-1 text-xs text-teal-600">Credits this month</p>
               </div>
-              <div className={`rounded-xl border p-3 ${cardSurface}`}>
+              <div className={`rounded-[24px] border p-3 ${cardSurface}`}>
                 <p className={`text-[11px] uppercase ${mutedText}`}>Loans Outstanding</p>
                 <p className="mt-1 text-lg font-semibold" style={monoNumberStyle}>{fmtCurrency(summary?.loansOutstanding ?? loansOutstanding)}</p>
                 <p className="mt-1 text-xs text-teal-600">Taken + given open positions</p>
               </div>
             </section>
-
-            <div className="flex flex-wrap gap-2">
-              {navItems.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setActiveTab(key)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                    activeTab === key
-                      ? "bg-teal-600 text-white"
-                      : theme === "dark"
-                        ? "bg-[#252d37] text-[#cbd5e1] hover:bg-[#2d3743]"
-                        : "bg-[#ede6db] text-slate-700 hover:bg-[#e5dccd]"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
 
             {activeTab === "accounts" && (
               <section className="space-y-3">
@@ -726,7 +706,7 @@ export default function BankingModule() {
                 ) : (
                   <div className="grid gap-3 lg:grid-cols-2">
                     {accounts.map((account) => (
-                      <article key={account.id} className={`rounded-xl border p-4 ${cardSurface}`}>
+                      <article key={account.id} className={`rounded-[28px] border p-4 ${cardSurface}`}>
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="text-sm font-semibold">{account.bankName}</p>
@@ -760,7 +740,7 @@ export default function BankingModule() {
             )}
 
             {activeTab === "transactions" && (
-              <section className={`rounded-xl border p-3 ${cardSurface}`}>
+              <section className={`rounded-[24px] border p-3 ${cardSurface}`}>
                 <div className="mb-3 grid gap-2 md:grid-cols-[1fr_160px_160px]">
                   <label className="relative">
                     <Search className={`pointer-events-none absolute left-2 top-2.5 h-4 w-4 ${mutedText}`} />
@@ -834,7 +814,7 @@ export default function BankingModule() {
                       {loans.map((loan) => {
                         const progress = Math.min(100, Math.max(0, ((loan.principalAmount - loan.outstandingAmount) / Math.max(loan.principalAmount, 1)) * 100));
                         return (
-                          <article key={loan.id} className={`rounded-xl border p-4 ${cardSurface}`}>
+                          <article key={loan.id} className={`rounded-[28px] border p-4 ${cardSurface}`}>
                             <div className="flex items-start justify-between">
                               <div>
                                 <p className="text-sm font-semibold" style={monoNumberStyle}>{loan.referenceNo}</p>
@@ -860,7 +840,7 @@ export default function BankingModule() {
                       })}
                     </div>
 
-                    <div className={`rounded-xl border p-3 ${cardSurface}`}>
+                    <div className={`rounded-[24px] border p-3 ${cardSurface}`}>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide">Loan Schedule</p>
                       <div className="overflow-x-auto">
                         <table className="min-w-full text-left text-xs">
@@ -907,7 +887,7 @@ export default function BankingModule() {
                     {assets.map((asset) => {
                       const metrics = computeAssetMetrics(asset);
                       return (
-                        <article key={asset.id} className={`rounded-xl border p-4 ${cardSurface}`}>
+                        <article key={asset.id} className={`rounded-[28px] border p-4 ${cardSurface}`}>
                           <div className="flex items-start justify-between">
                             <div>
                               <p className="text-sm font-semibold">{asset.assetName}</p>
@@ -941,7 +921,7 @@ export default function BankingModule() {
 
             {activeTab === "summary" && (
               <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <article className={`rounded-xl border p-4 ${cardSurface}`}>
+                <article className={`rounded-[28px] border p-4 ${cardSurface}`}>
                   <p className="text-xs font-semibold uppercase tracking-wide">Liquidity Overview</p>
                   <div className="mt-2 space-y-1 text-xs">
                     {accounts.map((account) => (
@@ -950,7 +930,7 @@ export default function BankingModule() {
                   </div>
                 </article>
 
-                <article className={`rounded-xl border p-4 ${cardSurface}`}>
+                <article className={`rounded-[28px] border p-4 ${cardSurface}`}>
                   <p className="text-xs font-semibold uppercase tracking-wide">Transaction Summary</p>
                   <div className="mt-2 space-y-1 text-xs">
                     <div className="flex items-center justify-between"><span>Total Credits</span><strong style={monoNumberStyle}>{fmtCurrency(txnTotals.credits)}</strong></div>
@@ -960,7 +940,7 @@ export default function BankingModule() {
                   </div>
                 </article>
 
-                <article className={`rounded-xl border p-4 ${cardSurface}`}>
+                <article className={`rounded-[28px] border p-4 ${cardSurface}`}>
                   <p className="text-xs font-semibold uppercase tracking-wide">Loan Overview</p>
                   <div className="mt-2 space-y-1 text-xs">
                     <div className="flex items-center justify-between"><span>Taken Outstanding</span><strong style={monoNumberStyle}>{fmtCurrency(loanOverview.takenOutstanding)}</strong></div>
@@ -970,7 +950,7 @@ export default function BankingModule() {
                   </div>
                 </article>
 
-                <article className={`rounded-xl border p-4 ${cardSurface}`}>
+                <article className={`rounded-[28px] border p-4 ${cardSurface}`}>
                   <p className="text-xs font-semibold uppercase tracking-wide">Asset Overview</p>
                   <div className="mt-2 space-y-1 text-xs">
                     <div className="flex items-center justify-between"><span>Total Purchase Value</span><strong style={monoNumberStyle}>{fmtCurrency(assetOverview.purchaseValue)}</strong></div>
@@ -980,7 +960,7 @@ export default function BankingModule() {
                   </div>
                 </article>
 
-                <article className={`rounded-xl border p-4 ${cardSurface}`}>
+                <article className={`rounded-[28px] border p-4 ${cardSurface}`}>
                   <p className="text-xs font-semibold uppercase tracking-wide">API / Backend Status</p>
                   <div className="mt-2 rounded-lg border border-emerald-300/40 bg-emerald-50/70 p-3 text-xs text-emerald-700">
                     <p className="inline-flex items-center gap-1 font-semibold"><ShieldCheck className="h-3.5 w-3.5" /> Connected</p>

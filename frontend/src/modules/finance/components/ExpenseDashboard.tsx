@@ -60,6 +60,10 @@ const fmt = (v: number) =>
 
 const COLORS = ["#0891b2", "#06b6d4", "#22d3ee", "#67e8f9", "#cffafe"];
 
+const clayShell = "rounded-[28px] border border-slate-200/85 bg-[linear-gradient(180deg,#ffffff_0%,#f2f7fc_100%)] p-5 shadow-[0_18px_45px_rgba(148,163,184,0.16)]";
+const clayCard = "rounded-[24px] border border-slate-200/90 bg-[linear-gradient(180deg,#ffffff_0%,#f7fbff_100%)] p-5 shadow-[0_10px_28px_rgba(148,163,184,0.14)]";
+const clayInset = "rounded-[22px] border border-slate-200/85 bg-[linear-gradient(180deg,#f8fbff_0%,#eef4fb_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_24px_rgba(148,163,184,0.1)]";
+
 export function ExpenseDashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
@@ -121,10 +125,10 @@ export function ExpenseDashboard() {
     color: string;
     trend?: { percentage: number; isPositive: boolean };
   }) => (
-    <div className="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-lg transition-shadow">
+    <div className={clayCard}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm font-medium text-slate-600 mb-2">{title}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">{title}</p>
           <p className="text-2xl font-bold text-slate-900">{value}</p>
           {trend && (
             <p className={`text-xs mt-2 font-medium ${trend.isPositive ? "text-emerald-600" : "text-red-600"}`}>
@@ -132,7 +136,7 @@ export function ExpenseDashboard() {
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-lg ${color}`}>
+        <div className={`p-3 rounded-2xl ${color}`}>
           <Icon className="w-5 h-5" />
         </div>
       </div>
@@ -151,38 +155,41 @@ export function ExpenseDashboard() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 rounded-[36px] bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.1),transparent_34%),linear-gradient(180deg,#fff7f7_0%,#fff1f2_60%,#f8fbff_100%)] p-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Expense Dashboard</h1>
-          <p className="text-slate-600 mt-1">Monitor and manage school expenses</p>
+      <section className={clayShell}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-slate-700 shadow-sm">Expense Area</div>
+            <h1 className="mt-3 text-3xl font-bold tracking-[-0.03em] text-slate-950">Expense Dashboard</h1>
+            <p className="mt-1 text-sm leading-6 text-slate-600">Monitor and manage school expenses</p>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-2xl border border-rose-300 bg-[linear-gradient(180deg,#ffffff_0%,#ffe4e6_100%)] px-4 py-3 text-sm font-bold text-rose-800 shadow-[0_8px_20px_rgba(244,63,94,0.12)] transition hover:shadow-[0_12px_24px_rgba(244,63,94,0.18)]">
+            <Download className="w-4 h-4" />
+            Export Report
+          </button>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition">
-          <Download className="w-4 h-4" />
-          Export Report
-        </button>
-      </div>
 
-      {/* Date Range Filter */}
-      <div className="bg-white rounded-lg p-4 border border-slate-200">
-        <div className="flex items-center gap-4">
-          <Calendar className="w-4 h-4 text-slate-600" />
-          <input
-            type="date"
-            value={dateRange.startDate}
-            onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
-          />
-          <span className="text-slate-600">to</span>
-          <input
-            type="date"
-            value={dateRange.endDate}
-            onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
-          />
+        {/* Date Range Filter */}
+        <div className={`mt-4 ${clayInset}`}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+            <input
+              type="date"
+              value={dateRange.startDate}
+              onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+              className="h-9 rounded-2xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 shadow-[0_2px_10px_rgba(148,163,184,0.08)] outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+            />
+            <span className="text-sm text-slate-500">to</span>
+            <input
+              type="date"
+              value={dateRange.endDate}
+              onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+              className="h-9 rounded-2xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 shadow-[0_2px_10px_rgba(148,163,184,0.08)] outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+            />
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -228,10 +235,10 @@ export function ExpenseDashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Monthly Trend */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Monthly Trend</h2>
+        <div className={clayCard}>
+          <h2 className="text-base font-bold text-slate-900 mb-4">Monthly Trend</h2>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -244,8 +251,8 @@ export function ExpenseDashboard() {
         </div>
 
         {/* Category Breakdown */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Top Spending Categories</h2>
+        <div className={clayCard}>
+          <h2 className="text-base font-bold text-slate-900 mb-4">Top Spending Categories</h2>
           <ResponsiveContainer width="100%" height={300}>
             <RePieChart>
               <Pie
@@ -272,9 +279,9 @@ export function ExpenseDashboard() {
       </div>
 
       {/* Recent Expenses Summary */}
-      <div className="bg-white rounded-xl p-6 border border-slate-200">
+      <div className={clayCard}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900">Expenses Summary</h2>
+          <h2 className="text-base font-bold text-slate-900">Expenses Summary</h2>
           <button className="text-sm text-teal-600 hover:text-teal-700 font-medium">View All</button>
         </div>
         <div className="overflow-x-auto">
