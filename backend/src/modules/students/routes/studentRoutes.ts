@@ -1,4 +1,5 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import mongoose from "mongoose";
 import Class from "../../academics/models/Class";
 import Finance from "../../finance/models/Finance";
@@ -6,7 +7,7 @@ import School from "../../school/models/School";
 import Student from "../models/Student";
 import Transport from "../../transport/models/Transport";
 import { getDatabaseStatus } from "../../../core/config/db";
-import { createLog } from "../../../core/utils/createLog";
+
 import {
   buildAppliedStudentFeeStructure,
   findClassFeeStructure,
@@ -570,7 +571,7 @@ async function createStudentRecord(source: StudentSource) {
     });
   }
 
-  await createLog({
+  eventBus.publish("audit.entry", {
     action: "CREATE_STUDENT",
     message: `Student created: ${name} (${studentClass})`,
     schoolId,
@@ -680,7 +681,7 @@ async function ensureClassExistsForImportedRow(row: NormalizedImportedStudentRow
     studentCount: 0,
   });
 
-  await createLog({
+  eventBus.publish("audit.entry", {
     action: "CREATE_CLASS",
     message: `Class created: ${row.classLabel}`,
     schoolId: row.schoolId,
@@ -888,7 +889,7 @@ router.patch("/:id/transport-status", async (req, res) => {
       nextTransportStatus
     );
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_STUDENT_TRANSPORT",
       message: `Transport status updated for ${student.name}: ${nextTransportStatus ? "ACTIVE" : "INACTIVE"}`,
       schoolId: student.schoolId,
@@ -970,7 +971,7 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_STUDENT",
       message: `Student updated: ${updated.name}`,
       schoolId: updated.schoolId,
@@ -994,7 +995,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_STUDENT",
       message: `Student deleted: ${student.name}`,
       schoolId: student.schoolId,

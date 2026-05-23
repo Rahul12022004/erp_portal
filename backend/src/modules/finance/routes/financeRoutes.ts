@@ -1,4 +1,5 @@
-import express, { Request, Response, Router } from "express";
+﻿import express, { Request, Response, Router } from "express";
+import { eventBus } from "../../../core/events";
 import mongoose from "mongoose";
 import multer from "multer";
 import { createWorker } from "tesseract.js";
@@ -12,7 +13,7 @@ import Staff from "../../staff/models/Staff";
 import Finance from "../models/Finance";
 import SalaryRole from "../models/SalaryRole";
 import InvestorLedger from "../models/InvestorLedger";
-import { createLog } from "../../../core/utils/createLog";
+
 import { sendStudentFeeReceiptEmail } from "../../../core/utils/sendEmail";
 
 const router = express.Router();
@@ -514,7 +515,7 @@ router.post("/class-fee-structures", async (req: Request, res: Response) => {
       late_fee_grace_days: normalizedLateFeeGraceDays,
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_CLASS_FEE_STRUCTURE",
       message: `Class fee structure created: ${class_id} (${academic_year}) - ${result.assignedCount} students assigned`,
       schoolId,
@@ -603,7 +604,7 @@ router.put("/class-fee-structures/:id", async (req: Request, res: Response) => {
     );
     const syncedCount = syncResult.assignedCount;
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_CLASS_FEE_STRUCTURE",
       message: `Class fee structure updated: ${id} - ${syncedCount} assignments synced`,
       schoolId,
@@ -652,7 +653,7 @@ router.delete("/class-fee-structures/:id", async (req: Request, res: Response) =
     // Delete the structure itself
     await ClassFeeStructure.findByIdAndDelete(id);
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_CLASS_FEE_STRUCTURE",
       message: `Class fee structure deleted: ${id} - ${deleteResult.deletedCount} assignments removed`,
       schoolId,
@@ -1138,7 +1139,7 @@ router.post("/student-fee-payments", async (req: Request, res: Response) => {
       include_past_dues: Boolean(include_past_dues),
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "RECORD_STUDENT_PAYMENT",
       message: `Payment recorded: ${result.receipt_no} - Amount: ${payment_amount}`,
       schoolId,
@@ -1210,7 +1211,7 @@ router.patch("/students/:studentId/transport-status", async (req: Request, res: 
 
     const result = await financeService.updateStudentTransportStatus(schoolIdStr, studentId, transportStatusStr);
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_STUDENT_TRANSPORT_STATUS",
       message: `Transport status updated: ${transportStatusStr} - ${result.updatedAssignments} assignments recalculated`,
       schoolId: schoolIdStr,
@@ -1315,7 +1316,7 @@ router.post("/student-fee-assignments/:assignmentId/apply-late-fee", async (req:
 
     // Log the action
     const student = toObjectRecord(assignment.student_id);
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "APPLY_LATE_FEE",
       message: `Late fee applied to student ${toStringValue(student.name)}: ₹${lateFeeValue} - Reason: ${reasonStr}`,
       schoolId: schoolIdStr,

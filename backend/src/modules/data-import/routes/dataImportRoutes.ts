@@ -1,4 +1,5 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import mongoose from "mongoose";
 import Class from "../../academics/models/Class";
 import ClassFeeStructure from "../../finance/models/ClassFeeStructure";
@@ -7,7 +8,8 @@ import School from "../../school/models/School";
 import Student from "../../students/models/Student";
 import StudentFeeAssignment from "../../finance/models/StudentFeeAssignment";
 import Transport from "../../transport/models/Transport";
-import { createLog } from "../../../core/utils/createLog";
+
+import { getEnv } from "../../../core/config/env";
 
 type ModuleType =
   | "student-master"
@@ -571,7 +573,7 @@ function sanitizeAiMapping(candidate: unknown, headers: string[], moduleType?: M
 }
 
 async function suggestMappingWithAi(headers: string[], moduleType: ModuleType): Promise<Mapping | null> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = getEnv().groqApiKey;
   if (!apiKey || typeof fetch !== "function" || headers.length === 0) {
     return null;
   }
@@ -596,7 +598,7 @@ async function suggestMappingWithAi(headers: string[], moduleType: ModuleType): 
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL || GROQ_DEFAULT_MODEL,
+        model: getEnv().groqModel || GROQ_DEFAULT_MODEL,
         temperature: 0.1,
         max_tokens: 350,
         messages: [
@@ -1215,7 +1217,7 @@ router.post("/validate", async (req, res) => {
       },
     })) as unknown as DataImportBatchDocument;
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "VALIDATE_DATA_IMPORT",
       message: `Validated ${moduleType} import file ${fileName} (${validation.summary.validRows}/${validation.summary.totalRows} clean rows)`,
       schoolId,
@@ -1286,7 +1288,7 @@ router.post("/import", async (req, res) => {
     };
     await batch.save();
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "RUN_DATA_IMPORT",
       message: `Imported batch ${batch._id} (${result.importedStudents} students, ${result.importedFeeAccounts} fee accounts)`,
       schoolId,
@@ -1370,7 +1372,7 @@ router.post("/rollback/:batchId", async (req, res) => {
     batch.rolled_back_at = new Date();
     await batch.save();
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "ROLLBACK_DATA_IMPORT",
       message: `Rolled back import batch ${batch._id}`,
       schoolId,
@@ -1454,7 +1456,7 @@ router.post("/reimport/:batchId", async (req, res) => {
     };
     await newBatch.save();
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "REIMPORT_DATA_BATCH",
       message: `Re-imported batch ${batchId} into new batch ${newBatch._id}`,
       schoolId,

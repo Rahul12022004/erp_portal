@@ -1,10 +1,11 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import mongoose from "mongoose";
 import Assignment from "../models/Assignment";
 import AssignmentSubmission from "../models/AssignmentSubmission";
 import Student from "../../students/models/Student";
 import Staff from "../../staff/models/Staff";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -85,7 +86,7 @@ router.post("/", async (req, res) => {
       status: status ?? "PUBLISHED",
     });
 
-    await createLog({ action: "CREATE_ASSIGNMENT", message: `Assignment "${title}" for ${className}`, user: teacher.name, schoolId });
+    eventBus.publish("audit.entry", { action: "CREATE_ASSIGNMENT", message: `Assignment "${title}" for ${className}`, user: teacher.name, schoolId });
     res.json({ success: true, data: assignment });
   } catch (err) {
     console.error("CREATE ASSIGNMENT:", err);

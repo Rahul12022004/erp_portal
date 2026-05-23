@@ -1,6 +1,7 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import Hostel from "../models/Hostel";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -84,7 +85,7 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Hostel not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_HOSTEL",
       message: `Hostel updated: ${hostel.name}`,
       schoolId: hostel.schoolId,

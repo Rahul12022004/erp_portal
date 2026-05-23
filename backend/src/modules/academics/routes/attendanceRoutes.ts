@@ -1,9 +1,10 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import Attendance from "../models/Attendance";
 import Staff from "../../staff/models/Staff";
 import Student from "../../students/models/Student";
 import School from "../../school/models/School";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -189,7 +190,7 @@ router.post("/self/lock", async (req, res) => {
     attendance.selfLockedAt = new Date();
     await attendance.save();
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "LOCK_SELF_ATTENDANCE",
       message: `Teacher self attendance locked for ${date}`,
       schoolId,
@@ -289,7 +290,7 @@ router.post("/students", async (req, res) => {
       });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "MARK_STUDENT_ATTENDANCE",
       message: `Student attendance marked: ${status} for ${date}`,
       schoolId,
@@ -332,7 +333,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "MARK_ATTENDANCE",
       message: `Attendance marked: ${status} for ${date}`,
       schoolId,
@@ -450,7 +451,7 @@ router.post("/self", async (req, res) => {
       });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "MARK_SELF_ATTENDANCE",
       message: `Teacher self attendance marked: ${status} for ${date}${isOutsideSchool ? " (outside school)" : ""}`,
       schoolId,

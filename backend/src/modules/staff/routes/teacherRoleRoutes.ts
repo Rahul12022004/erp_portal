@@ -1,8 +1,9 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import School from "../../school/models/School";
 import Staff from "../models/Staff";
 import TeacherRoleAssignment from "../models/TeacherRoleAssignment";
-import { createLog } from "../../../core/utils/createLog";
+
 import { sendTeacherRoleCredentialsEmail } from "../../../core/utils/sendEmail";
 
 const router = express.Router();
@@ -135,7 +136,7 @@ router.post("/", async (req, res) => {
       console.error("TEACHER ROLE EMAIL ERROR:", mailError);
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_TEACHER_ROLE_ASSIGNMENT",
       message: `Teacher role assigned: ${teacher.name} -> ${String(roleName).trim()}`,
       schoolId,
@@ -158,7 +159,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Assignment not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_TEACHER_ROLE_ASSIGNMENT",
       message: `Teacher role assignment deleted: ${assignment.roleName}`,
       schoolId: assignment.schoolId,

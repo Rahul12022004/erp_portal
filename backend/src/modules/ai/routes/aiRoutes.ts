@@ -1,4 +1,5 @@
 import express from "express";
+import { getEnv } from "../../../core/config/env";
 
 const router = express.Router();
 
@@ -17,14 +18,14 @@ When you don't know specific data, suggest where in the ERP the user can find it
 
 // POST /api/ai/chat
 router.post("/chat", async (req, res) => {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = getEnv().groqApiKey;
   if (!apiKey) {
     return res.status(500).json({ success: false, message: "GROQ_API_KEY not configured in .env" });
   }
 
   const {
     message,
-    model = process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+    model = getEnv().groqModel,
     history = [] as { role: string; content: string }[],
   } = req.body as {
     message: string;
@@ -74,7 +75,7 @@ router.post("/chat", async (req, res) => {
 
 // GET /api/ai/models — fetch available Groq models
 router.get("/models", async (_req, res) => {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = getEnv().groqApiKey;
   if (!apiKey) {
     return res.json({ success: true, models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] });
   }

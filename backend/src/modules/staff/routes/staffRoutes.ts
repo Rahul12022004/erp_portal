@@ -1,8 +1,9 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import bcrypt from "bcryptjs";
 import School from "../../school/models/School";
 import Staff from "../models/Staff";
-import { createLog } from "../../../core/utils/createLog";
+
 import { sendTeacherCredentialsEmail } from "../../../core/utils/sendEmail";
 import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../../../core/utils/loginThrottle";
 import { signAuthToken } from "../../../core/utils/jwt";
@@ -181,7 +182,7 @@ router.post("/", async (req, res) => {
       schoolId,
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_STAFF",
       message: `Staff created: ${name} (${position})`,
       schoolId,
@@ -221,7 +222,7 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Staff not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_STAFF",
       message: `Staff updated: ${updated.name}`,
       schoolId: updated.schoolId,
@@ -245,7 +246,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Staff not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_STAFF",
       message: `Staff deleted: ${staff.name}`,
       schoolId: staff.schoolId,

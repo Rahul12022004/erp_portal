@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { getEnv } from "../../../core/config/env";
 
 type FetchFn = (
   input: string,
@@ -228,8 +229,8 @@ const createGroqRequest = async <T>({
   userPrompt: string;
   maxTokens: number;
 }): Promise<T | null> => {
-  const apiKey = process.env.GROQ_API_KEY;
-  const model = process.env.GROQ_MODEL || GROQ_DEFAULT_MODEL;
+  const apiKey = getEnv().groqApiKey;
+  const model = getEnv().groqModel || GROQ_DEFAULT_MODEL;
   const fetchFn = buildFetchFn();
 
   if (!apiKey || !fetchFn) {
@@ -724,7 +725,7 @@ export const buildFinanceImportPreview = async ({
   fileBuffer: Buffer;
   students: FinanceImportStudentCandidate[];
 }): Promise<FinanceImportPreviewPayload> => {
-  if (!process.env.GROQ_API_KEY) {
+  if (!getEnv().groqApiKey) {
     throw new Error(
       "GROQ_API_KEY is not configured in backend/.env. Add it before using AI finance import."
     );

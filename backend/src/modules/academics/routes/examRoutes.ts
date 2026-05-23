@@ -1,10 +1,12 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import mongoose from "mongoose";
 
 import Class from "../models/Class";
 import Exam from "../models/Exam";
 import Staff from "../../staff/models/Staff";
-import { createLog } from "../../../core/utils/createLog";
+
+import { getEnv } from "../../../core/config/env";
 
 const router = express.Router();
 
@@ -103,8 +105,8 @@ const tryGenerateExamWithGroq = async ({
   prompt: string;
   classOptions: string[];
 }) => {
-  const apiKey = process.env.GROQ_API_KEY;
-  const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+  const apiKey = getEnv().groqApiKey;
+  const model = getEnv().groqModel;
   const fetchFn = (globalThis as any).fetch as
     | ((input: string, init?: Record<string, unknown>) => Promise<any>)
     | undefined;
@@ -494,7 +496,7 @@ router.post("/ai-create", async (req, res) => {
       .populate("teacherId", "name email position status")
       .sort({ examDate: 1, startTime: 1 });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_EXAM_AI",
       message: `AI exam plan created with ${createdExams.length} exam(s)`,
       user: "School Admin",
@@ -634,7 +636,7 @@ router.post("/", async (req, res) => {
       .populate("uploads.teacherId", "name email position")
       .populate("teacherId", "name email position status");
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_EXAM",
       message: `Exam scheduled: ${title} for ${className} on ${examDate}`,
       user: "School Admin",
@@ -719,7 +721,7 @@ router.put("/:id", async (req, res) => {
       .populate("uploads.teacherId", "name email position")
       .populate("teacherId", "name email position status");
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_EXAM",
       message: `Exam updated: ${nextExam.title} for ${nextExam.className} on ${nextExam.examDate}`,
       user: "School Admin",
@@ -780,7 +782,7 @@ router.post("/:id/upload", async (req, res) => {
 
     await exam.save();
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPLOAD_EXAM_PAPER",
       message: `${teacher.name} uploaded a paper for ${exam.title}`,
       user: teacher.name,
@@ -807,7 +809,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Exam not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_EXAM",
       message: `Exam deleted: ${exam.title}`,
       user: "School Admin",

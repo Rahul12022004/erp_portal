@@ -1,13 +1,13 @@
 import express from "express";
 import cors from "cors";
 import connectDB, { getDatabaseStatus } from "./core/config/db";
-import { loadEnvironment } from "./core/config/env";
+import { initEnv } from "./core/config/env";
 
 import { moduleRoutes } from "./core/moduleLoader";
 import { seedDatabase } from "./seed";
 import { authenticateToken } from "./core/middleware/auth";
 
-loadEnvironment();
+const env = initEnv();
 
 const app = express();
 const defaultAllowedOrigins = [
@@ -17,12 +17,7 @@ const defaultAllowedOrigins = [
   "http://localhost:5173",
 ];
 
-const envAllowedOrigins = (process.env.FRONTEND_ORIGINS || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-const allowedOrigins = new Set([...defaultAllowedOrigins, ...envAllowedOrigins]);
+const allowedOrigins = new Set([...defaultAllowedOrigins, ...env.frontendOrigins]);
 
 function isLocalDevOrigin(origin: string) {
   try {
@@ -57,8 +52,7 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // ==========================
 // 🗄 DATABASE
 // ==========================
-const shouldSeedLocalData =
-  process.env.SEED_LOCAL_DATA === "true";
+const shouldSeedLocalData = env.seedLocalData;
 
 async function initializeDatabase() {
   await connectDB();
@@ -86,18 +80,15 @@ moduleRoutes.forEach(({ path, router, skipAuth }) => {
 // ==========================
 app.get("/api/health", (req, res) => {
   const db = getDatabaseStatus();
-  const hasSuperAdminEmail = Boolean((process.env.SUPER_ADMIN_EMAIL || "").trim());
-  const hasSuperAdminPassword = Boolean((process.env.SUPER_ADMIN_PASSWORD || "").trim());
-
   res.json({
     ok: true,
     dbConnected: db.connected,
     dbReadyState: db.readyState,
     dbLastError: db.lastError,
-    superAdminConfigured: hasSuperAdminEmail && hasSuperAdminPassword,
+    superAdminConfigured: Boolean(env.superAdminEmail && env.superAdminPassword),
     superAdminEnv: {
-      email: hasSuperAdminEmail,
-      password: hasSuperAdminPassword,
+      email: Boolean(env.superAdminEmail),
+      password: Boolean(env.superAdminPassword),
     },
   });
 });
@@ -124,7 +115,7 @@ app.use((error: unknown, req: express.Request, res: express.Response, next: expr
 // ==========================
 // 🚀 SERVER START
 // ==========================
-const PORT = process.env.PORT || 5000;
+const PORT = env.port;
 
 async function startServer() {
   try {

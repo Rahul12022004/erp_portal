@@ -1,7 +1,8 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 
 import Maintenance from "../models/Maintenance";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -62,7 +63,7 @@ router.post("/", async (req, res) => {
       schoolId,
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_MAINTENANCE_RECORD",
       message: `Maintenance recorded: ${title} at ${location}`,
       schoolId,
@@ -86,7 +87,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Maintenance record not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_MAINTENANCE_RECORD",
       message: `Maintenance record deleted: ${record.title}`,
       schoolId: record.schoolId,

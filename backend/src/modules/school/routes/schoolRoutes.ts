@@ -1,4 +1,5 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import School from "../models/School";
@@ -29,7 +30,8 @@ import Survey from "../../survey/models/Survey";
 import TeacherRoleAssignment from "../../staff/models/TeacherRoleAssignment";
 import Transport from "../../transport/models/Transport";
 import Visitor from "../../visitor/models/Visitor";
-import { createLog } from "../../../core/utils/createLog";
+
+import { getEnv } from "../../../core/config/env";
 import { sendSchoolAdminCredentialsEmail } from "../../../core/utils/sendEmail";
 import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../../../core/utils/loginThrottle";
 import { signAuthToken } from "../../../core/utils/jwt";
@@ -192,7 +194,7 @@ router.put("/:id/location", async (req, res) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_SCHOOL_GEOFENCE",
       message: `${updated.schoolInfo?.name} geofence updated`,
       schoolId: updated._id,
@@ -231,7 +233,7 @@ router.patch("/:id/location-lock", async (req, res) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: locked ? "LOCK_SCHOOL_GEOFENCE" : "UNLOCK_SCHOOL_GEOFENCE",
       message: `${updated.schoolInfo?.name} geofence ${locked ? "locked" : "unlocked"}`,
       schoolId: updated._id,
@@ -338,8 +340,8 @@ router.post("/super-admin-login", async (req, res) => {
       return res.status(400).json({ message: "Super admin login requires a gmail.com email address" });
     }
 
-    const expectedEmail = process.env.SUPER_ADMIN_EMAIL;
-    const expectedPassword = process.env.SUPER_ADMIN_PASSWORD;
+    const expectedEmail = getEnv().superAdminEmail;
+    const expectedPassword = getEnv().superAdminPassword;
     const normalizedExpectedEmail = String(expectedEmail || "").trim().toLowerCase();
 
     if (!expectedEmail || !expectedPassword) {
@@ -409,8 +411,8 @@ router.post("/super-admin/clear-database", authenticateToken, async (req, res) =
       return res.status(400).json({ message: "Type CLEAR DATABASE to confirm" });
     }
 
-    const expectedEmail = process.env.SUPER_ADMIN_EMAIL;
-    const expectedPassword = process.env.SUPER_ADMIN_PASSWORD;
+    const expectedEmail = getEnv().superAdminEmail;
+    const expectedPassword = getEnv().superAdminPassword;
     const normalizedExpectedEmail = String(expectedEmail || "").trim().toLowerCase();
 
     if (!expectedEmail || !expectedPassword) {
@@ -551,7 +553,7 @@ router.post("/register", async (req, res) => {
     }
 
     // Create log entry
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "SCHOOL_REGISTERED",
       message: `New school registered: ${schoolName}`,
       schoolId: newSchool._id,
@@ -616,7 +618,7 @@ router.post("/", async (req, res) => {
 
     const school = await School.create(newSchoolData);
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_SCHOOL",
       message: `School created: ${school.schoolInfo?.name}`,
       schoolId: school._id,
@@ -678,7 +680,7 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_SCHOOL",
       message: `${updated.schoolInfo?.name} updated`,
       schoolId: updated._id,
@@ -738,7 +740,7 @@ router.delete("/:id", async (req, res) => {
 
     await School.findByIdAndDelete(schoolId);
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_SCHOOL",
       message: `${school.schoolInfo?.name} deleted with all related records`,
     });
@@ -772,7 +774,7 @@ router.put("/toggle/:id", async (req, res) => {
       { new: true }
     );
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "TOGGLE_ADMIN",
       message: `${school.schoolInfo?.name} admin ${newStatus}`,
       schoolId: school._id,
@@ -846,7 +848,7 @@ router.put("/upgrade/:id", async (req, res) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPGRADE_SUBSCRIPTION",
       message: `${updated.schoolInfo?.name} moved to ${subscriptionPlan}`,
       schoolId: updated._id,
@@ -988,7 +990,7 @@ router.post("/seed-dummy", async (req, res) => {
       },
     ]);
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "SEED_DUMMY_DATA",
       message: `Seeded dummy school and ${teachers.length} teachers`,
       schoolId: school._id,

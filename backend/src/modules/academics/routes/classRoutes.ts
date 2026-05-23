@@ -1,7 +1,8 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import Class from "../models/Class";
 import Student from "../../students/models/Student";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -218,7 +219,7 @@ router.post("/", async (req, res) => {
 
     const classWithTeacher = await newClass.populate("classTeacher", "name email position");
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_CLASS",
       message: `Class created: ${name}`,
       schoolId,
@@ -273,7 +274,7 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Class not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_CLASS",
       message: `Class updated: ${updated.name}`,
       schoolId: updated.schoolId,
@@ -297,7 +298,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Class not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_CLASS",
       message: `Class deleted: ${classDoc.name}`,
       schoolId: classDoc.schoolId,

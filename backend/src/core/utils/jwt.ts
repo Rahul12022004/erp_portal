@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { getEnv } from "../config/env";
 
 export type AuthTokenPayload = {
   userId: string;
@@ -7,16 +8,12 @@ export type AuthTokenPayload = {
   schoolId?: string;
 };
 
-const TOKEN_TTL = (process.env.JWT_EXPIRES_IN || "12h") as jwt.SignOptions["expiresIn"];
-
-function getJwtSecret() {
-  return process.env.JWT_SECRET || "dev-only-jwt-secret-change-in-production";
-}
-
 export function signAuthToken(payload: AuthTokenPayload) {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: TOKEN_TTL });
+  const { jwtSecret, jwtExpiresIn } = getEnv();
+  return jwt.sign(payload, jwtSecret, { expiresIn: jwtExpiresIn as jwt.SignOptions["expiresIn"] });
 }
 
 export function verifyAuthToken(token: string) {
-  return jwt.verify(token, getJwtSecret()) as AuthTokenPayload;
+  const { jwtSecret } = getEnv();
+  return jwt.verify(token, jwtSecret) as AuthTokenPayload;
 }

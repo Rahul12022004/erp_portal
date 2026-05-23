@@ -1,12 +1,8 @@
 import nodemailer from "nodemailer";
+import { getEnv } from "../config/env";
 
 const getSmtpConfig = () => {
-  const host = process.env.SMTP_HOST || "smtp.gmail.com";
-  const port = Number(process.env.SMTP_PORT || 587);
-  const secure = String(process.env.SMTP_SECURE || "false").toLowerCase() === "true";
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
-
+  const { smtpHost: host, smtpPort: port, smtpSecure: secure, smtpUser: user, smtpPass: pass } = getEnv();
   return {
     host,
     port,
@@ -93,7 +89,7 @@ export const sendSchoolAdminCredentialsEmail = async (
     `;
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "noreply@erp-portal.com",
+      from: getEnv().smtpFrom,
       to: adminEmail,
       subject: `Welcome to ERP Portal - ${schoolName} Admin Credentials`,
       html: htmlContent,
@@ -174,7 +170,7 @@ export const sendTeacherCredentialsEmail = async (
 
     // Send email
     const mailOptions = {
-      from: process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "noreply@edusync.com",
+      from: getEnv().smtpFrom,
       to: teacherEmail,
       subject: `Welcome to ${schoolName} - Teacher Login Credentials`,
       html: htmlContent,
@@ -256,7 +252,7 @@ export const sendTeacherRoleCredentialsEmail = async ({
     `;
 
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "noreply@edusync.com",
+      from: getEnv().smtpFrom,
       to: teacherEmail,
       subject: `${schoolName} - Role Credentials for ${roleName}`,
       html: htmlContent,
@@ -380,7 +376,7 @@ export const sendStudentFeeReceiptEmail = async ({
     `;
 
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "noreply@edusync.com",
+      from: getEnv().smtpFrom,
       to: studentEmail,
       subject: `${schoolName} Fee Receipt - ${receiptNumber}`,
       html: htmlContent,

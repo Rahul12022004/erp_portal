@@ -1,6 +1,7 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import Visitor from "../models/Visitor";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -115,7 +116,7 @@ router.post("/", async (req, res) => {
       approvalStatus,
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_VISITOR_PASS",
       message: `Visitor pass created for ${visitor.fullName || "Visitor"}`,
       schoolId,
@@ -168,7 +169,7 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Visitor pass not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_VISITOR_PASS",
       message: `Visitor pass updated for ${updatedVisitor.fullName || "Visitor"}`,
       schoolId: updatedVisitor.schoolId,
@@ -205,7 +206,7 @@ router.patch("/scan-exit", async (req, res) => {
       return res.status(404).json({ message: "Visitor pass not found for scan" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "SCAN_VISITOR_EXIT",
       message: `Visitor exit scanned for ${visitor.fullName || "Visitor"} (${visitor.passId})`,
       schoolId,

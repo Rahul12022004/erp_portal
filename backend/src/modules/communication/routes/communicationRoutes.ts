@@ -1,11 +1,12 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import mongoose from "mongoose";
 import Campaign from "../models/Campaign";
 import CampaignLog from "../models/CampaignLog";
 import MessageTemplate from "../models/MessageTemplate";
 import CommunicationTrigger, { EVENT_TYPES } from "../models/CommunicationTrigger";
 import { fireEvent } from "../services/triggerEngine";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -240,7 +241,7 @@ router.post("/campaigns", async (req, res) => {
       audience: audience ?? [],
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_CAMPAIGN",
       message: `Campaign created: ${campaign.title}`,
       schoolId,

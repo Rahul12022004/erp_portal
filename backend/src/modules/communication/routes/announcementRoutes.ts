@@ -1,6 +1,8 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import Announcement from "../models/Announcement";
-import { createLog } from "../../../core/utils/createLog";
+
+import { getEnv } from "../../../core/config/env";
 
 const router = express.Router();
 
@@ -38,7 +40,7 @@ const tryGenerateWithGemini = async (
   description: string,
   author: string
 ) => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getEnv().geminiApiKey;
   const fetchFn = (globalThis as any).fetch as
     | ((input: string, init?: Record<string, unknown>) => Promise<any>)
     | undefined;
@@ -110,8 +112,8 @@ const tryGenerateWithGroq = async (
   description: string,
   author: string
 ) => {
-  const apiKey = process.env.GROQ_API_KEY;
-  const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+  const apiKey = getEnv().groqApiKey;
+  const model = getEnv().groqModel;
   const fetchFn = (globalThis as any).fetch as
     | ((input: string, init?: Record<string, unknown>) => Promise<any>)
     | undefined;
@@ -265,7 +267,7 @@ router.post("/", async (req, res) => {
       schoolId,
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_ANNOUNCEMENT",
       message: `Announcement created: ${title}`,
       schoolId,
@@ -289,7 +291,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Announcement not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_ANNOUNCEMENT",
       message: `Announcement deleted: ${announcement.title}`,
       schoolId: announcement.schoolId,

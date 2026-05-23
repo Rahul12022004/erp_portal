@@ -1,7 +1,5 @@
-﻿import type { RouteEntry } from '../../shared/types';
+import type { RouteEntry } from '../../shared/types';
+import './events'; // registers audit.entry subscriber on eventBus
 
-// Routes not yet active — implement in api/ then register here
 const routes: RouteEntry[] = [];
-
 export default routes;
-

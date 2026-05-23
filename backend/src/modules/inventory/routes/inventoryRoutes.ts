@@ -1,6 +1,7 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import InventoryItem from "../models/InventoryItem";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -225,7 +226,7 @@ router.post("/", async (req, res) => {
 
     const item = asInventoryItemRecord(created);
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_INVENTORY_ITEM",
       message: `Inventory item created: ${item.name} (${item.itemCode})`,
       schoolId,
@@ -283,7 +284,7 @@ router.put("/:id", async (req, res) => {
 
     await item.save();
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_INVENTORY_ITEM",
       message: `Inventory item updated: ${item.name}`,
       schoolId: item.schoolId,
@@ -347,7 +348,7 @@ router.post("/:id/add-stock", async (req, res) => {
       return res.status(result.status).json({ message: result.message });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "ADD_INVENTORY_STOCK",
       message: `Stock added for ${result.item.name}: +${toNumber(req.body.quantity)}`,
       schoolId: result.item.schoolId,
@@ -367,7 +368,7 @@ router.post("/:id/issue-item", async (req, res) => {
       return res.status(result.status).json({ message: result.message });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "ISSUE_INVENTORY_ITEM",
       message: `Item issued ${result.item.name}: -${toNumber(req.body.quantity)}`,
       schoolId: result.item.schoolId,
@@ -387,7 +388,7 @@ router.post("/:id/return-item", async (req, res) => {
       return res.status(result.status).json({ message: result.message });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "RETURN_INVENTORY_ITEM",
       message: `Item returned ${result.item.name}: +${toNumber(req.body.quantity)}`,
       schoolId: result.item.schoolId,
@@ -407,7 +408,7 @@ router.post("/:id/mark-damaged", async (req, res) => {
       return res.status(result.status).json({ message: result.message });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DAMAGED_INVENTORY_ITEM",
       message: `Item marked damaged ${result.item.name}: -${toNumber(req.body.quantity)}`,
       schoolId: result.item.schoolId,
@@ -444,7 +445,7 @@ router.post("/:id/transfer-location", async (req, res) => {
 
     await item.save();
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "TRANSFER_INVENTORY_LOCATION",
       message: `Location transferred for ${item.name}`,
       schoolId: item.schoolId,
@@ -470,7 +471,7 @@ router.delete("/:id", async (req, res) => {
 
     const item = asInventoryItemRecord(found);
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_INVENTORY_ITEM",
       message: `Inventory item deleted: ${item.name}`,
       schoolId: item.schoolId,

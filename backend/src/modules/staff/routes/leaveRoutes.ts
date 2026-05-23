@@ -1,8 +1,9 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 
 import LeaveApplication from "../models/LeaveApplication";
 import Staff from "../models/Staff";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -97,7 +98,7 @@ router.post("/", async (req, res) => {
       status: "Pending",
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_LEAVE_APPLICATION",
       message: `${leaveType} leave applied: ${title}`,
       user: teacher.name,
@@ -132,7 +133,7 @@ router.patch("/:id/status", async (req, res) => {
       return res.status(404).json({ message: "Leave application not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_LEAVE_STATUS",
       message: `Leave status updated to ${status}: ${leave.title}`,
       schoolId: leave.schoolId,

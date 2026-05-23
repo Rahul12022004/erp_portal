@@ -1,4 +1,5 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 
 import Class from "../models/Class";
 import Exam from "../models/Exam";
@@ -6,7 +7,7 @@ import Mark from "../models/Mark";
 import School from "../../school/models/School";
 import Staff from "../../staff/models/Staff";
 import Student from "../../students/models/Student";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -246,7 +247,7 @@ router.post("/", async (req, res) => {
       )
     );
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "SAVE_MARKS",
       message: `Marks uploaded for ${exam.title} (${exam.className})`,
       user: teacher?.name || "Teacher",

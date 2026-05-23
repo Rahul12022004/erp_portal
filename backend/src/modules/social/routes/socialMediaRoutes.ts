@@ -1,6 +1,7 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import SocialMedia from "../models/SocialMedia";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -48,7 +49,7 @@ router.post("/", async (req, res) => {
       schoolId,
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_SOCIAL_MEDIA",
       message: `Social media account created: ${account.platform} - ${account.accountName}`,
       schoolId,
@@ -78,7 +79,7 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Social media account not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_SOCIAL_MEDIA",
       message: `Social media account updated: ${account.platform} - ${account.accountName}`,
       schoolId: account.schoolId,
@@ -102,7 +103,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Social media account not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_SOCIAL_MEDIA",
       message: `Social media account deleted: ${account.platform} - ${account.accountName}`,
       schoolId: account.schoolId,

@@ -1,7 +1,8 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 
 import Survey from "../models/Survey";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -91,7 +92,7 @@ router.post("/", async (req, res) => {
       schoolId,
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_SURVEY",
       message: `${normalizedType} created: ${title}`,
       schoolId,
@@ -125,7 +126,7 @@ router.patch("/:id/status", async (req, res) => {
       return res.status(404).json({ message: "Survey not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_SURVEY_STATUS",
       message: `Survey status updated to ${status}: ${survey.title}`,
       schoolId: survey.schoolId,
@@ -149,7 +150,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Survey not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_SURVEY",
       message: `Survey deleted: ${survey.title}`,
       schoolId: survey.schoolId,

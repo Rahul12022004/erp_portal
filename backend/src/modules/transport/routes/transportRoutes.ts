@@ -1,6 +1,7 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import Transport from "../models/Transport";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -88,7 +89,7 @@ router.post("/", async (req, res) => {
 
     const populatedTransport = await transport.populate("assignedStudents", "name class rollNumber");
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_TRANSPORT",
       message: `Bus created: ${busNumber} (${routeName})`,
       schoolId,
@@ -121,7 +122,7 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Bus not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "UPDATE_TRANSPORT",
       message: `Bus updated: ${updatedBus.busNumber}`,
       schoolId: updatedBus.schoolId,
@@ -183,7 +184,7 @@ router.post("/:id/readings", async (req, res) => {
 
     await bus.save();
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "ADD_TRANSPORT_READING",
       message: `Reading added for bus ${bus.busNumber} (${currentDriverName})`,
       schoolId: (bus as any).schoolId,
@@ -208,7 +209,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Bus not found" });
     }
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "DELETE_TRANSPORT",
       message: `Bus deleted: ${bus.busNumber}`,
       schoolId: bus.schoolId,

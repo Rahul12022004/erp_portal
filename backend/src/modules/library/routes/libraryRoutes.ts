@@ -1,8 +1,9 @@
-import express from "express";
+﻿import express from "express";
+import { eventBus } from "../../../core/events";
 import LibraryAssignment from "../models/LibraryAssignment";
 import LibraryBook from "../models/LibraryBook";
 import Student from "../../students/models/Student";
-import { createLog } from "../../../core/utils/createLog";
+
 
 const router = express.Router();
 
@@ -144,7 +145,7 @@ router.post("/books", async (req, res) => {
       schoolId,
     });
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "CREATE_LIBRARY_BOOK",
       message: `Library book added: ${title}`,
       schoolId,
@@ -222,7 +223,7 @@ router.post("/assign", async (req, res) => {
       { path: "studentId", select: "name class rollNumber" },
     ]);
 
-    await createLog({
+    eventBus.publish("audit.entry", {
       action: "ASSIGN_LIBRARY_BOOK",
       message: `Book assigned to student`,
       schoolId,
