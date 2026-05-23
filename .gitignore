@@ -1,5 +1,36 @@
+# ============================================================
+# Dependencies
+# ============================================================
+node_modules/
+.pnp
+.pnp.js
+
+# ============================================================
+# Build outputs
+# ============================================================
+dist/
+dist-ssr/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# ============================================================
+# Environment / secrets
+# ============================================================
+.env
+.env.*
+!.env.example
+*.local
+backend/.env
+backend/.env.production
+backend/.env.staging
+
+# ============================================================
 # Logs
-logs
+# ============================================================
+logs/
+!backend/src/modules/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,26 +38,72 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# ============================================================
+# Runtime / temp
+# ============================================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.pid
+*.seed
 
-.env
-.env.*
-backend/.env.production
-*.local
+# ============================================================
+# OS artifacts
+# ============================================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# Editor directories and files
+# ============================================================
+# Editor / IDE
+# ============================================================
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.env
-backend/.env
-# Added by code-review-graph
+*.swp
+
+# ============================================================
+# AI / Dev tooling (not part of the application)
+# ============================================================
+.claude/
+.kiro/
 .code-review-graph/
+.venv/
+.opencode.json
+.mcp.json
+.cursorrules
+.windsurfrules
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+
+# ============================================================
+# Large binary / ML model files
+# ============================================================
+*.traineddata
+*.bin
+*.onnx
+*.pt
+*.pkl
+
+# ============================================================
+# Test coverage
+# ============================================================
+coverage/
+.nyc_output/
+
+# ============================================================
+# Misc
+# ============================================================
+*.local
+.cache/
