@@ -73,3 +73,13 @@ export const moduleRoutes: RouteEntry[] = [
   ...transportRoutes,
   ...visitorRoutes,
 ];
+
+// Guard: fail fast if two modules register the same path
+const paths = moduleRoutes.map(r => r.path);
+const seen = new Set<string>();
+for (const p of paths) {
+  if (seen.has(p)) {
+    throw new Error(`Duplicate route path detected in moduleLoader: "${p}". Two modules are registering the same path.`);
+  }
+  seen.add(p);
+}
