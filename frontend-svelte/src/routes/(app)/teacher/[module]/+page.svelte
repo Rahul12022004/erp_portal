@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { _ } from 'svelte-i18n';
 
-  const moduleName = $derived($page.params.module);
+  const moduleName = $derived($page.params.module ?? '');
   const titleKey = $derived(`common.nav.${moduleName}`);
 </script>
 
@@ -11,7 +11,7 @@
 <div class="space-y-6">
   <div>
     <h1 class="text-2xl font-bold text-gray-900 capitalize">
-      {$_(titleKey, undefined, { default: moduleName })}
+      {$_(titleKey, { default: moduleName })}
     </h1>
     <p class="text-gray-400 text-sm mt-1">Module content coming soon.</p>
   </div>

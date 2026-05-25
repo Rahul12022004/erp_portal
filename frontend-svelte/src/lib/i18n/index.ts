@@ -1,9 +1,9 @@
 import { register, init, getLocaleFromNavigator } from 'svelte-i18n';
 
 export function setupI18n() {
-  register('en', () => import('../../locales/en.json'));
-  register('hi', () => import('../../locales/hi.json'));
-  register('mr', () => import('../../locales/mr.json'));
+  register('en', () => import('../../../locales/en.json'));
+  register('hi', () => import('../../../locales/hi.json'));
+  register('mr', () => import('../../../locales/mr.json'));
 
   const savedLocale =
     typeof window !== 'undefined' ? localStorage.getItem('locale') : null;

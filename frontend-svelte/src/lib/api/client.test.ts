@@ -39,8 +39,8 @@ describe('api.get', () => {
 
     const err = await api.get('/api/secure').catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
-    expect(err.status).toBe(401);
-    expect(err.message).toBe('Token expired');
+    expect((err as ApiError).status).toBe(401);
+    expect((err as ApiError).message).toBe('Token expired');
   });
 
   it('uses statusText when response body is not JSON', async () => {
@@ -53,7 +53,7 @@ describe('api.get', () => {
 
     const err = await api.get('/api/fail').catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
-    expect(err.message).toBe('Internal Server Error');
+    expect((err as ApiError).message).toBe('Internal Server Error');
   });
 
   it('uses custom fetch from opts when provided', async () => {

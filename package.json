@@ -10,6 +10,11 @@
     "build:backend": "npm run build --prefix backend",
     "start": "npm run start --prefix backend",
     "test": "npm run test --prefix frontend",
-    "lint": "npm run lint --prefix frontend"
+    "lint": "npm run lint --prefix frontend",
+    "dev:svelte": "npm run dev --prefix frontend-svelte",
+    "build:svelte": "npm run build --prefix frontend-svelte",
+    "test:svelte": "npm run test --prefix frontend-svelte",
+    "lint:svelte": "npm run lint --prefix frontend-svelte",
+    "check:svelte": "npm run check --prefix frontend-svelte"
   }
 }
