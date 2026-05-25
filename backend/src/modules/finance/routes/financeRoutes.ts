@@ -15,6 +15,13 @@ import SalaryRole from "../models/SalaryRole";
 import InvestorLedger from "../models/InvestorLedger";
 
 import { sendStudentFeeReceiptEmail } from "../../../core/utils/sendEmail";
+import {
+  auditFeePayment,
+  auditFeeStructureCreate,
+  auditFeeStructureUpdate,
+  auditFeeStructureDelete,
+  auditTransportStatusChange,
+} from "../../../core/observability";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -445,7 +452,7 @@ const buildAssignmentSummary = async (
  * POST /api/finance/class-fee-structures
  * Create a new class fee structure and auto-assign to students
  */
-router.post("/class-fee-structures", async (req: Request, res: Response) => {
+router.post("/class-fee-structures", auditFeeStructureCreate, async (req: Request, res: Response) => {
   try {
     const {
       schoolId,
@@ -538,7 +545,7 @@ router.post("/class-fee-structures", async (req: Request, res: Response) => {
  * PUT /api/finance/class-fee-structures/:id
  * Update a class fee structure and sync assignments
  */
-router.put("/class-fee-structures/:id", async (req: Request, res: Response) => {
+router.put("/class-fee-structures/:id", auditFeeStructureUpdate, async (req: Request, res: Response) => {
   try {
     const id = getSingleString(req.params.id);
     const {
@@ -630,7 +637,7 @@ router.put("/class-fee-structures/:id", async (req: Request, res: Response) => {
  * DELETE /api/finance/class-fee-structures/:id
  * Delete a class fee structure and associated assignments
  */
-router.delete("/class-fee-structures/:id", async (req: Request, res: Response) => {
+router.delete("/class-fee-structures/:id", auditFeeStructureDelete, async (req: Request, res: Response) => {
   try {
     const id = getSingleString(req.params.id);
     const { schoolId } = req.body;
@@ -1108,7 +1115,7 @@ router.post("/student-fee-assignments/ensure", async (req: Request, res: Respons
  * POST /api/finance/student-fee-payments
  * Record a student payment
  */
-router.post("/student-fee-payments", async (req: Request, res: Response) => {
+router.post("/student-fee-payments", auditFeePayment, async (req: Request, res: Response) => {
   try {
     const {
       schoolId,
@@ -1196,7 +1203,7 @@ router.get("/student-fee-payments/:studentId", async (req: Request, res: Respons
  * PATCH /api/finance/students/:studentId/transport-status
  * Update student transport status and recalculate fees
  */
-router.patch("/students/:studentId/transport-status", async (req: Request, res: Response) => {
+router.patch("/students/:studentId/transport-status", auditTransportStatusChange, async (req: Request, res: Response) => {
   try {
     const studentId = getSingleString(req.params.studentId);
     const { schoolId, transport_status } = req.body;

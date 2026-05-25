@@ -1,130 +1,76 @@
+import { lazy, Suspense } from "react";
 import { useParams } from "react-router-dom";
 import AIAssistant from "@/components/AIAssistant";
-import AcademicsModule from "@/modules/academics/AcademicsModule";
-import AdmissionsModule from "@/modules/admissions/AdmissionsModule";
-import ApprovalsModule from "@/modules/approvals/ApprovalsModule";
-import AttendanceModule from "@/modules/attendance/AttendenceModule";
-import ClassModule from "@/modules/classes/ClassModule";
-import CommunicationModule from "@/modules/communication/CommunicationModule";
-import DownloadsModule from "@/modules/downloads/DownloadsModule";
-import ExamsModule from "@/modules/exams/ExamsModule";
-import FinanceModule from "@/modules/finance/FinanceModule";
-import HostelModule from "@/modules/hostel/HostelModule";
-import HRModule from "@/modules/hr/HRModule";
-import InventoryModule from "@/modules/inventory/InventoryModule";
-import LibraryModule from "@/modules/library/LibraryModule";
-import MaintenanceModule from "@/modules/maintenance/MaintenanceModule";
-import StaffModule from "@/modules/staff/StaffModule";
-import StudentModule from "@/modules/students/StudentModule";
-import SupportModule from "@/modules/support/SupportModule";
-import SurveyModule from "@/modules/survey/SurveyModule";
-import TransportModule from "@/modules/transport/TransportModule";
-import SportsModule from "@/modules/sports/SportsModule";
-import HouseModule from "@/modules/house/HouseModule";
-import SocialMediaModule from "@/modules/social-media/SocialMediaModule";
-import VisitorModule from "@/modules/visitor/VisitorModule";
-import DataImportModule from "@/modules/data-import/DataImportModule";
-import TimetableModule from "@/modules/timetable/TimetableModule";
-import SalaryModule from "@/modules/salary/SalaryModule";
+import { ModuleErrorBoundary } from "@/components/ModuleErrorBoundary";
+import { ModuleFallback } from "@/shared/components/ModuleFallback";
+
+const moduleComponents = {
+  academics:       lazy(() => import("@modules/academics")),
+  admissions:      lazy(() => import("@modules/admissions")),
+  approvals:       lazy(() => import("@modules/approvals")),
+  attendance:      lazy(() => import("@modules/attendance")),
+  classes:         lazy(() => import("@modules/classes")),
+  "digital-classroom": lazy(() => import("@modules/classes")),
+  communication:   lazy(() => import("@modules/communication")),
+  "data-import":   lazy(() => import("@modules/data-import")),
+  downloads:       lazy(() => import("@modules/downloads")),
+  exams:           lazy(() => import("@modules/exams")),
+  finance:         lazy(() => import("@modules/finance")),
+  hostel:          lazy(() => import("@modules/hostel")),
+  discipline:      lazy(() => import("@modules/house")),
+  hr:              lazy(() => import("@modules/hr")),
+  inventory:       lazy(() => import("@modules/inventory")),
+  library:         lazy(() => import("@modules/library")),
+  maintenance:     lazy(() => import("@modules/maintenance")),
+  salary:          lazy(() => import("@modules/salary")),
+  "social-media":  lazy(() => import("@modules/social-media")),
+  sports:          lazy(() => import("@modules/sports")),
+  staff:           lazy(() => import("@modules/staff")),
+  students:        lazy(() => import("@modules/students")),
+  support:         lazy(() => import("@modules/support")),
+  survey:          lazy(() => import("@modules/survey")),
+  "time-table":    lazy(() => import("@modules/timetable")),
+  transport:       lazy(() => import("@modules/transport")),
+  visitor:         lazy(() => import("@modules/visitor")),
+} as const;
+
+type ModuleKey = keyof typeof moduleComponents;
 
 const moduleNames: Record<string, string> = {
-  communication: "Communication",
-  academics: "Academics",
-  attendance: "Attendance",
-  classes: "Classes",
-  students: "Students",
-  staff: "Staff",
-  exams: "Exams",
+  communication:       "Communication",
+  academics:           "Academics",
+  attendance:          "Attendance",
+  classes:             "Classes",
+  students:            "Students",
+  staff:               "Staff",
+  exams:               "Exams",
   "digital-classroom": "Classes",
-  finance: "Finance",
-  admissions: "Admissions",
-  hr: "HR",
-  salary: "Salary Management",
-  transport: "Transport",
-  hostel: "Hostel",
-  library: "Library",
-  inventory: "Inventory",
-  approvals: "Approvals",
-  maintenance: "Maintenance",
-  discipline: "House",
-  survey: "Survey",
-  downloads: "Downloads",
-  support: "Support",
-  sports: "Sports",
-  "social-media": "Social Media",
-  visitor: "Visitor",
-  "data-import": "Data Import",
-  "time-table": "Timetable Management",
+  finance:             "Finance",
+  admissions:          "Admissions",
+  hr:                  "HR",
+  salary:              "Salary Management",
+  transport:           "Transport",
+  hostel:              "Hostel",
+  library:             "Library",
+  inventory:           "Inventory",
+  approvals:           "Approvals",
+  maintenance:         "Maintenance",
+  discipline:          "House",
+  survey:              "Survey",
+  downloads:           "Downloads",
+  support:             "Support",
+  sports:              "Sports",
+  "social-media":      "Social Media",
+  visitor:             "Visitor",
+  "data-import":       "Data Import",
+  "time-table":        "Timetable Management",
 };
 
 export default function SchoolModulePage() {
   const { module } = useParams();
-  const title = moduleNames[module || ""] || module || "Module";
-
-  const renderModule = () => {
-    switch (module) {
-      case "communication":
-        return <CommunicationModule />;
-      case "academics":
-        return <AcademicsModule />;
-      case "attendance":
-        return <AttendanceModule />;
-      case "classes":
-        return <ClassModule />;
-      case "students":
-        return <StudentModule />;
-      case "staff":
-        return <StaffModule />;
-      case "exams":
-        return <ExamsModule />;
-      case "digital-classroom":
-        return <ClassModule />;
-      case "finance":
-        return <FinanceModule />;
-      case "admissions":
-        return <AdmissionsModule />;
-      case "hr":
-        return <HRModule />;
-      case "salary":
-        return <SalaryModule />;
-      case "transport":
-        return <TransportModule />;
-      case "hostel":
-        return <HostelModule />;
-      case "library":
-        return <LibraryModule />;
-      case "inventory":
-        return <InventoryModule />;
-      case "approvals":
-        return <ApprovalsModule />;
-      case "maintenance":
-        return <MaintenanceModule />;
-      case "discipline":
-        return <HouseModule />;
-      case "survey":
-        return <SurveyModule />;
-      case "downloads":
-        return <DownloadsModule />;
-      case "sports":
-        return <SportsModule />;
-      case "social-media":
-        return <SocialMediaModule />;
-      case "support":
-        return <SupportModule />;
-      case "visitor":
-        return <VisitorModule />;
-      case "data-import":
-        return <DataImportModule />;
-      case "time-table":
-        return <TimetableModule />;
-      default:
-        return (
-          <div className="stat-card flex h-64 items-center justify-center">
-            <p className="text-lg text-muted-foreground">{title} - Coming Soon</p>
-          </div>
-        );
-    }
-  };
+  const key = module as ModuleKey | undefined;
+  const title = moduleNames[key ?? ""] ?? key ?? "Module";
+  const LazyModule = key ? moduleComponents[key] : null;
 
   return (
     <div className="space-y-6">
@@ -133,7 +79,17 @@ export default function SchoolModulePage() {
         <p className="text-sm text-muted-foreground">Manage {title.toLowerCase()}</p>
       </div>
 
-      {renderModule()}
+      {LazyModule ? (
+        <ModuleErrorBoundary module={title}>
+          <Suspense fallback={<ModuleFallback />}>
+            <LazyModule />
+          </Suspense>
+        </ModuleErrorBoundary>
+      ) : (
+        <div className="stat-card flex h-64 items-center justify-center">
+          <p className="text-lg text-muted-foreground">{title} - Coming Soon</p>
+        </div>
+      )}
 
       <AIAssistant />
     </div>

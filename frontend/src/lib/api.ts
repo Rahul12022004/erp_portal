@@ -100,10 +100,10 @@ function withAuthHeaders(init?: RequestInit): RequestInit {
 
 function isPublicAuthUrl(url: string) {
   return (
-    url.includes("/api/schools/login") ||
-    url.includes("/api/staff/login") ||
-    url.includes("/api/schools/super-admin-login") ||
-    url.includes("/api/schools/register")
+    url.includes("/api/auth/school/login") ||
+    url.includes("/api/auth/staff/login") ||
+    url.includes("/api/auth/super-admin/login") ||
+    url.includes("/api/auth/school/register")
   );
 }
 

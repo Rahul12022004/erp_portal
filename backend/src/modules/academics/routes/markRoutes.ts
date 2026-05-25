@@ -1,5 +1,6 @@
 ﻿import express from "express";
 import { eventBus } from "../../../core/events";
+import { auditMarkSubmit } from "../../../core/observability";
 
 import Class from "../models/Class";
 import Exam from "../models/Exam";
@@ -187,7 +188,7 @@ router.get("/:schoolId/:teacherId/:examId", async (req, res) => {
 // ==========================
 // ➕ SAVE MARKS
 // ==========================
-router.post("/", async (req, res) => {
+router.post("/", auditMarkSubmit, async (req, res) => {
   try {
     const { examId, teacherId, schoolId, entries } = req.body;
 

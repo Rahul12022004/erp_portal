@@ -1,18 +1,14 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { clearStoredSessions, persistRoleUser, readAuthToken } from "@/lib/auth";
+import {
+  DEFAULT_TEACHER_MODULES,
+  type TeacherPermissions,
+  type User,
+  type UserRole,
+} from "@/lib/authTypes";
 
-export type UserRole = "super-admin" | "school-admin" | "teacher";
-
-export interface TeacherPermissions {
-  modules: string[];
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-}
+export { DEFAULT_TEACHER_MODULES };
+export type { TeacherPermissions, User, UserRole };
 
 interface RoleContextType {
   role: UserRole;
@@ -26,11 +22,6 @@ interface RoleContextType {
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
-
-export const DEFAULT_TEACHER_MODULES = [
-  "dashboard", "students", "attendance", "assignments", "marks",
-  "exams", "digital-classroom", "timetable", "communication","leave"
-];
 
 function isUserRole(value: string | null): value is UserRole {
   return value === "super-admin" || value === "school-admin" || value === "teacher";

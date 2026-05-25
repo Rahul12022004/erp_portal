@@ -1,4 +1,4 @@
-import type { SchoolClass } from "@/modules/finance/types";
+import type { SchoolClass } from "@/lib/financeTypes";
 
 /** Returns one entry per unique class name (first section's _id is kept). */
 export const getUniqueClasses = (classes: SchoolClass[]): SchoolClass[] => {

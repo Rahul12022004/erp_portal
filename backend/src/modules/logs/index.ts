@@ -1,4 +1,5 @@
 import type { RouteEntry } from '../../shared/types';
+import './events';
 import logRoutes from './routes/logRoutes';
 
 const routes: RouteEntry[] = [

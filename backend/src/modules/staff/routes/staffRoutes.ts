@@ -5,104 +5,10 @@ import School from "../../school/models/School";
 import Staff from "../models/Staff";
 
 import { sendTeacherCredentialsEmail } from "../../../core/utils/sendEmail";
-import { clearLoginFailures, getLoginBlockInfo, getLoginThrottleKey, recordLoginFailure } from "../../../core/utils/loginThrottle";
-import { signAuthToken } from "../../../core/utils/jwt";
 import { authenticateToken } from "../../../core/middleware/auth";
 
 const router = express.Router();
 
-// ==========================
-// 🔐 TEACHER LOGIN
-// ==========================
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const throttleKey = getLoginThrottleKey(req.ip, String(email || ""));
-    const blockInfo = getLoginBlockInfo(throttleKey);
-
-    if (blockInfo.blocked) {
-      return res.status(429).json({
-        message: "Too many failed login attempts. Please try again later.",
-        retryAfterSeconds: blockInfo.retryAfterSeconds,
-      });
-    }
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "Required fields: email, password" });
-    }
-
-    const teacher = await Staff.findOne({
-      email,
-      position: /^Teacher$/i,
-      status: "Active",
-    }).select("+password");
-
-    if (!teacher) {
-      recordLoginFailure(throttleKey);
-      return res.status(404).json({ message: "Teacher not found" });
-    }
-
-    const storedPassword = String(teacher.password || "");
-    if (!storedPassword) {
-      recordLoginFailure(throttleKey);
-      return res.status(401).json({ message: "Teacher password not set. Contact school admin." });
-    }
-
-    const passwordValid = storedPassword.startsWith("$2")
-      ? await bcrypt.compare(password, storedPassword)
-      : storedPassword === password;
-
-    if (!passwordValid) {
-      recordLoginFailure(throttleKey);
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    if (!storedPassword.startsWith("$2")) {
-      const upgradedHash = await bcrypt.hash(password, 12);
-      await Staff.updateOne({ _id: teacher._id }, { $set: { password: upgradedHash } });
-    }
-
-    const school = await School.findById(teacher.schoolId);
-    if (!school) {
-      return res.status(404).json({ message: "School not found for teacher" });
-    }
-
-    clearLoginFailures(throttleKey);
-
-    const token = signAuthToken({
-      userId: String(teacher._id),
-      email: String(teacher.email || ""),
-      role: "teacher",
-      schoolId: String(school._id),
-    });
-
-    res.json({
-      success: true,
-      token,
-      teacher: {
-        _id: teacher._id,
-        name: teacher.name,
-        email: teacher.email,
-        schoolId: teacher.schoolId,
-      },
-      school: {
-        _id: school._id,
-        modules: school.modules,
-        adminInfo: {
-          name: school.adminInfo?.name,
-          email: school.adminInfo?.email,
-        },
-        schoolInfo: {
-          name: school.schoolInfo?.name,
-          logo: school.schoolInfo?.logo,
-        },
-      },
-    });
-  } catch (error) {
-    console.error("TEACHER LOGIN ERROR:", error);
-    res.status(500).json({ message: "Teacher login failed" });
-  }
-});
 
 router.use(authenticateToken);
 

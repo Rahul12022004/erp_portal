@@ -1,4 +1,5 @@
 import type { RouteEntry } from '../../shared/types';
+import './events';
 import bankingRoutes from './routes/bankingRoutes';
 import expenseRoutes from './routes/expenseRoutes';
 import financeRoutes from './routes/financeRoutes';

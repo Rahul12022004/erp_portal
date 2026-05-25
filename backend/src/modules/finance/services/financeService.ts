@@ -223,6 +223,63 @@ const calculateFeeStatus = (
 };
 
 export const financeService = {
+  async recalculateStudentTransportAssignments(
+    schoolId: string,
+    studentId: string,
+    session?: mongoose.ClientSession,
+    studentOverride?: LooseRecord | null
+  ) {
+    const studentRecord =
+      studentOverride ||
+      asRecord(await Student.findById(studentId).session(session ?? null));
+
+    if (!studentRecord) {
+      throw new Error("Student not found");
+    }
+
+    const assignments = await StudentFeeAssignment.find(asMongoFilter({
+      school_id: new mongoose.Types.ObjectId(schoolId),
+      student_id: new mongoose.Types.ObjectId(studentId),
+      fee_status: { $ne: "PAID" },
+    })).session(session ?? null);
+
+    for (const assignment of assignments) {
+      const assignmentRecord = asRecord(assignment) || {};
+      const structure = asRecord(
+        await ClassFeeStructure.findById(assignmentRecord.class_fee_structure_id).session(session ?? null)
+      );
+
+      const isEligible = isStudentEligibleForTransport(studentRecord);
+      const newTransportFee = isEligible ? toNumber(structure?.default_transport_fee) : 0;
+      const oldTransportFee = toNumber(assignmentRecord.transport_fee);
+
+      if (newTransportFee !== oldTransportFee) {
+        const transportFeeDelta = newTransportFee - oldTransportFee;
+        const newTotalFee = toNumber(assignmentRecord.total_fee) + transportFeeDelta;
+        const newDueAmount = Math.max(newTotalFee - toNumber(assignmentRecord.paid_amount), 0);
+        const newFeeStatus = calculateFeeStatus(
+          newTotalFee,
+          toNumber(assignmentRecord.paid_amount),
+          toStringValue(assignmentRecord.due_date)
+        );
+
+        assignmentRecord.transport_fee = newTransportFee;
+        assignmentRecord.total_fee = newTotalFee;
+        assignmentRecord.due_amount = newDueAmount;
+        assignmentRecord.fee_status = newFeeStatus;
+        const assignmentDoc = asDoc(assignment);
+        if (assignmentDoc) {
+          await assignmentDoc.save({ session });
+        }
+      }
+    }
+
+    return {
+      student: studentRecord,
+      updatedAssignments: assignments.length,
+    };
+  },
+
   async syncAllAssignmentsForSchool(schoolId: string, academicYear?: string) {
     const query: LooseRecord = {
       school_id: new mongoose.Types.ObjectId(schoolId),
@@ -1247,7 +1304,6 @@ export const financeService = {
     session.startTransaction();
 
     try {
-      // Update student
       const student = await Student.findByIdAndUpdate(
         studentId,
         { transport_status: newTransportStatus },
@@ -1258,46 +1314,18 @@ export const financeService = {
         throw new Error("Student not found");
       }
 
-      // Find all active fee assignments for this student
-      const assignments = await StudentFeeAssignment.find(asMongoFilter({
-        school_id: new mongoose.Types.ObjectId(schoolId),
-        student_id: new mongoose.Types.ObjectId(studentId),
-        fee_status: { $ne: "PAID" }, // Only update unpaid/partial
-      })).session(session);
-
-      // Recalculate transport fee for each assignment
-      for (const assignment of assignments) {
-        const assignmentRecord = asRecord(assignment) || {};
-        const structure = asRecord(
-          await ClassFeeStructure.findById(assignmentRecord.class_fee_structure_id).session(session)
-        );
-
-        const isEligible = isStudentEligibleForTransport(asRecord(student));
-        const newTransportFee = isEligible ? toNumber(structure?.default_transport_fee) : 0;
-        const oldTransportFee = toNumber(assignmentRecord.transport_fee);
-
-        if (newTransportFee !== oldTransportFee) {
-          const transportFeeDelta = newTransportFee - oldTransportFee;
-          const newTotalFee = toNumber(assignmentRecord.total_fee) + transportFeeDelta;
-          const newDueAmount = Math.max(newTotalFee - toNumber(assignmentRecord.paid_amount), 0);
-          const newFeeStatus = calculateFeeStatus(newTotalFee, toNumber(assignmentRecord.paid_amount), toStringValue(assignmentRecord.due_date));
-
-          assignmentRecord.transport_fee = newTransportFee;
-          assignmentRecord.total_fee = newTotalFee;
-          assignmentRecord.due_amount = newDueAmount;
-          assignmentRecord.fee_status = newFeeStatus;
-          const assignmentDoc = asDoc(assignment);
-          if (assignmentDoc) {
-            await assignmentDoc.save({ session });
-          }
-        }
-      }
+      const recalculation = await this.recalculateStudentTransportAssignments(
+        schoolId,
+        studentId,
+        session,
+        asRecord(student)
+      );
 
       await session.commitTransaction();
 
       return {
         student: toPlainObject(student),
-        updatedAssignments: assignments.length,
+        updatedAssignments: recalculation.updatedAssignments,
       };
     } catch (error) {
       await session.abortTransaction();

@@ -14,8 +14,8 @@ import {
   getAvailableYears,
   getDashboardSummary,
   getAllStudentAssignments,
-} from "@/modules/finance/api/financeClient";
-import type { ClassFeeSummaryRow, StudentAssignment } from "@/modules/finance/types";
+} from "@/lib/financeApi";
+import type { ClassFeeSummaryRow, StudentAssignment } from "@/lib/financeTypes";
 
 // ─── clay tokens ─────────────────────────────────────────────────────────────
 const clayOuter = "rounded-[36px] bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.12),transparent_34%),linear-gradient(180deg,#f0f1ff_0%,#eef2ff_60%,#f8fbff_100%)] p-3 space-y-5";

@@ -1,7 +1,8 @@
-﻿import type { RouteEntry } from '../../shared/types';
+import type { RouteEntry } from '../../shared/types';
+import authRoutes from './api/authRoutes';
 
-// Routes not yet active — implement in api/ then register here
-const routes: RouteEntry[] = [];
+const routes: RouteEntry[] = [
+  { path: '/api/auth', router: authRoutes, skipAuth: true },
+];
 
 export default routes;
-

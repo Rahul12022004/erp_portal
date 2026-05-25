@@ -1,30 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "Bash(*)",
-      "Edit(*)",
-      "Write(*)",
-      "Read(*)",
-      "Glob(*)",
-      "Grep(*)",
-      "MultiEdit(*)",
-      "NotebookEdit(*)",
-      "PowerShell(*)",
-      "mcp__ide__getDiagnostics",
-      "mcp__code-review-graph__semantic_search_nodes_tool",
-      "mcp__code-review-graph__get_architecture_overview_tool",
-      "mcp__code-review-graph__query_graph_tool",
-      "mcp__code-review-graph__get_impact_radius_tool",
-      "mcp__code-review-graph__detect_changes_tool",
-      "mcp__code-review-graph__get_review_context_tool",
-      "mcp__code-review-graph__semantic_search_nodes_tool",
-      "mcp__code-review-graph__list_communities_tool",
-      "mcp__code-review-graph__refactor_tool",
-      "mcp__code-review-graph__build_or_update_graph_tool"
+      "Bash(npm run *)",
+      "Bash(awk -F: '{print $1}')",
+      "Bash(xargs -I{} sh -c 'echo \"$\\(grep -c \"mongoose\\\\.\" {} 2>/dev/null\\) {}\"')",
+      "Bash(xargs grep -l \"import.*from\")",
+      "Bash(xargs grep -h \"^import\")",
+      "Bash(xargs grep -l \"useContext\\\\|createContext\")",
+      "PowerShell(pip install *)",
+      "PowerShell(python -c \"import graphify; print\\('graphify version:', graphify.__version__\\)\")",
+      "PowerShell(python -c \"import graphify; print\\('graphify ok'\\); import sys; open\\('.graphify_python', 'w'\\).write\\(sys.executable\\); print\\('interpreter saved'\\)\")",
+      "PowerShell(python -c \"import community; print\\('python-louvain ok'\\)\")",
+      "PowerShell(python .graphify_ast_runner.py 2>&1)",
+      "PowerShell(New-Item *)",
+      "PowerShell(python -c \"import json; from pathlib import Path; d=json.loads\\(Path\\('.graphify_ast.json'\\).read_text\\(\\)\\); print\\(f'AST nodes: {len\\(d[chr\\(110\\)+chr\\(111\\)+chr\\(100\\)+chr\\(101\\)+chr\\(115\\)]\\)}, edges: {len\\(d[chr\\(101\\)+chr\\(100\\)+chr\\(103\\)+chr\\(101\\)+chr\\(115\\)]\\)}'\\)\" 2>&1)",
+      "Bash(node -e \"const EE2 = require\\('eventemitter2'\\); console.log\\('EE2 type:', typeof EE2.EventEmitter2\\); const e = new EE2.EventEmitter2\\({wildcard:true,delimiter:'.'}\\); console.log\\('emitAsync:', typeof e.emitAsync\\);\")",
+      "Bash(node -e \"const {EventEmitter2} = require\\('eventemitter2'\\); const e = new EventEmitter2\\(\\); console.log\\(Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(e\\)\\).filter\\(k=>k.includes\\('emit'\\)\\)\\);\")",
+      "Bash(node *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,v\\) for k,v in {**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}.items\\(\\)]\")",
+      "Bash(xargs grep -l \"jsPDF\\\\|xlsx\\\\|pdf\\\\|PDF\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}; [print\\(k,v\\) for k,v in sorted\\(deps.items\\(\\)\\)]\")",
+      "Bash(xargs grep -l \"AuditLog\\\\|audit_log\\\\|auditLog\")",
+      "Bash(xargs grep -l \"studentId\\\\|student_id\")",
+      "Bash(sed *)"
     ]
-  },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "code-review-graph"
-  ]
+  }
 }

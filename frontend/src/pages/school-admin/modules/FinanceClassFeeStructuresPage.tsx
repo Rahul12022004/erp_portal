@@ -13,12 +13,12 @@ import {
   getSchoolClasses,
   saveClassFeeStructure,
   updateClassFeeStructure,
-} from "@/modules/finance/api/financeClient";
+} from "@/lib/financeApi";
 import type {
   ClassFeeStructureRecord,
   LateFeeType,
   SchoolClass,
-} from "@/modules/finance/types";
+} from "@/lib/financeTypes";
 import { getUniqueClasses } from "@/lib/classUtils";
 
 // ─── helpers ────────────────────────────────────────────────────────────────

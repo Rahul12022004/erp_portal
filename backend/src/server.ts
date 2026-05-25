@@ -6,10 +6,23 @@ import { initEnv } from "./core/config/env";
 import { moduleRoutes } from "./core/moduleLoader";
 import { seedDatabase } from "./seed";
 import { authenticateToken } from "./core/middleware/auth";
+import { withModuleBoundary, pathToModuleName } from "./core/middleware/errorBoundary";
+import { moduleHealth } from "./core/health/moduleHealth";
+import { getStats } from "./core/health/circuitBreaker";
+import { startWorkers, stopWorkers } from "./workers/index";
+import { jobsRouter } from "./workers/routes";
+import {
+  initSentry,
+  mountSentryErrorHandler,
+  requestIdMiddleware,
+  requestLoggerMiddleware,
+} from "./core/observability";
+import { auditRouter } from "./core/observability/audit/auditRoutes";
 
 const env = initEnv();
 
 const app = express();
+initSentry(app);
 const defaultAllowedOrigins = [
   "https://erp-portal-seven.vercel.app",
   "http://localhost:8080",
@@ -46,6 +59,8 @@ app.use(
     },
   })
 );
+app.use(requestIdMiddleware);
+app.use(requestLoggerMiddleware);
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -65,37 +80,79 @@ async function initializeDatabase() {
 }
 
 // ==========================
-// 🚀 ROUTES
+// 🚀 ROUTES  (with per-module error isolation)
 // ==========================
 moduleRoutes.forEach(({ path, router, skipAuth }) => {
+  const moduleName = pathToModuleName(path);
+  const boundary = withModuleBoundary(moduleName, router);
   if (skipAuth) {
-    app.use(path, router);
+    app.use(path, ...boundary);
   } else {
-    app.use(path, authenticateToken, router);
+    app.use(path, authenticateToken, ...boundary);
   }
 });
 
 // ==========================
-// 🧪 TEST ROUTE
+// ⚙️  JOB QUEUE ROUTES  (authenticated — enqueue + status polling)
 // ==========================
-app.get("/api/health", (req, res) => {
+app.use("/api/jobs",  authenticateToken, jobsRouter);
+
+// ==========================
+// 📋 AUDIT LOG ROUTES  (authenticated — read-only, admin use)
+// ==========================
+app.use("/api/audit", authenticateToken, auditRouter);
+
+// ==========================
+// 🩺 HEALTH ENDPOINT  (no auth — monitoring tools must be able to reach it)
+// ==========================
+app.get("/api/health", (_req, res) => {
   const db = getDatabaseStatus();
-  res.json({
-    ok: true,
-    dbConnected: db.connected,
-    dbReadyState: db.readyState,
-    dbLastError: db.lastError,
-    superAdminConfigured: Boolean(env.superAdminEmail && env.superAdminPassword),
-    superAdminEnv: {
-      email: Boolean(env.superAdminEmail),
-      password: Boolean(env.superAdminPassword),
+  const modules = moduleHealth.getSummary();
+  const allHealthy = Object.values(modules).every((s) => s === "healthy");
+
+  res.status(allHealthy ? 200 : 207).json({
+    ok: db.connected,
+    status: allHealthy ? "healthy" : "degraded",
+    database: {
+      connected: db.connected,
+      readyState: db.readyState,
+      lastError: db.lastError ?? null,
     },
+    modules,
   });
 });
 
-app.get("/", (req, res) => {
-  res.send("API Running 🚀");
+// Detailed health — includes error counts and circuit stats (internal use)
+app.get("/api/health/details", (_req, res) => {
+  const db = getDatabaseStatus();
+  const all = moduleHealth.getAll();
+  const details: Record<string, unknown> = {};
+
+  for (const [name, entry] of Object.entries(all)) {
+    details[name] = {
+      ...entry,
+      circuit: getStats(name) ?? null,
+    };
+  }
+
+  res.json({
+    ok: db.connected,
+    database: {
+      connected: db.connected,
+      readyState: db.readyState,
+      lastError: db.lastError ?? null,
+    },
+    modules: details,
+    superAdminConfigured: Boolean(env.superAdminEmail && env.superAdminPassword),
+  });
 });
+
+app.get("/", (_req, res) => {
+  res.send("API Running");
+});
+
+// Sentry error handler must be AFTER all routes
+mountSentryErrorHandler(app);
 
 // Handle large payload errors (e.g., base64 file uploads)
 type PayloadTooLargeError = {
@@ -120,9 +177,16 @@ const PORT = env.port;
 async function startServer() {
   try {
     await initializeDatabase();
+    startWorkers();
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+    });
+
+    process.on("SIGTERM", async () => {
+      console.log("[server] SIGTERM — draining workers...");
+      await stopWorkers();
+      process.exit(0);
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

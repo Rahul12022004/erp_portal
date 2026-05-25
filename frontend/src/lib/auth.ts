@@ -1,5 +1,5 @@
-import type { TeacherPermissions, User } from "@/contexts/RoleContext";
 import { API_URL } from "@/lib/api";
+import type { TeacherPermissions, User } from "@/lib/authTypes";
 
 type SchoolAdminSession = {
   _id?: string;
@@ -180,7 +180,7 @@ export function persistTeacherSession(
 
 export async function loginSchoolAdmin(email: string, password: string) {
   try {
-    const { response, data } = await postJsonWithFallback("/api/schools/login", { email, password });
+    const { response, data } = await postJsonWithFallback("/api/auth/school/login", { email, password });
 
     if (!response.ok) {
       throw new Error(data.message || `School admin login failed (${response.status})`);
@@ -198,7 +198,7 @@ export async function loginSchoolAdmin(email: string, password: string) {
 
 export async function loginTeacher(email: string, password: string) {
   try {
-    const { response, data } = await postJsonWithFallback("/api/staff/login", { email, password });
+    const { response, data } = await postJsonWithFallback("/api/auth/staff/login", { email, password });
 
     if (!response.ok) {
       throw new Error(data.message || "Teacher login failed");
@@ -216,7 +216,7 @@ export async function loginTeacher(email: string, password: string) {
 
 export async function loginSuperAdmin(email: string, password: string) {
   try {
-    const { response, data } = await postJsonWithFallback("/api/schools/super-admin-login", { email, password });
+    const { response, data } = await postJsonWithFallback("/api/auth/super-admin/login", { email, password });
 
     if (!response.ok) {
       throw new Error((data as { message?: string }).message || "Super admin login failed");

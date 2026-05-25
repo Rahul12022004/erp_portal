@@ -1,46 +1,90 @@
 # ERP Portal
 
-This project supports both local development and deployed environments.
+A modular monolith ERP system for educational institutions. Built with React + TypeScript (frontend) and Node.js + Express + MongoDB (backend).
 
-## Local Setup
+## Repository Structure
 
-1. Install dependencies at the project root:
-	- `npm install`
-2. Install backend dependencies:
-	- `npm --prefix backend install`
-3. Create environment files:
-	- Copy `.env.example` to `.env`
-	- Copy `backend/.env.example` to `backend/.env`
-4. Update `backend/.env` with a valid `MONGO_URI`.
-5. Optional: set `SEED_LOCAL_DATA=true` in `backend/.env` only if you want demo school data inserted locally.
-
-## Run Locally
-
-Start backend:
-
-```bash
-npm run dev:backend
+```
+erp_portal/
+├── frontend/          # Vite + React + TypeScript application
+├── backend/           # Express + TypeScript + MongoDB API
+├── docs/              # Project documentation and API references
+├── deployment/        # Deployment configuration and scripts
+├── .env.example       # Root environment variable template
+└── package.json       # Monorepo root scripts
 ```
 
-Start frontend (new terminal):
+## Prerequisites
+
+- Node.js 18+
+- MongoDB 6+ (local or Atlas)
+- npm 9+
+
+## Quick Start
 
 ```bash
-npm run dev
+# 1. Install all dependencies
+npm install
+npm --prefix backend install
+
+# 2. Configure environment
+cp .env.example .env
+cp backend/.env.example backend/.env
+# Edit backend/.env — set MONGO_URI to your MongoDB connection string
+
+# 3. Start development servers (separate terminals)
+npm run dev:backend   # API server → http://localhost:5000
+npm run dev           # Frontend   → http://localhost:8080
 ```
 
-Frontend runs on `http://localhost:8080`.
-Set `VITE_API_URL` in `.env` to the backend you want the frontend to call, for example `http://localhost:5000`.
+## Environment Variables
 
-## Build
+| Variable | Location | Description |
+|----------|----------|-------------|
+| `VITE_API_URL` | `.env` | Frontend API base URL |
+| `MONGO_URI` | `backend/.env` | MongoDB connection string |
+| `FRONTEND_ORIGINS` | `backend/.env` | Comma-separated allowed CORS origins |
+| `SEED_LOCAL_DATA` | `backend/.env` | Set `true` to seed demo school data on startup |
 
-```bash
-npm run build
-```
+## Available Scripts
 
-## Environment Notes
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start frontend dev server |
+| `npm run dev:backend` | Start backend dev server |
+| `npm run build` | Build frontend and backend for production |
+| `npm run build:frontend` | Build frontend only |
+| `npm run build:backend` | Build backend only |
+| `npm start` | Start backend in production mode |
+| `npm test` | Run frontend tests |
+| `npm run lint` | Run frontend linter |
 
-- Frontend API base is configured with `VITE_API_URL`.
-- Backend database and demo-seed behavior are configured from `backend/.env`.
-- Backend CORS is configured by `FRONTEND_ORIGINS` (comma-separated) and also allows localhost ports during development.
-- Existing hardcoded deployed API URLs are rewritten at runtime to the active API base to keep older modules working in local mode.
+## Documentation
 
+- [Authentication](docs/AUTHENTICATION.md)
+- [Finance API Reference](docs/FINANCE_API_REFERENCE.md)
+- [Finance Quickstart](docs/FINANCE_QUICKSTART.md)
+- [School Signup Guide](docs/SCHOOL_SIGNUP_GUIDE.md)
+- [Testing Guide](docs/TESTING_GUIDE.md)
+
+## Modules
+
+The platform covers the full school operations lifecycle:
+
+- **Finance** — fee structures, student fee assignments, payment tracking
+- **Students** — enrollment, profiles, academic records
+- **Academics** — classes, sections, subjects, timetables
+- **Attendance** — daily tracking with reports
+- **Exams** — scheduling, results, report cards
+- **Transport** — routes, vehicles, student assignment
+- **Staff** — HR, payroll, leave management
+- **Library** — catalog, issue/return tracking
+- **Hostel** — room allocation, fee management
+- **Notifications** — email, SMS, push alerts
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feat/your-feature`
+3. Commit with conventional commits: `git commit -m "feat(module): description"`
+4. Open a pull request against `main`

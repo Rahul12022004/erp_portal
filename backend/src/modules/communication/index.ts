@@ -1,4 +1,5 @@
 import type { RouteEntry } from '../../shared/types';
+import './events';
 import announcementRoutes from './routes/announcementRoutes';
 import communicationRoutes from './routes/communicationRoutes';
 

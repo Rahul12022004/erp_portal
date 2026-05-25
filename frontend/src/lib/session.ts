@@ -1,4 +1,4 @@
-import type { TeacherPermissions, User } from "@/contexts/RoleContext";
+import type { TeacherPermissions, User } from "@/lib/authTypes";
 
 export type SchoolAdminSession = {
   _id?: string;

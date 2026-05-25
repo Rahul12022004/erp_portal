@@ -7,11 +7,11 @@ import {
   getSchoolClasses,
   getStudentFeeSummaryPage,
   recordPayment,
-} from "@/modules/finance/api/financeClient";
+} from "@/lib/financeApi";
 import type {
   StudentFeeSummaryItem,
   StudentSummaryMetrics,
-} from "@/modules/finance/types";
+} from "@/lib/financeTypes";
 import { getUniqueClasses } from "@/lib/classUtils";
 
 const PAGE_SIZE = 20;

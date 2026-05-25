@@ -57,6 +57,10 @@ export function buildEnv() {
     groqApiKey: optionalEnv("GROQ_API_KEY", ""),
     groqModel: optionalEnv("GROQ_MODEL", "llama-3.3-70b-versatile"),
     geminiApiKey: optionalEnv("GEMINI_API_KEY", ""),
+    redisUrl:   optionalEnv("REDIS_URL", "redis://localhost:6379"),
+    sentryDsn:  optionalEnv("SENTRY_DSN", ""),
+    logLevel:   optionalEnv("LOG_LEVEL", "info"),
+    appVersion: optionalEnv("APP_VERSION", "dev"),
   } as const;
 }
 

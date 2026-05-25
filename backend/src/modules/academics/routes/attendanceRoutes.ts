@@ -1,5 +1,6 @@
 ﻿import express from "express";
 import { eventBus } from "../../../core/events";
+import { auditAttendanceRecord } from "../../../core/observability";
 import Attendance from "../models/Attendance";
 import Staff from "../../staff/models/Staff";
 import Student from "../../students/models/Student";
@@ -306,7 +307,7 @@ router.post("/students", async (req, res) => {
 // ==========================
 // ➕ MARK ATTENDANCE
 // ==========================
-router.post("/", async (req, res) => {
+router.post("/", auditAttendanceRecord, async (req, res) => {
   try {
     const { staffId, schoolId, date, status, remarks } = req.body;
 
