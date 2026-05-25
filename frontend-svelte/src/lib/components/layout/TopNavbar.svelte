@@ -1,71 +1,117 @@
 <script lang="ts">
-  import { locale } from 'svelte-i18n';
-  import { SUPPORTED_LOCALES } from '$lib/i18n';
+  import { page } from '$app/stores';
+  import { Bell, ChevronDown, LogOut, PencilLine } from 'lucide-svelte';
   import type { User } from '$lib/types';
-  import { Menu, Bell } from 'lucide-svelte';
 
-  let { user, onToggleSidebar }: { user: User; onToggleSidebar: () => void } = $props();
+  let { user }: { user: User | undefined } = $props();
 
-  function changeLocale(code: string) {
-    locale.set(code);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('locale', code);
-    }
+  let dropdownOpen = $state(false);
+
+  const role = $derived(user?.role ?? 'super-admin');
+  const currentPath = $derived($page.url.pathname);
+
+  const superAdminTitles: Record<string, string> = {
+    '/dashboard': 'Dashboard',
+    '/schools': 'Schools Management',
+    '/school-admins': 'School Admins',
+    '/subscriptions': 'Subscriptions',
+    '/settings': 'Settings',
+    '/logs': 'Activity Logs',
+    '/security': 'Security',
+    '/user-change': 'User Change',
+  };
+
+  const title = $derived((() => {
+    if (role === 'super-admin') return superAdminTitles[currentPath] ?? 'Dashboard';
+    if (role === 'school-admin' && currentPath === '/school') return 'School Dashboard';
+    if (role === 'teacher' && currentPath === '/teacher') return 'Teacher Dashboard';
+    const segment = currentPath.split('/').filter(Boolean).pop() ?? 'dashboard';
+    return segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
+  })());
+
+  const displayName = $derived(user?.name ?? (role === 'super-admin' ? 'Super Admin' : role === 'school-admin' ? 'School Admin' : 'Teacher'));
+  const displayEmail = $derived(user?.email ?? '');
+
+  const initials = $derived(
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((w: string) => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'AD'
+  );
+
+  function closeDropdown() {
+    dropdownOpen = false;
   }
-
-  const currentLocale = $derived($locale ?? 'en');
 </script>
 
-<header
-  class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 flex-shrink-0"
->
-  <!-- Left: hamburger (mobile) -->
-  <div class="flex items-center gap-3">
-    <button
-      onclick={onToggleSidebar}
-      class="p-2 rounded-lg hover:bg-gray-100 transition-colors lg:hidden"
-      aria-label="Toggle sidebar"
-    >
-      <Menu class="w-5 h-5 text-gray-600" />
-    </button>
+<svelte:window onclick={(e) => { if (!(e.target as Element).closest('.navbar-dropdown')) dropdownOpen = false; }} />
 
-    <span class="text-sm text-gray-500 hidden sm:block capitalize">
-      {user.role.replace('-', ' ')}
-    </span>
+<header class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card px-6">
+  <div>
+    <h1 class="text-lg font-semibold text-foreground">{title}</h1>
+    <p class="text-sm text-muted-foreground">Manage your workspace from one place.</p>
   </div>
 
-  <!-- Right: locale switcher + notifications + avatar -->
-  <div class="flex items-center gap-2">
-    <!-- Locale switcher -->
-    <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-      {#each SUPPORTED_LOCALES as loc (loc.code)}
-        <button
-          onclick={() => changeLocale(loc.code)}
-          class={[
-            'px-2 py-1 rounded text-xs font-medium transition-colors',
-            currentLocale === loc.code
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700',
-          ].join(' ')}
-        >
-          {loc.code.toUpperCase()}
-        </button>
-      {/each}
-    </div>
-
-    <!-- Notifications (stub) -->
+  <div class="flex items-center gap-4">
     <button
-      class="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+      type="button"
+      class="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       aria-label="Notifications"
     >
-      <Bell class="w-5 h-5 text-gray-600" />
+      <Bell class="h-4 w-4" />
     </button>
 
-    <!-- User avatar -->
-    <div
-      class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-semibold"
-    >
-      {user.name.charAt(0).toUpperCase()}
+    <!-- User dropdown -->
+    <div class="relative navbar-dropdown">
+      <button
+        type="button"
+        onclick={() => (dropdownOpen = !dropdownOpen)}
+        class="flex items-center gap-3 rounded-full border border-border bg-background/80 px-2 py-1.5 shadow-sm backdrop-blur transition-colors hover:bg-muted"
+      >
+        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shadow-sm">
+          {initials}
+        </div>
+        <div class="hidden text-left sm:block">
+          <p class="text-sm font-medium text-foreground">{displayName}</p>
+          <p class="text-xs text-muted-foreground">{displayEmail}</p>
+        </div>
+        <ChevronDown class="h-4 w-4 text-muted-foreground" />
+      </button>
+
+      {#if dropdownOpen}
+        <div class="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-card shadow-lg z-50">
+          <div class="px-3 py-2.5 border-b border-border">
+            <p class="text-sm font-semibold">{displayName}</p>
+            <p class="text-xs text-muted-foreground">{displayEmail}</p>
+          </div>
+
+          {#if role === 'school-admin'}
+            <a
+              href="/school/profile"
+              onclick={closeDropdown}
+              class="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors"
+            >
+              <PencilLine class="h-4 w-4" />
+              View Profile
+            </a>
+            <div class="border-t border-border"></div>
+          {/if}
+
+          <form method="POST" action="/logout">
+            <button
+              type="submit"
+              onclick={closeDropdown}
+              class="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-b-xl"
+            >
+              <LogOut class="h-4 w-4" />
+              Logout
+            </button>
+          </form>
+        </div>
+      {/if}
     </div>
   </div>
 </header>
