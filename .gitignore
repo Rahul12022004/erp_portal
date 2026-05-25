@@ -31,6 +31,7 @@ backend/.env.staging
 # ============================================================
 logs/
 !backend/src/modules/logs/
+!frontend-svelte/src/routes/(app)/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
