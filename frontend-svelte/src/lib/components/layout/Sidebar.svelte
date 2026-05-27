@@ -1,19 +1,26 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import {
     LayoutDashboard, School, UserCog, Users, CreditCard, Settings,
-    ScrollText, Shield, GraduationCap, Menu, X,
+    ScrollText, GraduationCap, Menu, X,
     MessageSquare, BookOpen, ClipboardCheck, Monitor, FileText,
     DollarSign, UserPlus, Briefcase, Download, Building,
     Library, HeadphonesIcon, Bus, Package,
     CheckSquare, Wrench, Trophy, BarChart3, Share2, UserCheck,
-    Database, Clock, PenTool,
+    Database, Clock, PenTool, Bell, ChartLine, Banknote,
   } from 'lucide-svelte';
   import type { User } from '$lib/types';
 
   let { user }: { user: User | undefined } = $props();
 
   let mobileOpen = $state(false);
+  let schoolName = $state('School');
+  let schoolLogo = $state('');
+  let enabledModules = $state<string[]>([]);
+  let subscriptionPlan = $state('');
+  let schoolDataLoaded = $state(false);
+
   const currentPath = $derived($page.url.pathname);
   const role = $derived(user?.role ?? 'super-admin');
 
@@ -26,7 +33,6 @@
     { title: 'User Change', path: '/user-change', icon: Users },
     { title: 'Settings', path: '/settings', icon: Settings },
     { title: 'Logs', path: '/logs', icon: ScrollText },
-    { title: 'Security', path: '/security', icon: Shield },
   ];
 
   // ─── School Admin nav ───────────────────────────────────────────────
@@ -59,14 +65,86 @@
     'Social Media': Share2,
     Visitor: UserCheck,
     'Data Import': Database,
+    Notifications: Bell,
+    Payroll: Banknote,
+    Reports: ScrollText,
+    Analytics: ChartLine,
   };
+
+  // Module name normalization map (same as React sidebar)
+  const portalModulesByNormalized: Record<string, string[]> = {
+    dashboard: ['Dashboard'],
+    communication: ['Communication'],
+    announcements: ['Communication'],
+    academics: ['Academics'],
+    attendance: ['Attendance'],
+    classes: ['Classes'],
+    classmanagement: ['Classes'],
+    digitalclassroom: ['Classes'],
+    students: ['Students'],
+    studentmanagement: ['Students'],
+    staff: ['Staff'],
+    staffmanagement: ['Staff'],
+    exams: ['Exams'],
+    marksresults: ['Exams'],
+    timetable: ['Time Table'],
+    finance: ['Finance'],
+    financefees: ['Finance'],
+    admissions: ['Admissions'],
+    hr: ['HR'],
+    transport: ['Transport'],
+    hostel: ['Hostel'],
+    library: ['Library'],
+    inventory: ['Inventory'],
+    socialmedia: ['Social Media'],
+    survey: ['Survey'],
+    approvals: ['Approvals'],
+    leavemanagement: ['Approvals'],
+    maintenance: ['Maintenance'],
+    sports: ['Sports'],
+    house: ['House'],
+    discipline: ['House'],
+    downloads: ['Downloads'],
+    support: ['Support'],
+    visitor: ['Visitor'],
+    dataimport: ['Data Import'],
+    notifications: ['Notifications'],
+    payroll: ['Payroll'],
+    reports: ['Reports'],
+    analytics: ['Analytics'],
+  };
+
+  function normalizeModuleName(v: string): string {
+    return String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  const availablePortalModules = $derived.by(() => {
+    const set = new Set<string>();
+    for (const m of enabledModules) {
+      const norm = normalizeModuleName(m);
+      const mapped = portalModulesByNormalized[norm];
+      if (mapped) {
+        mapped.forEach((x) => set.add(x));
+      } else {
+        // fallback: match by normalized name
+        for (const key of Object.keys(schoolIconMap)) {
+          if (normalizeModuleName(key) === norm) set.add(key);
+        }
+      }
+    }
+    return set;
+  });
+
+  function hasModuleAccess(_item: string): boolean {
+    return true;
+  }
 
   const schoolMenuGroups = [
     { label: 'Overview', items: ['Dashboard'] },
     { label: 'Academics', items: ['Communication', 'Academics', 'Attendance', 'Classes', 'Students', 'Staff', 'Exams', 'Time Table'] },
-    { label: 'Administration', items: ['Finance', 'Admissions', 'Visitor', 'HR', 'Transport', 'Hostel', 'Library', 'Inventory', 'Social Media', 'Data Import'] },
+    { label: 'Administration', items: ['Finance', 'Payroll', 'Admissions', 'Visitor', 'HR', 'Transport', 'Hostel', 'Library', 'Inventory', 'Social Media', 'Data Import'] },
     { label: 'Services', items: ['Sports', 'House'] },
-    { label: 'Management', items: ['Approvals', 'Maintenance', 'Survey', 'Downloads', 'Support', 'Logs', 'Settings'] },
+    { label: 'Management', items: ['Notifications', 'Reports', 'Approvals', 'Maintenance', 'Survey', 'Downloads', 'Support', 'Logs', 'Settings'] },
   ];
 
   function getSchoolItemPath(item: string): string {
@@ -102,6 +180,22 @@
     }
     return currentPath.startsWith(path);
   }
+
+  // ─── Fetch school data for module filtering ──────────────────────────
+  onMount(async () => {
+    if (role !== 'school-admin' || !user?.schoolId) return;
+    try {
+      const res = await fetch(`/api/schools/${user.schoolId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      schoolName = data?.schoolInfo?.name || 'School';
+      schoolLogo = data?.schoolInfo?.logo || '';
+      enabledModules = Array.isArray(data?.modules) ? data.modules : [];
+      subscriptionPlan = data?.systemInfo?.subscriptionPlan || '';
+    } catch { /* silent */ } finally {
+      schoolDataLoaded = true;
+    }
+  });
 </script>
 
 <!-- Mobile toggle -->
@@ -135,13 +229,17 @@
   <div class="flex flex-col h-full" style="background: hsl(var(--sidebar-bg))">
     <!-- Header -->
     <div class="flex items-center gap-3 px-6 py-5 border-b" style="border-color: hsl(var(--sidebar-border))">
-      <div class="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-        <GraduationCap class="w-5 h-5 text-primary-foreground" />
-      </div>
+      {#if role === 'school-admin' && schoolLogo && (schoolLogo.startsWith('data:image') || schoolLogo.startsWith('http'))}
+        <img src={schoolLogo} alt={schoolName} class="w-9 h-9 rounded-lg object-cover" />
+      {:else}
+        <div class="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+          <GraduationCap class="w-5 h-5 text-primary-foreground" />
+        </div>
+      {/if}
       <div>
         <h1 class="text-sm font-display font-bold" style="color: hsl(var(--sidebar-fg-active))">
           {#if role === 'super-admin'}EduAdmin
-          {:else if role === 'school-admin'}School Portal
+          {:else if role === 'school-admin'}{schoolName}
           {:else}Teacher Portal
           {/if}
         </h1>
@@ -162,12 +260,13 @@
         </p>
         <div class="space-y-0.5">
           {#each superAdminItems as item}
+            {@const Icon = item.icon}
             <a
               href={item.path}
               onclick={() => (mobileOpen = false)}
               class="sidebar-link {isActive(item.path) ? 'active' : ''}"
             >
-              <svelte:component this={item.icon} class="w-[18px] h-[18px]" />
+              <Icon class="w-[18px] h-[18px]" />
               <span>{item.title}</span>
             </a>
           {/each}
@@ -176,23 +275,27 @@
       {:else if role === 'school-admin'}
         <div class="space-y-4">
           {#each schoolMenuGroups as group}
-            <div>
-              <p class="px-4 text-xs font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--sidebar-fg) / 0.5)">
-                {group.label}
-              </p>
-              <div class="space-y-0.5">
-                {#each group.items as item}
-                  <a
-                    href={getSchoolItemPath(item)}
-                    onclick={() => (mobileOpen = false)}
-                    class="sidebar-link {isSchoolItemActive(item) ? 'active' : ''}"
-                  >
-                    <svelte:component this={schoolIconMap[item] ?? LayoutDashboard} class="w-[18px] h-[18px]" />
-                    <span class="text-[13px]">{item}</span>
-                  </a>
-                {/each}
+            {@const filteredItems = group.items.filter(hasModuleAccess)}
+            {#if filteredItems.length > 0}
+              <div>
+                <p class="px-4 text-xs font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--sidebar-fg) / 0.5)">
+                  {group.label}
+                </p>
+                <div class="space-y-0.5">
+                  {#each filteredItems as item}
+                    {@const Icon = schoolIconMap[item] ?? LayoutDashboard}
+                    <a
+                      href={getSchoolItemPath(item)}
+                      onclick={() => (mobileOpen = false)}
+                      class="sidebar-link {isSchoolItemActive(item) ? 'active' : ''}"
+                    >
+                      <Icon class="w-[18px] h-[18px]" />
+                      <span class="text-[13px]">{item}</span>
+                    </a>
+                  {/each}
+                </div>
               </div>
-            </div>
+            {/if}
           {/each}
         </div>
 
@@ -202,12 +305,13 @@
         </p>
         <div class="space-y-0.5">
           {#each teacherItems as item}
+            {@const Icon = item.icon}
             <a
               href={item.path}
               onclick={() => (mobileOpen = false)}
               class="sidebar-link {isActive(item.path) ? 'active' : ''}"
             >
-              <svelte:component this={item.icon} class="w-[18px] h-[18px]" />
+              <Icon class="w-[18px] h-[18px]" />
               <span>{item.title}</span>
             </a>
           {/each}
