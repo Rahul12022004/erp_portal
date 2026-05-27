@@ -4,7 +4,7 @@ import { sendToDlq } from "./core/jobLogger";
 import { handleReportJob } from "./handlers/reportHandler";
 import type { ReportJobData } from "./core/types";
 
-const QUEUE = "erp:reports";
+const QUEUE = "erp-reports";
 const CONCURRENCY = 2;
 
 export function createReportWorker(): Worker<ReportJobData> {

@@ -16,6 +16,15 @@ const COOKIE_OPTS = {
   maxAge: 60 * 60 * 24 * 7,
 };
 
+// Non-httpOnly cookie so client-side JS can read the token for API Authorization headers.
+const CLIENT_TOKEN_OPTS = {
+  path: '/',
+  httpOnly: false,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  maxAge: 60 * 60 * 24 * 7,
+};
+
 export const actions: Actions = {
   default: async ({ request, cookies, fetch }) => {
     const data = await request.formData();
@@ -27,33 +36,42 @@ export const actions: Actions = {
     }
 
     try {
-      const apiUrl = `${process.env.PUBLIC_API_URL ?? 'http://localhost:5000'}${ENDPOINTS.auth.teacherLogin}`;
+      const apiUrl = `${process.env.PUBLIC_API_URL || 'http://localhost:5000'}${ENDPOINTS.auth.teacherLogin}`;
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      const result = (await response.json()) as {
-        token?: string;
-        teacher?: { _id?: string; name?: string; email?: string };
-        school?: { _id?: string };
+      // Go backend returns: { success, data: { token, staff: { _id, name, email, schoolId }, school: { ID } } }
+      const json = (await response.json()) as {
+        success?: boolean;
+        data?: {
+          token?: string;
+          staff?: { _id?: string; name?: string; email?: string; schoolId?: string };
+          school?: { ID?: string };
+        };
+        error?: string;
         message?: string;
       };
 
-      if (!response.ok || !result.token) {
-        return fail(401, { error: result.message ?? 'Invalid credentials', email });
+      const token = json.data?.token;
+      const staff = json.data?.staff;
+
+      if (!response.ok || !token) {
+        return fail(401, { error: json.error ?? json.message ?? 'Invalid credentials', email });
       }
 
       const user: User = {
-        id: result.teacher?._id ?? '',
-        email: result.teacher?.email ?? email,
-        name: result.teacher?.name ?? email,
+        id: String(staff?._id ?? ''),
+        email: staff?.email ?? email,
+        name: staff?.name ?? email,
         role: 'teacher',
-        schoolId: result.school?._id,
+        schoolId: String(staff?.schoolId ?? json.data?.school?.ID ?? ''),
       };
 
-      cookies.set('token', result.token, COOKIE_OPTS);
+      cookies.set('token', token, COOKIE_OPTS);
+      cookies.set('client_token', token, CLIENT_TOKEN_OPTS);
       cookies.set('session', JSON.stringify(user), COOKIE_OPTS);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unable to connect to server';

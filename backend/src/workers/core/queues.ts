@@ -1,38 +1,14 @@
-import { Queue, type DefaultJobOptions } from "bullmq";
-import { createRedisConnection } from "./redis";
+// Queue stubs — no Redis, no BullMQ connections
 import type { ReportJobData, NotificationJobData, ExportJobData, ImportJobData, DlqJobData } from "./types";
 
-const defaultJobOptions: DefaultJobOptions = {
-  attempts: 3,
-  backoff: { type: "exponential", delay: 2_000 },
-  removeOnComplete: { count: 50 },
-  removeOnFail: { count: 100 },
-};
+type StubQueue<T> = { add: (_name: string, _data: T) => Promise<{ id: string }> };
 
-export const reportQueue = new Queue<ReportJobData>("erp:reports", {
-  connection: createRedisConnection(),
-  defaultJobOptions,
+const stubQueue = <T>(): StubQueue<T> => ({
+  add: async (_name, _data) => ({ id: `local-${Date.now()}` }),
 });
 
-export const notificationQueue = new Queue<NotificationJobData>("erp:notifications", {
-  connection: createRedisConnection(),
-  defaultJobOptions: { ...defaultJobOptions, attempts: 5 },
-});
-
-export const exportQueue = new Queue<ExportJobData>("erp:exports", {
-  connection: createRedisConnection(),
-  defaultJobOptions: { ...defaultJobOptions, attempts: 2 },
-});
-
-export const importQueue = new Queue<ImportJobData>("erp:imports", {
-  connection: createRedisConnection(),
-  defaultJobOptions: { ...defaultJobOptions, attempts: 1 }, // imports are not idempotent by default
-});
-
-// Dead-letter queue — failed jobs from all queues land here for inspection / replay
-export const dlqQueue = new Queue<DlqJobData>("erp:dlq", {
-  connection: createRedisConnection(),
-  defaultJobOptions: { attempts: 1, removeOnComplete: { count: 500 }, removeOnFail: false },
-});
-
-export const ALL_QUEUES = [reportQueue, notificationQueue, exportQueue, importQueue] as const;
+export const reportQueue       = stubQueue<ReportJobData>();
+export const notificationQueue = stubQueue<NotificationJobData>();
+export const exportQueue       = stubQueue<ExportJobData>();
+export const importQueue       = stubQueue<ImportJobData>();
+export const dlqQueue          = stubQueue<DlqJobData>();

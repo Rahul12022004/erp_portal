@@ -4,7 +4,7 @@ import { sendToDlq } from "./core/jobLogger";
 import { handleNotificationJob } from "./handlers/notificationHandler";
 import type { NotificationJobData } from "./core/types";
 
-const QUEUE = "erp:notifications";
+const QUEUE = "erp-notifications";
 const CONCURRENCY = 5; // higher concurrency for IO-bound email sending
 
 export function createNotificationWorker(): Worker<NotificationJobData> {

@@ -4,7 +4,7 @@ import { sendToDlq } from "./core/jobLogger";
 import { handleImportJob } from "./handlers/importHandler";
 import type { ImportJobData } from "./core/types";
 
-const QUEUE = "erp:imports";
+const QUEUE = "erp-imports";
 const CONCURRENCY = 1; // imports hit MongoDB hard — keep serial per instance
 
 export function createImportWorker(): Worker<ImportJobData> {

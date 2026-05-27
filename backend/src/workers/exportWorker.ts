@@ -4,7 +4,7 @@ import { sendToDlq } from "./core/jobLogger";
 import { handleExportJob } from "./handlers/exportHandler";
 import type { ExportJobData } from "./core/types";
 
-const QUEUE = "erp:exports";
+const QUEUE = "erp-exports";
 const CONCURRENCY = 3;
 
 export function createExportWorker(): Worker<ExportJobData> {

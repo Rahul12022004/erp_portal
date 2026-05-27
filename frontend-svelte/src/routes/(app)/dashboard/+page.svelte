@@ -1,27 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { api } from '$lib/api/client';
 
-  interface SchoolInfo {
-    name: string;
-    logo: string;
-    email: string;
-  }
-  interface AdminInfo {
-    name: string;
-    email: string;
-    phone: string;
-  }
-  interface SystemInfo {
-    subscriptionPlan: string;
-    maxStudents: number;
-    subscriptionEndDate: string;
-  }
+  interface SchoolInfo { Name: string; Logo: string; Email: string; }
+  interface AdminInfo { Name: string; Email: string; Phone: string; }
+  interface SystemInfo { SubscriptionPlan: string; MaxStudents: number; SubscriptionEndDate: string; }
   interface School {
-    _id: string;
-    schoolInfo: SchoolInfo;
-    adminInfo: AdminInfo;
-    systemInfo: SystemInfo;
-    modules: string[];
+    ID: string;
+    SchoolInfo: SchoolInfo;
+    AdminInfo: AdminInfo;
+    SystemInfo: SystemInfo;
+    Modules: string[];
   }
 
   let schools = $state<School[]>([]);
@@ -29,9 +18,8 @@
 
   onMount(async () => {
     try {
-      const res = await fetch('/api/schools');
-      const data = await res.json();
-      schools = data;
+      const result = await api.get<{ success: boolean; data: { schools: School[] } }>('/api/schools');
+      schools = result.data?.schools ?? [];
     } catch (e) {
       console.error(e);
     } finally {
@@ -40,8 +28,8 @@
   });
 
   const total = $derived(schools.length);
-  const paid = $derived(schools.filter(s => s.systemInfo?.subscriptionPlan !== 'Basic').length);
-  const unpaid = $derived(schools.filter(s => s.systemInfo?.subscriptionPlan === 'Basic').length);
+  const paid = $derived(schools.filter(s => s.SystemInfo?.SubscriptionPlan !== 'Basic').length);
+  const unpaid = $derived(schools.filter(s => s.SystemInfo?.SubscriptionPlan === 'Basic').length);
 
   interface StatCard {
     title: string;
@@ -96,28 +84,28 @@
             <tr class="hover:bg-gray-50">
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="flex items-center gap-3">
-                  {#if school.schoolInfo?.logo}
-                    <img src={school.schoolInfo.logo} alt="logo" class="w-8 h-8 rounded-full object-cover" />
+                  {#if school.SchoolInfo?.Logo}
+                    <img src={school.SchoolInfo.Logo} alt="logo" class="w-8 h-8 rounded-full object-cover" />
                   {:else}
                     <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                      {school.schoolInfo?.name?.charAt(0) ?? '?'}
+                      {school.SchoolInfo?.Name?.charAt(0) ?? '?'}
                     </div>
                   {/if}
                   <div>
-                    <p class="font-medium text-gray-900 text-sm">{school.schoolInfo?.name}</p>
-                    <p class="text-xs text-gray-500">{school.schoolInfo?.email}</p>
+                    <p class="font-medium text-gray-900 text-sm">{school.SchoolInfo?.Name}</p>
+                    <p class="text-xs text-gray-500">{school.SchoolInfo?.Email}</p>
                   </div>
                 </div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.adminInfo?.name}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.adminInfo?.email}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.adminInfo?.phone}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.systemInfo?.maxStudents}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.modules?.length ?? 0}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.systemInfo?.subscriptionPlan}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.AdminInfo?.Name}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.AdminInfo?.Email}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.AdminInfo?.Phone}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.SystemInfo?.MaxStudents}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.Modules?.length ?? 0}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{school.SystemInfo?.SubscriptionPlan}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                {school.systemInfo?.subscriptionEndDate
-                  ? new Date(school.systemInfo.subscriptionEndDate).toLocaleDateString()
+                {school.SystemInfo?.SubscriptionEndDate
+                  ? new Date(school.SystemInfo.SubscriptionEndDate).toLocaleDateString()
                   : '—'}
               </td>
             </tr>

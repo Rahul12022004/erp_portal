@@ -5,6 +5,7 @@ const DELETE_OPTS = { path: '/' };
 
 export const load: PageServerLoad = async ({ cookies }) => {
   cookies.delete('token', DELETE_OPTS);
+  cookies.delete('client_token', DELETE_OPTS);
   cookies.delete('session', DELETE_OPTS);
   redirect(303, '/');
 };
@@ -12,6 +13,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 export const actions: Actions = {
   default: async ({ cookies }) => {
     cookies.delete('token', DELETE_OPTS);
+    cookies.delete('client_token', DELETE_OPTS);
     cookies.delete('session', DELETE_OPTS);
     redirect(303, '/');
   },

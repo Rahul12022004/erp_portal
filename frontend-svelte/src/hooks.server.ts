@@ -23,13 +23,16 @@ export const handle: Handle = async ({ event, resolve }) => {
           role: parsed.role,
           schoolId: parsed.schoolId,
         };
+        event.locals.token = token;
       }
     } catch {
       event.cookies.delete('token', { path: '/' });
+      event.cookies.delete('client_token', { path: '/' });
       event.cookies.delete('session', { path: '/' });
     }
   } else if (token || sessionRaw) {
     event.cookies.delete('token', { path: '/' });
+    event.cookies.delete('client_token', { path: '/' });
     event.cookies.delete('session', { path: '/' });
   }
 

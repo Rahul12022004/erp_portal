@@ -16,6 +16,15 @@ const COOKIE_OPTS = {
   maxAge: 60 * 60 * 24 * 7,
 };
 
+// Non-httpOnly cookie so client-side JS can read the token for API Authorization headers.
+const CLIENT_TOKEN_OPTS = {
+  path: '/',
+  httpOnly: false,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  maxAge: 60 * 60 * 24 * 7,
+};
+
 export const actions: Actions = {
   default: async ({ request, cookies, fetch }) => {
     const data = await request.formData();
@@ -27,34 +36,45 @@ export const actions: Actions = {
     }
 
     try {
-      const apiUrl = `${process.env.PUBLIC_API_URL ?? 'http://localhost:5000'}${ENDPOINTS.auth.schoolAdminLogin}`;
+      const apiUrl = `${process.env.PUBLIC_API_URL || 'http://localhost:5000'}${ENDPOINTS.auth.schoolAdminLogin}`;
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      const result = (await response.json()) as {
-        _id?: string;
-        token?: string;
-        adminInfo?: { name?: string; email?: string };
+      // Go backend returns: { success, data: { token, school: { ID, AdminInfo: { Name, Email } } } }
+      const json = (await response.json()) as {
+        success?: boolean;
+        data?: {
+          token?: string;
+          school?: {
+            ID?: string;
+            AdminInfo?: { Name?: string; Email?: string };
+          };
+        };
+        error?: string;
         message?: string;
       };
 
-      if (!response.ok || !result.token) {
-        return fail(401, { error: result.message ?? 'Invalid credentials', email });
+      const token = json.data?.token;
+      const school = json.data?.school;
+
+      if (!response.ok || !token) {
+        return fail(401, { error: json.error ?? json.message ?? 'Invalid credentials', email });
       }
 
       const user: User = {
-        id: result._id ?? '',
-        email: result.adminInfo?.email ?? email,
-        name: result.adminInfo?.name ?? email,
+        id: String(school?.ID ?? ''),
+        email: school?.AdminInfo?.Email ?? email,
+        name: school?.AdminInfo?.Name ?? email,
         role: 'school-admin',
-        schoolId: result._id,
+        schoolId: String(school?.ID ?? ''),
       };
 
-      cookies.set('token', result.token, COOKIE_OPTS);
-      cookies.set('session', JSON.stringify(user), COOKIE_OPTS);
+      cookies.set('token', token, COOKIE_OPTS);
+      cookies.set('client_token', token, CLIENT_TOKEN_OPTS);
+      cookies.set('session', JSON.stringify(user), { ...COOKIE_OPTS });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unable to connect to server';
       return fail(500, { error: msg, email });

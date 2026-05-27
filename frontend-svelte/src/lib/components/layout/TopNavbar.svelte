@@ -103,7 +103,6 @@
           <form method="POST" action="/logout">
             <button
               type="submit"
-              onclick={closeDropdown}
               class="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-b-xl"
             >
               <LogOut class="h-4 w-4" />

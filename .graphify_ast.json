@@ -89,21 +89,21 @@
       "label": "isLocalDevOrigin()",
       "file_type": "code",
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L22"
+      "source_location": "L35"
     },
     {
       "id": "src_server_initializedatabase",
       "label": "initializeDatabase()",
       "file_type": "code",
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L57"
+      "source_location": "L72"
     },
     {
       "id": "src_server_startserver",
       "label": "startServer()",
       "file_type": "code",
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L120"
+      "source_location": "L177"
     },
     {
       "id": "backend_src_testemail_ts",
@@ -201,14 +201,14 @@
       "label": "getEnv()",
       "file_type": "code",
       "source_file": "backend\\src\\core\\config\\env.ts",
-      "source_location": "L67"
+      "source_location": "L71"
     },
     {
       "id": "config_env_initenv",
       "label": "initEnv()",
       "file_type": "code",
       "source_file": "backend\\src\\core\\config\\env.ts",
-      "source_location": "L72"
+      "source_location": "L76"
     },
     {
       "id": "backend_src_core_events_index_ts",
@@ -216,41 +216,6 @@
       "file_type": "code",
       "source_file": "backend\\src\\core\\events\\index.ts",
       "source_location": "L1"
-    },
-    {
-      "id": "events_index_eventbus",
-      "label": "EventBus",
-      "file_type": "code",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L5"
-    },
-    {
-      "id": "events_index_eventbus_publish",
-      "label": ".publish()",
-      "file_type": "code",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L6"
-    },
-    {
-      "id": "events_index_eventbus_publishasync",
-      "label": ".publishAsync()",
-      "file_type": "code",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L10"
-    },
-    {
-      "id": "events_index_eventbus_subscribe",
-      "label": ".subscribe()",
-      "file_type": "code",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L17"
-    },
-    {
-      "id": "events_index_eventbus_unsubscribe",
-      "label": ".unsubscribe()",
-      "file_type": "code",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L21"
     },
     {
       "id": "backend_src_core_middleware_auth_ts",
@@ -477,13 +442,6 @@
       "source_location": "L1"
     },
     {
-      "id": "logger_index_log",
-      "label": "log()",
-      "file_type": "code",
-      "source_file": "backend\\src\\infrastructure\\logger\\index.ts",
-      "source_location": "L3"
-    },
-    {
       "id": "backend_src_infrastructure_queue_index_ts",
       "label": "index.ts",
       "file_type": "code",
@@ -635,14 +593,14 @@
       "label": "toRadians()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
-      "source_location": "L22"
+      "source_location": "L23"
     },
     {
       "id": "routes_attendanceroutes_haversinedistancemeters",
       "label": "haversineDistanceMeters()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
-      "source_location": "L24"
+      "source_location": "L25"
     },
     {
       "id": "backend_src_modules_academics_routes_classroutes_ts",
@@ -817,21 +775,21 @@
       "label": "buildClassLabel()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
-      "source_location": "L14"
+      "source_location": "L15"
     },
     {
       "id": "routes_markroutes_getteacherclasslabels",
       "label": "getTeacherClassLabels()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
-      "source_location": "L17"
+      "source_location": "L18"
     },
     {
       "id": "routes_markroutes_isexamcompleted",
       "label": "isExamCompleted()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
-      "source_location": "L22"
+      "source_location": "L23"
     },
     {
       "id": "backend_src_modules_academics_routes_materialroutes_ts",
@@ -944,6 +902,20 @@
       "file_type": "code",
       "source_file": "backend\\src\\modules\\admissions\\events\\index.ts",
       "source_location": "L1"
+    },
+    {
+      "id": "events_index_publishadmissionconfirmed",
+      "label": "publishAdmissionConfirmed()",
+      "file_type": "code",
+      "source_file": "backend\\src\\modules\\admissions\\events\\index.ts",
+      "source_location": "L26"
+    },
+    {
+      "id": "events_index_publishadmissionrejected",
+      "label": "publishAdmissionRejected()",
+      "file_type": "code",
+      "source_file": "backend\\src\\modules\\admissions\\events\\index.ts",
+      "source_location": "L55"
     },
     {
       "id": "backend_src_modules_admissions_infrastructure_index_ts",
@@ -1147,6 +1119,27 @@
       "file_type": "code",
       "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
       "source_location": "L1"
+    },
+    {
+      "id": "events_index_publishattendancemarked",
+      "label": "publishAttendanceMarked()",
+      "file_type": "code",
+      "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
+      "source_location": "L34"
+    },
+    {
+      "id": "events_index_publishattendanceabsent",
+      "label": "publishAttendanceAbsent()",
+      "file_type": "code",
+      "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
+      "source_location": "L61"
+    },
+    {
+      "id": "events_index_publishattendancelate",
+      "label": "publishAttendanceLate()",
+      "file_type": "code",
+      "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
+      "source_location": "L86"
     },
     {
       "id": "backend_src_modules_attendance_infrastructure_index_ts",
@@ -1905,6 +1898,20 @@
       "source_location": "L1"
     },
     {
+      "id": "events_index_publishfeepaymentcompleted",
+      "label": "publishFeePaymentCompleted()",
+      "file_type": "code",
+      "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
+      "source_location": "L109"
+    },
+    {
+      "id": "events_index_publishfeeoverdue",
+      "label": "publishFeeOverdue()",
+      "file_type": "code",
+      "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
+      "source_location": "L144"
+    },
+    {
       "id": "backend_src_modules_finance_infrastructure_index_ts",
       "label": "index.ts",
       "file_type": "code",
@@ -2133,161 +2140,161 @@
       "label": "asRecord()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L93"
+      "source_location": "L100"
     },
     {
       "id": "routes_financeroutes_toobjectrecord",
       "label": "toObjectRecord()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L96"
+      "source_location": "L103"
     },
     {
       "id": "routes_financeroutes_tostringvalue",
       "label": "toStringValue()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L111"
+      "source_location": "L118"
     },
     {
       "id": "routes_financeroutes_tooptionalstring",
       "label": "toOptionalString()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L112"
+      "source_location": "L119"
     },
     {
       "id": "routes_financeroutes_tonumbervalue",
       "label": "toNumberValue()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L116"
+      "source_location": "L123"
     },
     {
       "id": "routes_financeroutes_getsinglestring",
       "label": "getSingleString()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L117"
+      "source_location": "L124"
     },
     {
       "id": "routes_financeroutes_getoptionalstring",
       "label": "getOptionalString()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L128"
+      "source_location": "L135"
     },
     {
       "id": "routes_financeroutes_toidstring",
       "label": "toIdString()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L132"
+      "source_location": "L139"
     },
     {
       "id": "routes_financeroutes_asmongofilter",
       "label": "asMongoFilter()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L153"
+      "source_location": "L160"
     },
     {
       "id": "routes_financeroutes_cleanjson",
       "label": "cleanJson()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L154"
+      "source_location": "L161"
     },
     {
       "id": "routes_financeroutes_parseclasslabel",
       "label": "parseClassLabel()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L156"
+      "source_location": "L163"
     },
     {
       "id": "routes_financeroutes_toisodate",
       "label": "toIsoDate()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L173"
+      "source_location": "L180"
     },
     {
       "id": "routes_financeroutes_normalizecompact",
       "label": "normalizeCompact()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L193"
+      "source_location": "L200"
     },
     {
       "id": "routes_financeroutes_parseamountfromtext",
       "label": "parseAmountFromText()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L198"
+      "source_location": "L205"
     },
     {
       "id": "routes_financeroutes_parseacademicyearfromtext",
       "label": "parseAcademicYearFromText()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L211"
+      "source_location": "L218"
     },
     {
       "id": "routes_financeroutes_parseduedatefromtext",
       "label": "parseDueDateFromText()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L220"
+      "source_location": "L227"
     },
     {
       "id": "routes_financeroutes_toclasslookup",
       "label": "toClassLookup()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L230"
+      "source_location": "L237"
     },
     {
       "id": "routes_financeroutes_computeassignmentamountsfromstructure",
       "label": "computeAssignmentAmountsFromStructure()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L239"
+      "source_location": "L246"
     },
     {
       "id": "routes_financeroutes_maplegacystudentassignment",
       "label": "mapLegacyStudentAssignment()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L283"
+      "source_location": "L290"
     },
     {
       "id": "routes_financeroutes_maplegacyclassfeestructure",
       "label": "mapLegacyClassFeeStructure()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L315"
+      "source_location": "L322"
     },
     {
       "id": "routes_financeroutes_buildclasslabel",
       "label": "buildClassLabel()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L341"
+      "source_location": "L348"
     },
     {
       "id": "routes_financeroutes_mappaymenttoreceipt",
       "label": "mapPaymentToReceipt()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L344"
+      "source_location": "L351"
     },
     {
       "id": "routes_financeroutes_buildassignmentsummary",
       "label": "buildAssignmentSummary()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L358"
+      "source_location": "L365"
     },
     {
       "id": "backend_src_modules_finance_routes_salarystructureroutes_ts",
@@ -3981,105 +3988,105 @@
       "label": "buildClassLabel()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L115"
+      "source_location": "L116"
     },
     {
       "id": "routes_studentroutes_normalizesection",
       "label": "normalizeSection()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L118"
+      "source_location": "L119"
     },
     {
       "id": "routes_studentroutes_normalizetext",
       "label": "normalizeText()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L120"
+      "source_location": "L121"
     },
     {
       "id": "routes_studentroutes_resolvetransportactive",
       "label": "resolveTransportActive()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L122"
+      "source_location": "L123"
     },
     {
       "id": "routes_studentroutes_normalizegender",
       "label": "normalizeGender()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L145"
+      "source_location": "L146"
     },
     {
       "id": "routes_studentroutes_escaperegex",
       "label": "escapeRegex()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L163"
+      "source_location": "L164"
     },
     {
       "id": "routes_studentroutes_hasdocument",
       "label": "hasDocument()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L165"
+      "source_location": "L166"
     },
     {
       "id": "routes_studentroutes_computeadmissioncompleted",
       "label": "computeAdmissionCompleted()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L167"
+      "source_location": "L168"
     },
     {
       "id": "routes_studentroutes_ensuredatabaseready",
       "label": "ensureDatabaseReady()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L172"
+      "source_location": "L173"
     },
     {
       "id": "routes_studentroutes_buildstudentpayload",
       "label": "buildStudentPayload()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L183"
+      "source_location": "L184"
     },
     {
       "id": "routes_studentroutes_createstudentrecord",
       "label": "createStudentRecord()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L216"
+      "source_location": "L217"
     },
     {
       "id": "routes_studentroutes_buildgeneratedstudentemail",
       "label": "buildGeneratedStudentEmail()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L258"
+      "source_location": "L259"
     },
     {
       "id": "routes_studentroutes_normalizeimportedstudentrow",
       "label": "normalizeImportedStudentRow()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L272"
+      "source_location": "L273"
     },
     {
       "id": "routes_studentroutes_ensureclassexistsforimportedrow",
       "label": "ensureClassExistsForImportedRow()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L321"
+      "source_location": "L322"
     },
     {
       "id": "routes_studentroutes_findduplicateimportedstudent",
       "label": "findDuplicateImportedStudent()",
       "file_type": "code",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L349"
+      "source_location": "L350"
     },
     {
       "id": "backend_src_modules_survey_index_ts",
@@ -5528,7 +5535,7 @@
       "label": "SchoolAdminLayout()",
       "file_type": "code",
       "source_file": "frontend\\src\\layouts\\SchoolAdminLayout.tsx",
-      "source_location": "L5"
+      "source_location": "L7"
     },
     {
       "id": "frontend_src_layouts_teacherlayout_tsx",
@@ -10074,13 +10081,6 @@
       "source_location": "L1"
     },
     {
-      "id": "school_admin_schoolmodulepage_schoolmodulepage",
-      "label": "SchoolModulePage()",
-      "file_type": "code",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L60"
-    },
-    {
       "id": "frontend_src_pages_school_admin_modules_financeclassfeestructurespage_tsx",
       "label": "FinanceClassFeeStructuresPage.tsx",
       "file_type": "code",
@@ -11259,11 +11259,74 @@
     },
     {
       "source": "backend_src_server_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_middleware_errorboundary",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\server.ts",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_server_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_health_modulehealth",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\server.ts",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_server_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_health_circuitbreaker",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\server.ts",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_server_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_workers_index",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\server.ts",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_server_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_workers_routes",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\server.ts",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_server_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_observability",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\server.ts",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_server_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_observability_audit_auditroutes",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\server.ts",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_server_ts",
       "target": "src_server_islocaldevorigin",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L22",
+      "source_location": "L35",
       "weight": 1.0
     },
     {
@@ -11272,7 +11335,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L57",
+      "source_location": "L72",
       "weight": 1.0
     },
     {
@@ -11281,7 +11344,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L120",
+      "source_location": "L177",
       "weight": 1.0
     },
     {
@@ -11290,7 +11353,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L122",
+      "source_location": "L179",
       "weight": 1.0
     },
     {
@@ -11785,7 +11848,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\core\\config\\env.ts",
-      "source_location": "L67",
+      "source_location": "L71",
       "weight": 1.0
     },
     {
@@ -11794,7 +11857,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\core\\config\\env.ts",
-      "source_location": "L72",
+      "source_location": "L76",
       "weight": 1.0
     },
     {
@@ -11821,7 +11884,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\core\\config\\env.ts",
-      "source_location": "L73",
+      "source_location": "L77",
       "weight": 1.0
     },
     {
@@ -11830,61 +11893,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\core\\config\\env.ts",
-      "source_location": "L74",
-      "weight": 1.0
-    },
-    {
-      "source": "backend_src_core_events_index_ts",
-      "target": "events",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L1",
-      "weight": 1.0
-    },
-    {
-      "source": "backend_src_core_events_index_ts",
-      "target": "events_index_eventbus",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L5",
-      "weight": 1.0
-    },
-    {
-      "source": "events_index_eventbus",
-      "target": "events_index_eventbus_publish",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L6",
-      "weight": 1.0
-    },
-    {
-      "source": "events_index_eventbus",
-      "target": "events_index_eventbus_publishasync",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L10",
-      "weight": 1.0
-    },
-    {
-      "source": "events_index_eventbus",
-      "target": "events_index_eventbus_subscribe",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L17",
-      "weight": 1.0
-    },
-    {
-      "source": "events_index_eventbus",
-      "target": "events_index_eventbus_unsubscribe",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\core\\events\\index.ts",
-      "source_location": "L21",
+      "source_location": "L78",
       "weight": 1.0
     },
     {
@@ -12239,15 +12248,6 @@
       "weight": 1.0
     },
     {
-      "source": "backend_src_infrastructure_logger_index_ts",
-      "target": "logger_index_log",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\infrastructure\\logger\\index.ts",
-      "source_location": "L3",
-      "weight": 1.0
-    },
-    {
       "source": "backend_src_infrastructure_queue_index_ts",
       "target": "queue_index_inmemoryqueue",
       "relation": "contains",
@@ -12564,7 +12564,7 @@
     },
     {
       "source": "backend_src_modules_academics_routes_attendanceroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_attendance",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_observability",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
@@ -12573,7 +12573,7 @@
     },
     {
       "source": "backend_src_modules_academics_routes_attendanceroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_staff_models_staff",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_attendance",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
@@ -12582,7 +12582,7 @@
     },
     {
       "source": "backend_src_modules_academics_routes_attendanceroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_students_models_student",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_staff_models_staff",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
@@ -12591,7 +12591,7 @@
     },
     {
       "source": "backend_src_modules_academics_routes_attendanceroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_school_models_school",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_students_models_student",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
@@ -12600,11 +12600,20 @@
     },
     {
       "source": "backend_src_modules_academics_routes_attendanceroutes_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_school_models_school",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_academics_routes_attendanceroutes_ts",
       "target": "routes_attendanceroutes_toradians",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
-      "source_location": "L22",
+      "source_location": "L23",
       "weight": 1.0
     },
     {
@@ -12613,7 +12622,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
-      "source_location": "L24",
+      "source_location": "L25",
       "weight": 1.0
     },
     {
@@ -12622,7 +12631,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\attendanceRoutes.ts",
-      "source_location": "L31",
+      "source_location": "L32",
       "weight": 1.0
     },
     {
@@ -13050,16 +13059,16 @@
     },
     {
       "source": "backend_src_modules_academics_routes_markroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_class",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_observability",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
-      "source_location": "L4",
+      "source_location": "L3",
       "weight": 1.0
     },
     {
       "source": "backend_src_modules_academics_routes_markroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_exam",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_class",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
@@ -13068,7 +13077,7 @@
     },
     {
       "source": "backend_src_modules_academics_routes_markroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_mark",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_exam",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
@@ -13077,7 +13086,7 @@
     },
     {
       "source": "backend_src_modules_academics_routes_markroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_school_models_school",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_mark",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
@@ -13086,7 +13095,7 @@
     },
     {
       "source": "backend_src_modules_academics_routes_markroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_staff_models_staff",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_school_models_school",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
@@ -13095,7 +13104,7 @@
     },
     {
       "source": "backend_src_modules_academics_routes_markroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_students_models_student",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_staff_models_staff",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
@@ -13104,11 +13113,20 @@
     },
     {
       "source": "backend_src_modules_academics_routes_markroutes_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_students_models_student",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_academics_routes_markroutes_ts",
       "target": "routes_markroutes_buildclasslabel",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0
     },
     {
@@ -13117,7 +13135,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0
     },
     {
@@ -13126,7 +13144,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\academics\\routes\\markRoutes.ts",
-      "source_location": "L22",
+      "source_location": "L23",
       "weight": 1.0
     },
     {
@@ -13220,6 +13238,42 @@
       "weight": 1.0
     },
     {
+      "source": "backend_src_modules_admissions_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\admissions\\events\\index.ts",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_admissions_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\admissions\\events\\index.ts",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_admissions_events_index_ts",
+      "target": "events_index_publishadmissionconfirmed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\admissions\\events\\index.ts",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_admissions_events_index_ts",
+      "target": "events_index_publishadmissionrejected",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\admissions\\events\\index.ts",
+      "source_location": "L55",
+      "weight": 1.0
+    },
+    {
       "source": "backend_src_modules_ai_index_ts",
       "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_shared_types",
       "relation": "imports_from",
@@ -13274,12 +13328,84 @@
       "weight": 1.0
     },
     {
+      "source": "backend_src_modules_analytics_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\analytics\\events\\index.ts",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_analytics_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\analytics\\events\\index.ts",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_analytics_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_infrastructure_logger",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\analytics\\events\\index.ts",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
       "source": "backend_src_modules_attendance_index_ts",
       "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_shared_types",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\attendance\\index.ts",
       "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_attendance_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_attendance_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_attendance_events_index_ts",
+      "target": "events_index_publishattendancemarked",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
+      "source_location": "L34",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_attendance_events_index_ts",
+      "target": "events_index_publishattendanceabsent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_attendance_events_index_ts",
+      "target": "events_index_publishattendancelate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\attendance\\events\\index.ts",
+      "source_location": "L86",
       "weight": 1.0
     },
     {
@@ -14571,7 +14697,7 @@
     },
     {
       "source": "backend_src_modules_finance_events_index_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_classfeestructure",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
@@ -14580,7 +14706,7 @@
     },
     {
       "source": "backend_src_modules_finance_events_index_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_finance",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_classfeestructure",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
@@ -14589,7 +14715,7 @@
     },
     {
       "source": "backend_src_modules_finance_events_index_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_investorledger",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_finance",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
@@ -14598,7 +14724,7 @@
     },
     {
       "source": "backend_src_modules_finance_events_index_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_salaryrole",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_investorledger",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
@@ -14607,7 +14733,7 @@
     },
     {
       "source": "backend_src_modules_finance_events_index_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_studentfeeassignment",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_salaryrole",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
@@ -14616,7 +14742,7 @@
     },
     {
       "source": "backend_src_modules_finance_events_index_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_studentfeepayment",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_studentfeeassignment",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
@@ -14625,7 +14751,7 @@
     },
     {
       "source": "backend_src_modules_finance_events_index_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_services_financeservice",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_models_studentfeepayment",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
@@ -14634,11 +14760,38 @@
     },
     {
       "source": "backend_src_modules_finance_events_index_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_services_studentfeesyncservice",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_services_financeservice",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
       "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_finance_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_finance_services_studentfeesyncservice",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_finance_events_index_ts",
+      "target": "events_index_publishfeepaymentcompleted",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
+      "source_location": "L109",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_finance_events_index_ts",
+      "target": "events_index_publishfeeoverdue",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\finance\\events\\index.ts",
+      "source_location": "L144",
       "weight": 1.0
     },
     {
@@ -15183,11 +15336,20 @@
     },
     {
       "source": "backend_src_modules_finance_routes_financeroutes_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_observability",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_finance_routes_financeroutes_ts",
       "target": "routes_financeroutes_asrecord",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L93",
+      "source_location": "L100",
       "weight": 1.0
     },
     {
@@ -15196,7 +15358,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L96",
+      "source_location": "L103",
       "weight": 1.0
     },
     {
@@ -15205,7 +15367,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L111",
+      "source_location": "L118",
       "weight": 1.0
     },
     {
@@ -15214,7 +15376,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L112",
+      "source_location": "L119",
       "weight": 1.0
     },
     {
@@ -15223,7 +15385,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L116",
+      "source_location": "L123",
       "weight": 1.0
     },
     {
@@ -15232,7 +15394,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L117",
+      "source_location": "L124",
       "weight": 1.0
     },
     {
@@ -15241,7 +15403,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L128",
+      "source_location": "L135",
       "weight": 1.0
     },
     {
@@ -15250,7 +15412,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L132",
+      "source_location": "L139",
       "weight": 1.0
     },
     {
@@ -15259,7 +15421,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L153",
+      "source_location": "L160",
       "weight": 1.0
     },
     {
@@ -15268,7 +15430,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L154",
+      "source_location": "L161",
       "weight": 1.0
     },
     {
@@ -15277,7 +15439,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L156",
+      "source_location": "L163",
       "weight": 1.0
     },
     {
@@ -15286,7 +15448,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L173",
+      "source_location": "L180",
       "weight": 1.0
     },
     {
@@ -15295,7 +15457,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L193",
+      "source_location": "L200",
       "weight": 1.0
     },
     {
@@ -15304,7 +15466,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L198",
+      "source_location": "L205",
       "weight": 1.0
     },
     {
@@ -15313,7 +15475,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L211",
+      "source_location": "L218",
       "weight": 1.0
     },
     {
@@ -15322,7 +15484,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L220",
+      "source_location": "L227",
       "weight": 1.0
     },
     {
@@ -15331,7 +15493,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L230",
+      "source_location": "L237",
       "weight": 1.0
     },
     {
@@ -15340,7 +15502,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L239",
+      "source_location": "L246",
       "weight": 1.0
     },
     {
@@ -15349,7 +15511,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L283",
+      "source_location": "L290",
       "weight": 1.0
     },
     {
@@ -15358,7 +15520,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L315",
+      "source_location": "L322",
       "weight": 1.0
     },
     {
@@ -15367,7 +15529,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L341",
+      "source_location": "L348",
       "weight": 1.0
     },
     {
@@ -15376,7 +15538,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L344",
+      "source_location": "L351",
       "weight": 1.0
     },
     {
@@ -15385,7 +15547,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L358",
+      "source_location": "L365",
       "weight": 1.0
     },
     {
@@ -15394,7 +15556,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L97",
+      "source_location": "L104",
       "weight": 1.0
     },
     {
@@ -15403,7 +15565,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L129",
+      "source_location": "L136",
       "weight": 1.0
     },
     {
@@ -15412,7 +15574,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L227",
+      "source_location": "L234",
       "weight": 1.0
     },
     {
@@ -15421,7 +15583,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L231",
+      "source_location": "L238",
       "weight": 1.0
     },
     {
@@ -15430,7 +15592,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L234",
+      "source_location": "L241",
       "weight": 1.0
     },
     {
@@ -15439,7 +15601,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L243",
+      "source_location": "L250",
       "weight": 1.0
     },
     {
@@ -15448,7 +15610,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L259",
+      "source_location": "L266",
       "weight": 1.0
     },
     {
@@ -15457,7 +15619,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L284",
+      "source_location": "L291",
       "weight": 1.0
     },
     {
@@ -15466,7 +15628,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L286",
+      "source_location": "L293",
       "weight": 1.0
     },
     {
@@ -15475,7 +15637,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L290",
+      "source_location": "L297",
       "weight": 1.0
     },
     {
@@ -15484,7 +15646,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L291",
+      "source_location": "L298",
       "weight": 1.0
     },
     {
@@ -15493,7 +15655,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L319",
+      "source_location": "L326",
       "weight": 1.0
     },
     {
@@ -15502,30 +15664,12 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L320",
+      "source_location": "L327",
       "weight": 1.0
     },
     {
       "source": "routes_financeroutes_maplegacyclassfeestructure",
       "target": "routes_financeroutes_tostringvalue",
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L322",
-      "weight": 1.0
-    },
-    {
-      "source": "routes_financeroutes_maplegacyclassfeestructure",
-      "target": "routes_financeroutes_tooptionalstring",
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L323",
-      "weight": 1.0
-    },
-    {
-      "source": "routes_financeroutes_maplegacyclassfeestructure",
-      "target": "routes_financeroutes_buildclasslabel",
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
@@ -15534,11 +15678,29 @@
     },
     {
       "source": "routes_financeroutes_maplegacyclassfeestructure",
+      "target": "routes_financeroutes_tooptionalstring",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
+      "source_location": "L330",
+      "weight": 1.0
+    },
+    {
+      "source": "routes_financeroutes_maplegacyclassfeestructure",
+      "target": "routes_financeroutes_buildclasslabel",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
+      "source_location": "L336",
+      "weight": 1.0
+    },
+    {
+      "source": "routes_financeroutes_maplegacyclassfeestructure",
       "target": "routes_financeroutes_tonumbervalue",
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L331",
+      "source_location": "L338",
       "weight": 1.0
     },
     {
@@ -15547,7 +15709,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L345",
+      "source_location": "L352",
       "weight": 1.0
     },
     {
@@ -15556,7 +15718,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L348",
+      "source_location": "L355",
       "weight": 1.0
     },
     {
@@ -15565,7 +15727,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L349",
+      "source_location": "L356",
       "weight": 1.0
     },
     {
@@ -15574,7 +15736,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L351",
+      "source_location": "L358",
       "weight": 1.0
     },
     {
@@ -15583,7 +15745,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L354",
+      "source_location": "L361",
       "weight": 1.0
     },
     {
@@ -15592,7 +15754,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L363",
+      "source_location": "L370",
       "weight": 1.0
     },
     {
@@ -15601,7 +15763,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L380",
+      "source_location": "L387",
       "weight": 1.0
     },
     {
@@ -15610,7 +15772,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L381",
+      "source_location": "L388",
       "weight": 1.0
     },
     {
@@ -15619,7 +15781,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L382",
+      "source_location": "L389",
       "weight": 1.0
     },
     {
@@ -15628,7 +15790,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L385",
+      "source_location": "L392",
       "weight": 1.0
     },
     {
@@ -15637,7 +15799,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L386",
+      "source_location": "L393",
       "weight": 1.0
     },
     {
@@ -15646,7 +15808,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\finance\\routes\\financeRoutes.ts",
-      "source_location": "L414",
+      "source_location": "L421",
       "weight": 1.0
     },
     {
@@ -17675,6 +17837,42 @@
       "weight": 1.0
     },
     {
+      "source": "backend_src_modules_notifications_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\notifications\\events\\index.ts",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_notifications_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_communication_services_triggerengine",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\notifications\\events\\index.ts",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_notifications_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_events",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\notifications\\events\\index.ts",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_notifications_events_index_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_infrastructure_logger",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\notifications\\events\\index.ts",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
       "source": "backend_src_modules_parents_index_ts",
       "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_shared_types",
       "relation": "imports_from",
@@ -18378,7 +18576,7 @@
     },
     {
       "source": "backend_src_modules_students_routes_studentroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_class",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_observability",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
@@ -18387,7 +18585,7 @@
     },
     {
       "source": "backend_src_modules_students_routes_studentroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_school_models_school",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_academics_models_class",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
@@ -18396,7 +18594,7 @@
     },
     {
       "source": "backend_src_modules_students_routes_studentroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_students_models_student",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_school_models_school",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
@@ -18405,7 +18603,7 @@
     },
     {
       "source": "backend_src_modules_students_routes_studentroutes_ts",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_config_db",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_modules_students_models_student",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
@@ -18414,11 +18612,20 @@
     },
     {
       "source": "backend_src_modules_students_routes_studentroutes_ts",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_backend_src_core_config_db",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_src_modules_students_routes_studentroutes_ts",
       "target": "routes_studentroutes_buildclasslabel",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L115",
+      "source_location": "L116",
       "weight": 1.0
     },
     {
@@ -18427,7 +18634,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L118",
+      "source_location": "L119",
       "weight": 1.0
     },
     {
@@ -18436,7 +18643,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L120",
+      "source_location": "L121",
       "weight": 1.0
     },
     {
@@ -18445,7 +18652,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L122",
+      "source_location": "L123",
       "weight": 1.0
     },
     {
@@ -18454,7 +18661,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L145",
+      "source_location": "L146",
       "weight": 1.0
     },
     {
@@ -18463,7 +18670,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L163",
+      "source_location": "L164",
       "weight": 1.0
     },
     {
@@ -18472,7 +18679,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L165",
+      "source_location": "L166",
       "weight": 1.0
     },
     {
@@ -18481,7 +18688,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L167",
+      "source_location": "L168",
       "weight": 1.0
     },
     {
@@ -18490,7 +18697,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L172",
+      "source_location": "L173",
       "weight": 1.0
     },
     {
@@ -18499,7 +18706,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L183",
+      "source_location": "L184",
       "weight": 1.0
     },
     {
@@ -18508,7 +18715,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L216",
+      "source_location": "L217",
       "weight": 1.0
     },
     {
@@ -18517,7 +18724,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L258",
+      "source_location": "L259",
       "weight": 1.0
     },
     {
@@ -18526,7 +18733,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L272",
+      "source_location": "L273",
       "weight": 1.0
     },
     {
@@ -18535,7 +18742,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L321",
+      "source_location": "L322",
       "weight": 1.0
     },
     {
@@ -18544,7 +18751,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L349",
+      "source_location": "L350",
       "weight": 1.0
     },
     {
@@ -18553,7 +18760,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L123",
+      "source_location": "L124",
       "weight": 1.0
     },
     {
@@ -18562,7 +18769,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L146",
+      "source_location": "L147",
       "weight": 1.0
     },
     {
@@ -18571,7 +18778,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L168",
+      "source_location": "L169",
       "weight": 1.0
     },
     {
@@ -18580,7 +18787,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L217",
+      "source_location": "L218",
       "weight": 1.0
     },
     {
@@ -18589,7 +18796,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L222",
+      "source_location": "L223",
       "weight": 1.0
     },
     {
@@ -18598,7 +18805,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L228",
+      "source_location": "L229",
       "weight": 1.0
     },
     {
@@ -18607,7 +18814,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L229",
+      "source_location": "L230",
       "weight": 1.0
     },
     {
@@ -18616,7 +18823,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L264",
+      "source_location": "L265",
       "weight": 1.0
     },
     {
@@ -18625,7 +18832,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L281",
+      "source_location": "L282",
       "weight": 1.0
     },
     {
@@ -18634,7 +18841,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L282",
+      "source_location": "L283",
       "weight": 1.0
     },
     {
@@ -18643,7 +18850,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L289",
+      "source_location": "L290",
       "weight": 1.0
     },
     {
@@ -18652,7 +18859,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L292",
+      "source_location": "L293",
       "weight": 1.0
     },
     {
@@ -18661,7 +18868,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L297",
+      "source_location": "L298",
       "weight": 1.0
     },
     {
@@ -18670,7 +18877,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L366",
+      "source_location": "L367",
       "weight": 1.0
     },
     {
@@ -22590,11 +22797,29 @@
     },
     {
       "source": "frontend_src_layouts_schooladminlayout_tsx",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_components_degradedbanner",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend\\src\\layouts\\SchoolAdminLayout.tsx",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_layouts_schooladminlayout_tsx",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_hooks_usemodulehealth",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend\\src\\layouts\\SchoolAdminLayout.tsx",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_src_layouts_schooladminlayout_tsx",
       "target": "layouts_schooladminlayout_schooladminlayout",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\layouts\\SchoolAdminLayout.tsx",
-      "source_location": "L5",
+      "source_location": "L7",
       "weight": 1.0
     },
     {
@@ -33192,7 +33417,7 @@
     },
     {
       "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "react_router_dom",
+      "target": "react",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
@@ -33201,7 +33426,7 @@
     },
     {
       "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_components_aiassistant",
+      "target": "react_router_dom",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
@@ -33210,7 +33435,7 @@
     },
     {
       "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_academics_academicsmodule",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_components_aiassistant",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
@@ -33219,7 +33444,7 @@
     },
     {
       "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_admissions_admissionsmodule",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_components_moduleerrorboundary",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
@@ -33228,227 +33453,11 @@
     },
     {
       "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_approvals_approvalsmodule",
+      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_shared_components_modulefallback",
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
       "source_location": "L5",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_attendance_attendencemodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L6",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_classes_classmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L7",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_communication_communicationmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L8",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_downloads_downloadsmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L9",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_exams_examsmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L10",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_finance_financemodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L11",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_hostel_hostelmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L12",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_hr_hrmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L13",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_inventory_inventorymodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L14",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_library_librarymodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L15",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_maintenance_maintenancemodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L16",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_staff_staffmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L17",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_students_studentmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L18",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_support_supportmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L19",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_survey_surveymodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L20",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_transport_transportmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L21",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_sports_sportsmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L22",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_house_housemodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L23",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_social_media_socialmediamodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L24",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_visitor_visitormodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L25",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_data_import_dataimportmodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L26",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_timetable_timetablemodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L27",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "c_users_jay_onedrive_desktop_erp_erp_portal_frontend_src_modules_salary_salarymodule",
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L28",
-      "weight": 1.0
-    },
-    {
-      "source": "frontend_src_pages_school_admin_schoolmodulepage_tsx",
-      "target": "school_admin_schoolmodulepage_schoolmodulepage",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend\\src\\pages\\school-admin\\SchoolModulePage.tsx",
-      "source_location": "L60",
       "weight": 1.0
     },
     {
@@ -35478,7 +35487,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L58",
+      "source_location": "L73",
       "weight": 1.0
     },
     {
@@ -35488,7 +35497,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "backend\\src\\server.ts",
-      "source_location": "L61",
+      "source_location": "L76",
       "weight": 1.0
     },
     {
@@ -35678,7 +35687,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "backend\\src\\modules\\students\\routes\\studentRoutes.ts",
-      "source_location": "L173",
+      "source_location": "L174",
       "weight": 1.0
     },
     {

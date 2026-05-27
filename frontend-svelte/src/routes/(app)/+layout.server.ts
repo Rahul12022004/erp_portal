@@ -20,5 +20,5 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
     redirect(303, getRoleHome(role));
   }
 
-  return { user: locals.user };
+  return { user: locals.user, token: locals.token ?? null };
 };

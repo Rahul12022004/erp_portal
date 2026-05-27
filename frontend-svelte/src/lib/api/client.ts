@@ -1,6 +1,13 @@
 import { API_BASE } from './endpoints';
 import { ApiError, type ApiRequestOptions } from '$lib/types';
 
+// Read the non-httpOnly client_token cookie for Authorization header injection.
+function getClientToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)client_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -20,6 +27,11 @@ async function request<T>(
     bodyInit = JSON.stringify(body);
   }
 
+  const token = getClientToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetcher(url, {
     method,
     headers,
@@ -30,8 +42,15 @@ async function request<T>(
   if (!response.ok) {
     const err = await response
       .json()
-      .catch(() => ({ message: response.statusText })) as { message?: string };
-    throw new ApiError(response.status, err.message ?? `HTTP ${response.status}`);
+      .catch(() => ({ message: response.statusText })) as { message?: string; error?: string };
+    const msg = err.error ?? err.message ?? `HTTP ${response.status}`;
+
+    // Expired or invalid session — redirect to login.
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+
+    throw new ApiError(response.status, msg);
   }
 
   return response.json() as Promise<T>;

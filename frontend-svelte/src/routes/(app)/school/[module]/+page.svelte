@@ -21,7 +21,7 @@
       <span class="text-gray-400 text-lg font-bold capitalize">{moduleName.charAt(0)}</span>
     </div>
     <p class="text-gray-500 text-sm">
-      <strong class="capitalize">{moduleName}</strong> module — implementation in Plan 2
+      <strong class="capitalize">{moduleName}</strong> module is not enabled for your school.
     </p>
   </div>
 </div>
