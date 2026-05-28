@@ -23,7 +23,8 @@
       loading = true; error = '';
       const res = await fetch(`/api/social-media/${schoolId}`);
       if (!res.ok) throw new Error(`Failed to load (${res.status})`);
-      accounts = await res.json();
+      const d = await res.json();
+      accounts = Array.isArray(d?.data) ? d.data : (Array.isArray(d) ? d : []);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load';
       accounts = [];
@@ -43,7 +44,7 @@
       const url = editingId ? `/api/social-media/${editingId}` : '/api/social-media';
       const res = await fetch(url, { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, schoolId }) });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.message || 'Failed to save');
+      if (!res.ok) throw new Error(data?.error || data?.message || 'Failed to save');
       resetForm();
       await fetchAccounts();
     } catch (err) {
@@ -61,7 +62,7 @@
     try {
       const res = await fetch(`/api/social-media/${id}`, { method: 'DELETE' });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.message || 'Failed to delete');
+      if (!res.ok) throw new Error(data?.error || data?.message || 'Failed to delete');
       if (editingId === id) resetForm();
       await fetchAccounts();
     } catch (err) {

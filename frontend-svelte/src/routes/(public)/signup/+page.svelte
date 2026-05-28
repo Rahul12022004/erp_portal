@@ -86,7 +86,7 @@
         body: JSON.stringify(formData),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || 'Registration failed');
+      if (!res.ok) throw new Error(data?.error || data?.message || 'Registration failed');
       successData = data.data;
       successMessage = `School registered successfully! Admin credentials have been sent to ${formData.adminEmail}`;
       step = 'success';
@@ -147,33 +147,33 @@
         {#if step === 'details'}
           <div class="space-y-4">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">School Name *</label>
-              <input bind:value={formData.schoolName} placeholder="Enter school name" disabled={loading}
+              <label for="reg-school-name" class="block text-sm font-medium text-slate-700 mb-1">School Name *</label>
+              <input id="reg-school-name" bind:value={formData.schoolName} placeholder="Enter school name" disabled={loading}
                 class="w-full h-9 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">School Email *</label>
-                <input bind:value={formData.schoolEmail} type="email" placeholder="school@example.com" disabled={loading}
+                <label for="reg-school-email" class="block text-sm font-medium text-slate-700 mb-1">School Email *</label>
+                <input id="reg-school-email" bind:value={formData.schoolEmail} type="email" placeholder="school@example.com" disabled={loading}
                   class="w-full h-9 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">School Phone *</label>
-                <input bind:value={formData.schoolPhone} placeholder="Phone number" disabled={loading}
+                <label for="reg-school-phone" class="block text-sm font-medium text-slate-700 mb-1">School Phone *</label>
+                <input id="reg-school-phone" bind:value={formData.schoolPhone} placeholder="Phone number" disabled={loading}
                   class="w-full h-9 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">School Address</label>
-              <input bind:value={formData.schoolAddress} placeholder="School address" disabled={loading}
+              <label for="reg-school-address" class="block text-sm font-medium text-slate-700 mb-1">School Address</label>
+              <input id="reg-school-address" bind:value={formData.schoolAddress} placeholder="School address" disabled={loading}
                 class="w-full h-9 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Website</label>
-              <input bind:value={formData.schoolWebsite} placeholder="https://school.com" disabled={loading}
+              <label for="reg-school-website" class="block text-sm font-medium text-slate-700 mb-1">Website</label>
+              <input id="reg-school-website" bind:value={formData.schoolWebsite} placeholder="https://school.com" disabled={loading}
                 class="w-full h-9 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
@@ -183,20 +183,20 @@
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Admin Name *</label>
-                <input bind:value={formData.adminName} placeholder="Full name" disabled={loading}
+                <label for="reg-admin-name" class="block text-sm font-medium text-slate-700 mb-1">Admin Name *</label>
+                <input id="reg-admin-name" bind:value={formData.adminName} placeholder="Full name" disabled={loading}
                   class="w-full h-9 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Admin Email *</label>
-                <input bind:value={formData.adminEmail} type="email" placeholder="admin@school.com" disabled={loading}
+                <label for="reg-admin-email" class="block text-sm font-medium text-slate-700 mb-1">Admin Email *</label>
+                <input id="reg-admin-email" bind:value={formData.adminEmail} type="email" placeholder="admin@school.com" disabled={loading}
                   class="w-full h-9 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Admin Phone</label>
-              <input bind:value={formData.adminPhone} placeholder="Phone number" disabled={loading}
+              <label for="reg-admin-phone" class="block text-sm font-medium text-slate-700 mb-1">Admin Phone</label>
+              <input id="reg-admin-phone" bind:value={formData.adminPhone} placeholder="Phone number" disabled={loading}
                 class="w-full h-9 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
@@ -274,9 +274,9 @@
 
                 <div class="space-y-3">
                   <div>
-                    <label class="text-xs font-semibold text-slate-600">Email Address</label>
+                    <label for="cred-email" class="text-xs font-semibold text-slate-600">Email Address</label>
                     <div class="flex gap-2 mt-1">
-                      <input type="text" readonly value={successData.adminEmail ?? ''}
+                      <input id="cred-email" type="text" readonly value={successData.adminEmail ?? ''}
                         class="flex-1 px-3 py-2 bg-white border border-slate-300 rounded text-sm" />
                       <button onclick={() => copyText(successData?.adminEmail)}
                         class="px-2 py-1.5 border border-gray-300 rounded text-slate-600 hover:bg-gray-50">
@@ -286,9 +286,9 @@
                   </div>
 
                   <div>
-                    <label class="text-xs font-semibold text-slate-600">Generated Password</label>
+                    <label for="cred-password" class="text-xs font-semibold text-slate-600">Generated Password</label>
                     <div class="flex gap-2 mt-1">
-                      <input type="text" readonly value={successData.adminPassword ?? ''}
+                      <input id="cred-password" type="text" readonly value={successData.adminPassword ?? ''}
                         class="flex-1 px-3 py-2 bg-white border border-red-300 rounded text-sm font-mono" />
                       <button onclick={handleCopyPassword}
                         class="px-2 py-1.5 border border-gray-300 rounded text-slate-600 hover:bg-gray-50">
@@ -298,11 +298,11 @@
                   </div>
 
                   <div>
-                    <label class="text-xs font-semibold text-slate-600">Login URL</label>
+                    <label for="cred-url" class="text-xs font-semibold text-slate-600">Login URL</label>
                     <div class="flex gap-2 mt-1">
-                      <input type="text" readonly value="/school-login"
+                      <input id="cred-url" type="text" readonly value="/school-login"
                         class="flex-1 px-3 py-2 bg-white border border-slate-300 rounded text-sm" />
-                      <button onclick={() => copyText(window.location.origin + '/school-login')}
+                      <button onclick={() => copyText((typeof window !== 'undefined' ? window.location.origin : '') + '/school-login')}
                         class="px-2 py-1.5 border border-gray-300 rounded text-slate-600 hover:bg-gray-50">
                         <Copy class="w-4 h-4" />
                       </button>

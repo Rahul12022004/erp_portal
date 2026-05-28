@@ -82,6 +82,7 @@ type Assignment struct {
 	ID          string
 	SchoolID    string
 	ClassID     string
+	ClassName   string
 	TeacherID   string
 	Title       string
 	Description string
@@ -89,6 +90,36 @@ type Assignment struct {
 	DueDate     string
 	FileData    string
 	FileName    string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type AssignmentSubmission struct {
+	ID           string
+	AssignmentID string
+	StudentID    string
+	StudentName  string
+	FileData     string
+	FileName     string
+	Status       string // submitted | graded
+	Grade        string
+	Feedback     string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type Material struct {
+	ID          string
+	SchoolID    string
+	ClassID     string
+	ClassName   string
+	TeacherID   string
+	Title       string
+	Description string
+	Subject     string
+	FileData    string
+	FileName    string
+	FileType    string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

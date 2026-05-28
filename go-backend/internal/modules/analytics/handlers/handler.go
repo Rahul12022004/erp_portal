@@ -116,6 +116,115 @@ func (h *Handler) FeeCollectionTrend(c *fiber.Ctx) error {
 	return response.OK(c, rows)
 }
 
+// GET /api/dashboard/teacher/:schoolId/:teacherId
+func (h *Handler) TeacherDashboard(c *fiber.Ctx) error {
+	schoolID := c.Params("schoolId")
+	teacherID := c.Params("teacherId")
+	sid, _ := primitive.ObjectIDFromHex(schoolID)
+	tid, _ := primitive.ObjectIDFromHex(teacherID)
+	ctx, cancel := ctx10s()
+	defer cancel()
+
+	// Get assigned classes for teacher
+	classCur, err := h.students.Database().Collection("classes").Find(ctx,
+		bson.M{"schoolId": sid, "$or": bson.A{
+			bson.M{"classTeacher": tid},
+			bson.M{"assignedTeachers": tid},
+		}})
+	type ClassItem struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Section     string `json:"section"`
+		Stream      string `json:"stream"`
+		AcademicYear string `json:"academicYear"`
+		MeetLink    string `json:"meetLink"`
+		Students    int    `json:"students"`
+	}
+	var classes []ClassItem
+	var digitalClasses []ClassItem
+	if err == nil {
+		defer classCur.Close(ctx)
+		for classCur.Next(ctx) {
+			var d bson.M
+			if classCur.Decode(&d) != nil {
+				continue
+			}
+			item := ClassItem{
+				Name:    strVal(d, "name"),
+				Section: strVal(d, "section"),
+				Stream:  strVal(d, "stream"),
+				MeetLink: strVal(d, "meetLink"),
+			}
+			if oid, ok := d["_id"].(primitive.ObjectID); ok {
+				item.ID = oid.Hex()
+			}
+			if v, ok := d["academicYear"].(string); ok {
+				item.AcademicYear = v
+			}
+			// Count students
+			sc, _ := h.students.CountDocuments(ctx, bson.M{"schoolId": sid, "class": item.Name})
+			item.Students = int(sc)
+			classes = append(classes, item)
+			if item.MeetLink != "" {
+				digitalClasses = append(digitalClasses, item)
+			}
+		}
+	}
+
+	totalStudents := 0
+	for _, cl := range classes {
+		totalStudents += cl.Students
+	}
+
+	// Today's attendance
+	today := time.Now().Format("2006-01-02")
+	var attDoc bson.M
+	attErr := h.attendance.Database().Collection("attendances").FindOne(ctx, bson.M{
+		"schoolId": sid, "staffId": tid, "date": today,
+	}).Decode(&attDoc)
+	attendanceToday := "Not Marked"
+	if attErr == nil {
+		attendanceToday = strVal(attDoc, "status")
+	}
+
+	// Attendance rate (last 30 days)
+	since := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	total30, _ := h.attendance.Database().Collection("attendances").CountDocuments(ctx,
+		bson.M{"schoolId": sid, "staffId": tid, "date": bson.M{"$gte": since}})
+	present30, _ := h.attendance.Database().Collection("attendances").CountDocuments(ctx,
+		bson.M{"schoolId": sid, "staffId": tid, "date": bson.M{"$gte": since}, "status": "Present"})
+	attRate := 0
+	if total30 > 0 {
+		attRate = int(present30 * 100 / total30)
+	}
+
+	if classes == nil {
+		classes = []ClassItem{}
+	}
+	if digitalClasses == nil {
+		digitalClasses = []ClassItem{}
+	}
+	return response.OK(c, fiber.Map{
+		"stats": fiber.Map{
+			"assignedClasses": len(classes),
+			"totalStudents":   totalStudents,
+			"digitalClasses":  len(digitalClasses),
+			"attendanceToday": attendanceToday,
+			"attendanceRate":  attRate,
+		},
+		"classes":        classes,
+		"digitalClasses": digitalClasses,
+		"notifications":  []interface{}{},
+	})
+}
+
+func strVal(d bson.M, k string) string {
+	if v, ok := d[k].(string); ok {
+		return v
+	}
+	return ""
+}
+
 func (h *Handler) AttendanceRate(c *fiber.Ctx) error {
 	sid, _ := primitive.ObjectIDFromHex(c.Query("schoolId"))
 	ctx, cancel := ctx10s()

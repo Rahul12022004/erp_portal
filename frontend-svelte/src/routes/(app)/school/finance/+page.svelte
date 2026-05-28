@@ -126,14 +126,14 @@
     try {
       structuresLoading = true; structuresError = '';
       const [sRes, cRes] = await Promise.all([
-        fetch(`/api/finance/class-fee-structures?schoolId=${encodeURIComponent(schoolId)}`),
-        fetch(`/api/classes/${schoolId}`),
+        fetch(`/api/finance/class-fees?schoolId=${encodeURIComponent(schoolId)}`),
+        fetch(`/api/classes?schoolId=${encodeURIComponent(schoolId)}`),
       ]);
       if (!sRes.ok) throw new Error(`Failed to load fee structures (${sRes.status})`);
       const sData = await sRes.json();
       structures = Array.isArray(sData?.data) ? sData.data : Array.isArray(sData) ? sData : [];
-      const cData = cRes.ok ? await cRes.json() : [];
-      schoolClasses = Array.isArray(cData) ? cData : [];
+      const cRaw = cRes.ok ? await cRes.json() : [];
+      schoolClasses = Array.isArray((cRaw as {data?: unknown[]})?.data) ? (cRaw as {data: typeof schoolClasses}).data : (Array.isArray(cRaw) ? cRaw : []);
     } catch (e) { structuresError = e instanceof Error ? e.message : 'Failed to load fee structures'; }
     finally { structuresLoading = false; }
   }
@@ -206,11 +206,11 @@
     try {
       savingStructure = true;
       if (editingId) {
-        const r = await fetch(`/api/finance/class-fee-structures/${editingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ schoolId, academic_fee: acFee, default_transport_fee: trFee, other_fee: otFee, due_date: feeForm.dueDate, ...lateFeePayload }) });
+        const r = await fetch(`/api/finance/class-fees/${editingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ schoolId, academic_fee: acFee, default_transport_fee: trFee, other_fee: otFee, due_date: feeForm.dueDate, ...lateFeePayload }) });
         if (!r.ok) { const d = await r.json().catch(() => null); throw new Error(d?.message || 'Update failed.'); }
         structureSaveSuccess = 'Updated and assignments synced.';
       } else {
-        const r = await fetch('/api/finance/class-fee-structures', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ schoolId, class_id: feeForm.classId, academic_year: feeForm.academicYear, academic_fee: acFee, default_transport_fee: trFee, other_fee: otFee, due_date: feeForm.dueDate, ...lateFeePayload }) });
+        const r = await fetch('/api/finance/class-fees', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ schoolId, class_id: feeForm.classId, academic_year: feeForm.academicYear, academic_fee: acFee, default_transport_fee: trFee, other_fee: otFee, due_date: feeForm.dueDate, ...lateFeePayload }) });
         if (!r.ok) { const d = await r.json().catch(() => null); throw new Error(d?.message || 'Create failed.'); }
         structureSaveSuccess = 'Created and auto-assigned to all active students.';
         feeForm = { ...EMPTY_FORM }; showLateFee = false;
@@ -388,33 +388,33 @@
 
           <form onsubmit={saveStructure} class="space-y-4">
             <div>
-              <label class="mb-1 block text-xs font-semibold text-slate-600">Class <span class="text-rose-500">*</span></label>
-              <select class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.classId} disabled={!!editingId} required>
+              <label for="fee-class" class="mb-1 block text-xs font-semibold text-slate-600">Class <span class="text-rose-500">*</span></label>
+              <select id="fee-class" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.classId} disabled={!!editingId} required>
                 <option value="">Select class…</option>
                 {#each uniqueClasses as c (c._id)}<option value={c._id}>{c.name}</option>{/each}
               </select>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-semibold text-slate-600">Academic Year <span class="text-rose-500">*</span></label>
-              <input type="text" placeholder="e.g. 2025-26" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50 disabled:text-slate-400" bind:value={feeForm.academicYear} disabled={!!editingId} required />
+              <label for="fee-academic-year" class="mb-1 block text-xs font-semibold text-slate-600">Academic Year <span class="text-rose-500">*</span></label>
+              <input id="fee-academic-year" type="text" placeholder="e.g. 2025-26" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50 disabled:text-slate-400" bind:value={feeForm.academicYear} disabled={!!editingId} required />
             </div>
             <div class="grid grid-cols-3 gap-2">
               <div>
-                <label class="mb-1 block text-xs font-semibold text-slate-600">Academic Fee <span class="text-rose-500">*</span></label>
-                <input type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.academicFee} />
+                <label for="fee-academic-fee" class="mb-1 block text-xs font-semibold text-slate-600">Academic Fee <span class="text-rose-500">*</span></label>
+                <input id="fee-academic-fee" type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.academicFee} />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-semibold text-slate-600">Transport Fee</label>
-                <input type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.transportFee} />
+                <label for="fee-transport-fee" class="mb-1 block text-xs font-semibold text-slate-600">Transport Fee</label>
+                <input id="fee-transport-fee" type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.transportFee} />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-semibold text-slate-600">Other Fee</label>
-                <input type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.otherFee} />
+                <label for="fee-other-fee" class="mb-1 block text-xs font-semibold text-slate-600">Other Fee</label>
+                <input id="fee-other-fee" type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.otherFee} />
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-semibold text-slate-600">Due Date <span class="text-rose-500">*</span></label>
-              <input type="date" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.dueDate} required />
+              <label for="fee-due-date" class="mb-1 block text-xs font-semibold text-slate-600">Due Date <span class="text-rose-500">*</span></label>
+              <input id="fee-due-date" type="date" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" bind:value={feeForm.dueDate} required />
             </div>
 
             <!-- Late fee accordion -->
@@ -427,8 +427,8 @@
               {#if showLateFee}
                 <div class="space-y-3 border-t border-slate-100 px-4 pb-4 pt-3">
                   <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-600">Type</label>
-                    <select class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={feeForm.lateFeeType}>
+                    <label for="fee-late-type" class="mb-1 block text-xs font-semibold text-slate-600">Type</label>
+                    <select id="fee-late-type" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={feeForm.lateFeeType}>
                       <option value="none">None</option>
                       <option value="fixed">Fixed (one-time)</option>
                       <option value="daily">Daily (per day overdue)</option>
@@ -438,18 +438,18 @@
                   {#if feeForm.lateFeeType !== 'none'}
                     <div class="grid grid-cols-2 gap-2">
                       <div>
-                        <label class="mb-1 block text-xs font-semibold text-slate-600">{feeForm.lateFeeType === 'percentage' ? 'Rate (%)' : 'Amount (₹)'}</label>
-                        <input type="number" min="0" step="0.01" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={feeForm.lateFeeAmount} />
+                        <label for="fee-late-amount" class="mb-1 block text-xs font-semibold text-slate-600">{feeForm.lateFeeType === 'percentage' ? 'Rate (%)' : 'Amount (₹)'}</label>
+                        <input id="fee-late-amount" type="number" min="0" step="0.01" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={feeForm.lateFeeAmount} />
                       </div>
                       <div>
-                        <label class="mb-1 block text-xs font-semibold text-slate-600">Grace Days</label>
-                        <input type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={feeForm.lateFeeGraceDays} />
+                        <label for="fee-late-grace-days" class="mb-1 block text-xs font-semibold text-slate-600">Grace Days</label>
+                        <input id="fee-late-grace-days" type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={feeForm.lateFeeGraceDays} />
                       </div>
                     </div>
                   {/if}
                   <div>
-                    <label class="mb-1 block text-xs font-semibold text-slate-600">Description</label>
-                    <input type="text" placeholder="e.g. ₹50/day after 7-day grace period" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={feeForm.lateFeeDescription} />
+                    <label for="fee-late-description" class="mb-1 block text-xs font-semibold text-slate-600">Description</label>
+                    <input id="fee-late-description" type="text" placeholder="e.g. ₹50/day after 7-day grace period" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={feeForm.lateFeeDescription} />
                   </div>
                 </div>
               {/if}
@@ -721,17 +721,17 @@
       <form onsubmit={recordPayment} class="space-y-3 px-5 py-4">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Amount (₹) *</label>
-            <input type="number" min="1" step="0.01" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" bind:value={payForm.amount} />
+            <label for="pay-amount" class="block text-xs font-medium text-slate-600 mb-1">Amount (₹) *</label>
+            <input id="pay-amount" type="number" min="1" step="0.01" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" bind:value={payForm.amount} />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Payment Date *</label>
-            <input type="date" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" bind:value={payForm.date} />
+            <label for="pay-date" class="block text-xs font-medium text-slate-600 mb-1">Payment Date *</label>
+            <input id="pay-date" type="date" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" bind:value={payForm.date} />
           </div>
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Payment Mode *</label>
-          <select class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" bind:value={payForm.mode}>
+          <label for="pay-mode" class="block text-xs font-medium text-slate-600 mb-1">Payment Mode *</label>
+          <select id="pay-mode" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" bind:value={payForm.mode}>
             <option value="cash">Cash</option>
             <option value="upi">UPI</option>
             <option value="card">Card</option>
@@ -740,12 +740,12 @@
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Reference No.</label>
-          <input type="text" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" placeholder="Transaction ID / Cheque No." bind:value={payForm.refNo} />
+          <label for="pay-ref-no" class="block text-xs font-medium text-slate-600 mb-1">Reference No.</label>
+          <input id="pay-ref-no" type="text" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" placeholder="Transaction ID / Cheque No." bind:value={payForm.refNo} />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
-          <input type="text" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" placeholder="Optional notes" bind:value={payForm.remarks} />
+          <label for="pay-remarks" class="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
+          <input id="pay-remarks" type="text" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" placeholder="Optional notes" bind:value={payForm.remarks} />
         </div>
         {#if payError}<p class="text-xs text-red-600">{payError}</p>{/if}
         <div class="flex gap-2 pt-1">

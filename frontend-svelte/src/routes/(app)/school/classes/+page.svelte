@@ -83,7 +83,7 @@
     try {
       loading = true; error = '';
       const [classesRes, studentsRes, staffRes] = await Promise.all([
-        fetch(`/api/classes/${schoolId}`),
+        fetch(`/api/classes?schoolId=${schoolId}`),
         fetch(`/api/students/${schoolId}`),
         fetch(`/api/staff/${schoolId}`),
       ]);
@@ -91,9 +91,16 @@
       if (!studentsRes.ok) throw new Error(`Failed to load students (${studentsRes.status})`);
       if (!staffRes.ok) throw new Error(`Failed to load teachers (${staffRes.status})`);
       const [classesData, studentsData, staffData] = await Promise.all([classesRes.json(), studentsRes.json(), staffRes.json()]);
-      classes = Array.isArray(classesData) ? classesData : [];
-      students = (Array.isArray(studentsData) ? studentsData : []).filter((s: Student) => s.admissionCompleted !== false);
-      teachers = (Array.isArray(staffData) ? staffData : []).filter((s: Teacher) => s.position?.toLowerCase() === 'teacher');
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      classes = unwrap(classesData) as typeof classes;
+      students = (unwrap(studentsData) as typeof students).filter((s) => s.admissionCompleted !== false);
+      teachers = (unwrap(staffData) as typeof teachers).filter((s) => s.position?.toLowerCase() === 'teacher');
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load class module';
       classes = []; students = []; teachers = [];
@@ -380,7 +387,7 @@
                     {/if}
 
                     {#if selectedClassId === schoolClass._id && activeClass}
-                      <div class="space-y-6 border-t border-border/70 pt-6" onclick={(e) => e.stopPropagation()}>
+                      <div class="space-y-6 border-t border-border/70 pt-6" role="presentation" onclick={(e) => e.stopPropagation()}>
                         <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
                           <div class="space-y-4 rounded-2xl border border-border/60 bg-white p-5 shadow-sm">
                             <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

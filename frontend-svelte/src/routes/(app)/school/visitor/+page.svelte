@@ -123,10 +123,17 @@
       if (!visitorRes.ok) throw new Error(visitorData?.message || 'Failed to fetch visitor passes');
       if (!studentRes.ok) throw new Error(studentData?.message || 'Failed to fetch students');
       if (!staffRes.ok) throw new Error(staffData?.message || 'Failed to fetch staff');
-      const nextVisitors: VisitorRecord[] = Array.isArray(visitorData) ? visitorData : [];
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      const nextVisitors: VisitorRecord[] = unwrap(visitorData) as VisitorRecord[];
       records = nextVisitors;
-      students = Array.isArray(studentData) ? studentData : [];
-      staff = Array.isArray(staffData) ? staffData : [];
+      students = unwrap(studentData) as typeof students;
+      staff = unwrap(staffData) as typeof staff;
       if (nextVisitors[0]) {
         hydrateRecord(nextVisitors[0]);
       } else {

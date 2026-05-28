@@ -39,12 +39,19 @@
     try {
       const [studentsRes, classesRes] = await Promise.all([
         fetch(`/api/students/${schoolId}`),
-        fetch(`/api/classes/${schoolId}`),
+        fetch(`/api/classes?schoolId=${schoolId}`),
       ]);
       if (!studentsRes.ok || !classesRes.ok) throw new Error('Failed to load data');
       const [studentsData, classesData] = await Promise.all([studentsRes.json(), classesRes.json()]);
-      students = Array.isArray(studentsData) ? studentsData : [];
-      classes = Array.isArray(classesData) ? classesData : [];
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      students = unwrap(studentsData) as typeof students;
+      classes = unwrap(classesData) as typeof classes;
       if (classes.length > 0 && !selectedClass) selectedClass = classes[0]?.name || '';
 
       try {

@@ -115,6 +115,8 @@ type AssignmentRepo struct{ col *mongo.Collection }
 
 func NewAssignmentRepo(col *mongo.Collection) *AssignmentRepo { return &AssignmentRepo{col: col} }
 
+func (r *AssignmentRepo) Col() *mongo.Collection { return r.col }
+
 type AssignmentFilter struct {
 	SchoolID     string
 	ClassID      string

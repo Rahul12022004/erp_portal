@@ -367,14 +367,21 @@
 
     try {
       const [classesRes, examsRes, studentsRes] = await Promise.all([
-        fetch(`/api/classes/${sid}`),
+        fetch(`/api/classes?schoolId=${sid}`),
         fetch(`/api/exams/school/${sid}`),
         fetch(`/api/students/${sid}`),
       ]);
 
-      const classesData: ClassRecord[] = classesRes.ok ? await classesRes.json() : [];
-      const examsData: ExamRecord[] = examsRes.ok ? await examsRes.json() : [];
-      const studentsData: StudentRecord[] = studentsRes.ok ? await studentsRes.json() : [];
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      const classesData: ClassRecord[] = classesRes.ok ? unwrap(await classesRes.json()) as ClassRecord[] : [];
+      const examsData: ExamRecord[] = examsRes.ok ? unwrap(await examsRes.json()) as ExamRecord[] : [];
+      const studentsData: StudentRecord[] = studentsRes.ok ? unwrap(await studentsRes.json()) as StudentRecord[] : [];
 
       const mergedClasses = new Set<string>([
         ...classesData.map(toClassLabel).filter(Boolean),
@@ -447,7 +454,9 @@
   async function loadJsPDF(): Promise<{ jsPDF: new (options?: Record<string,unknown>) => JsPDF; autoTable: (doc: JsPDF, opts: Record<string,unknown>) => void } | null> {
     try {
       const [jspdfMod, autoTableMod] = await Promise.all([
+        // @ts-ignore – optional runtime dep
         import('jspdf'),
+        // @ts-ignore – optional runtime dep
         import('jspdf-autotable'),
       ]);
       return { jsPDF: (jspdfMod as unknown as { default: new (o?: Record<string,unknown>) => JsPDF }).default ?? (jspdfMod as unknown as { jsPDF: new (o?: Record<string,unknown>) => JsPDF }).jsPDF, autoTable: (autoTableMod as unknown as { default: (doc: JsPDF, opts: Record<string,unknown>) => void }).default };
@@ -533,7 +542,9 @@
     try {
       const res = await fetch(`/api/students/${sid}`);
       if (!res.ok) throw new Error('Failed to fetch students');
-      const data = await res.json() as Record<string, unknown>[];
+      const raw = await res.json();
+      const _ri = (raw as Record<string, unknown>)?.data;
+      const data: Record<string, unknown>[] = Array.isArray(_ri) ? _ri as Record<string,unknown>[] : Array.isArray((_ri as Record<string, unknown>)?.students) ? (_ri as Record<string, unknown[]>).students as Record<string,unknown>[] : (Array.isArray(raw) ? raw : []);
       const libs = await loadJsPDF();
       if (!libs) { alert('PDF: use browser print instead'); return; }
       const { jsPDF, autoTable } = libs;
@@ -571,7 +582,8 @@
     try {
       const res = await fetch(`/api/staff/${sid}`);
       if (!res.ok) throw new Error('Failed to fetch staff');
-      const data = await res.json() as Record<string, unknown>[];
+      const raw = await res.json();
+      const data: Record<string, unknown>[] = Array.isArray((raw as {data?: unknown[]})?.data) ? (raw as {data: Record<string,unknown>[]}).data : (Array.isArray(raw) ? raw : []);
       const libs = await loadJsPDF();
       if (!libs) { alert('PDF: use browser print instead'); return; }
       const { jsPDF, autoTable } = libs;
@@ -676,8 +688,15 @@
       ]);
       if (!studentsRes.ok) throw new Error('Failed to fetch students');
       if (!examsRes.ok) throw new Error('Failed to fetch exams');
-      const students = await studentsRes.json() as StudentRecord[];
-      const exams = await examsRes.json() as ExamRecord[];
+      const _su = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      const students = _su(await studentsRes.json()) as StudentRecord[];
+      const exams = _su(await examsRes.json()) as ExamRecord[];
       const libs = await loadJsPDF();
       if (!libs) { alert('PDF: use browser print instead'); return; }
       const { jsPDF, autoTable } = libs;

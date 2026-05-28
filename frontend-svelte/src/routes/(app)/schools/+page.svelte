@@ -189,8 +189,9 @@
 
 <!-- View Modal -->
 {#if viewData}
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick={closeView}>
-    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4" onclick={(e) => e.stopPropagation()}>
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <button type="button" aria-label="Close" class="absolute inset-0 bg-black/50" onclick={closeView}></button>
+    <div class="relative bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
       <div class="flex items-center gap-4">
         {#if viewData.schoolInfo?.logo}
           <img src={viewData.schoolInfo.logo} alt="logo" class="w-16 h-16 rounded-full object-cover" />
@@ -271,8 +272,9 @@
 
 <!-- Add/Edit Modal (placeholder) -->
 {#if showModal}
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick={closeModal}>
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onclick={(e) => e.stopPropagation()}>
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <button type="button" aria-label="Close" class="absolute inset-0 bg-black/50" onclick={closeModal}></button>
+    <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
       <h2 class="text-lg font-bold text-gray-900 mb-4">{editData ? 'Edit School' : 'Add School'}</h2>
       <p class="text-gray-500 text-sm">Add/Edit modal coming soon</p>
       <button

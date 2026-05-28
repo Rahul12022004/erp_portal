@@ -44,8 +44,8 @@ export const ENDPOINTS = {
   },
 
   classes: {
-    bySchool: (schoolId: string)                    => `/api/classes/${schoolId}`,
-    byName:   (schoolId: string, className: string) => `/api/classes/${schoolId}/${className}`,
+    bySchool: (schoolId: string)                    => `/api/classes?schoolId=${schoolId}`,
+    byName:   (schoolId: string, className: string) => `/api/classes?schoolId=${schoolId}&name=${className}`,
     create:   '/api/classes',
     update:   (id: string)                          => `/api/classes/${id}`,
     delete:   (id: string)                          => `/api/classes/${id}`,
@@ -149,7 +149,7 @@ export const ENDPOINTS = {
   },
 
   transport: {
-    bySchool: (schoolId: string) => `/api/transport/${schoolId}`,
+    bySchool: (schoolId: string) => `/api/transport?schoolId=${schoolId}`,
     create:   '/api/transport',
     update:   (id: string)       => `/api/transport/${id}`,
     delete:   (id: string)       => `/api/transport/${id}`,
@@ -157,39 +157,39 @@ export const ENDPOINTS = {
   },
 
   hostel: {
-    bySchool: (schoolId: string)  => `/api/hostels/${schoolId}`,
-    update:   (hostelId: string)  => `/api/hostels/${hostelId}`,
+    bySchool: (schoolId: string)  => `/api/hostel?schoolId=${schoolId}`,
+    update:   (hostelId: string)  => `/api/hostel/${hostelId}`,
   },
 
   library: {
-    bySchool: (schoolId: string) => `/api/library/${schoolId}`,
+    bySchool: (schoolId: string) => `/api/library/books?schoolId=${schoolId}`,
     create:   '/api/library/books',
-    assign:   '/api/library/assign',
+    assign:   '/api/library/assignments',
   },
 
   inventory: {
-    bySchool: (schoolId: string)                      => `/api/inventory/${schoolId}`,
+    bySchool: (schoolId: string)               => `/api/inventory?schoolId=${schoolId}`,
     create:   '/api/inventory',
-    update:   (id: string)                            => `/api/inventory/${id}`,
-    delete:   (id: string)                            => `/api/inventory/${id}`,
-    action:   (id: string, actionType: string)        => `/api/inventory/${id}/${actionType}`,
+    update:   (id: string)                     => `/api/inventory/${id}`,
+    delete:   (id: string)                     => `/api/inventory/${id}`,
+    action:   (id: string, actionType: string) => `/api/inventory/${id}/${actionType}`,
   },
 
   maintenance: {
-    bySchool: (schoolId: string) => `/api/maintenance/${schoolId}`,
+    bySchool: (schoolId: string) => `/api/maintenance?schoolId=${schoolId}`,
     create:   '/api/maintenance',
     delete:   (id: string)       => `/api/maintenance/${id}`,
   },
 
   visitors: {
-    bySchool: (schoolId: string) => `/api/visitors/school/${schoolId}`,
+    bySchool: (schoolId: string) => `/api/visitors?schoolId=${schoolId}`,
     create:   '/api/visitors',
     delete:   (id: string)       => `/api/visitors/${id}`,
     scanExit: '/api/visitors/scan-exit',
   },
 
   surveys: {
-    bySchool: (schoolId: string)  => `/api/surveys/${schoolId}`,
+    bySchool: (schoolId: string)  => `/api/surveys?schoolId=${schoolId}`,
     create:   '/api/surveys',
     status:   (surveyId: string)  => `/api/surveys/${surveyId}/status`,
     delete:   (surveyId: string)  => `/api/surveys/${surveyId}`,

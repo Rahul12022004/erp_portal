@@ -20,10 +20,10 @@
   $effect(() => {
     if (!schoolId || !teacherId) { loadingExams = false; return; }
     loadingExams = true; error = '';
-    fetch(`/api/marks/${schoolId}/${teacherId}`)
+    fetch(`/api/exams/teacher/${schoolId}/${teacherId}`)
       .then(r => { if (!r.ok) throw new Error(`Failed to load completed exams (${r.status})`); return r.json(); })
       .then(data => {
-        const completedExams = Array.isArray(data) ? data : [];
+        const completedExams: Exam[] = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: Exam[]}).data : (Array.isArray(data) ? data : []);
         exams = completedExams;
         if (!selectedExamId || !completedExams.some((e: Exam) => e._id === selectedExamId)) {
           selectedExamId = completedExams[0]?._id || '';
@@ -38,7 +38,11 @@
     loadingStudents = true; error = '';
     fetch(`/api/marks/${schoolId}/${teacherId}/${selectedExamId}`)
       .then(r => { if (!r.ok) throw new Error(`Failed to load marks data (${r.status})`); return r.json(); })
-      .then(data => { selectedExam = data.exam || null; students = Array.isArray(data.students) ? data.students : []; })
+      .then(data => {
+        const d = data?.data ?? data;
+        selectedExam = d.exam || null;
+        students = Array.isArray(d.students) ? d.students : [];
+      })
       .catch(e => { error = e instanceof Error ? e.message : 'Failed to load marks data'; })
       .finally(() => { loadingStudents = false; });
   });
@@ -83,7 +87,7 @@
         ['Roll No', 'Student Name', 'Email', 'Obtained', 'Max', 'Remarks'],
         ...(data.marks || []).map((m: { rollNumber?: string; studentName?: string; email?: string; obtainedMarks?: string | number; maxMarks?: string | number; remarks?: string }) => [m.rollNumber, m.studentName, m.email, m.obtainedMarks, m.maxMarks, m.remarks || '-']),
       ];
-      const csv = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+      const csv = rows.map(r => r.map((v: unknown) => `"${v ?? ''}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

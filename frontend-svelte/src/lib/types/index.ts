@@ -6,6 +6,13 @@ export interface User {
   name: string;
   role: UserRole;
   schoolId?: string;
+  schoolName?: string;
+  schoolLogo?: string;
+  schoolPhone?: string;
+  schoolEmail?: string;
+  schoolAddress?: string;
+  schoolWebsite?: string;
+  schoolInfo?: { name?: string; logo?: string; phone?: string; email?: string; address?: string };
 }
 
 export class ApiError extends Error {

@@ -804,7 +804,7 @@
             </svg>
             Retry
           </button>
-          <button onclick={() => { commError = ''; }}>
+          <button aria-label="Dismiss error" onclick={() => { commError = ''; }}>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -841,7 +841,7 @@
             {#if annError}
               <div class="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <span>{annError}</span>
-                <button onclick={() => { annError = ''; }}>
+                <button aria-label="Dismiss error" onclick={() => { annError = ''; }}>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
@@ -908,8 +908,9 @@
                   </div>
 
                   <div class="space-y-2">
-                    <label class="text-sm font-medium text-slate-700">Audience</label>
+                    <label for="ann-audience" class="text-sm font-medium text-slate-700">Audience</label>
                     <select
+                      id="ann-audience"
                       class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
                       bind:value={annForm.audience}
                     >
@@ -920,8 +921,9 @@
                   </div>
 
                   <div class="space-y-2">
-                    <label class="text-sm font-medium text-slate-700">Priority</label>
+                    <label for="ann-priority" class="text-sm font-medium text-slate-700">Priority</label>
                     <select
+                      id="ann-priority"
                       class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
                       bind:value={annForm.priority}
                     >
@@ -932,8 +934,9 @@
                   </div>
 
                   <div class="space-y-2">
-                    <label class="text-sm font-medium text-slate-700">Status</label>
+                    <label for="ann-status" class="text-sm font-medium text-slate-700">Status</label>
                     <select
+                      id="ann-status"
                       class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
                       bind:value={annForm.status}
                     >
@@ -1195,7 +1198,7 @@
             {#if campaignError}
               <div class="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <span>{campaignError}</span>
-                <button onclick={() => { campaignError = ''; }}>
+                <button aria-label="Dismiss error" onclick={() => { campaignError = ''; }}>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
@@ -1340,6 +1343,7 @@
                   <span class="text-sm text-slate-700">Schedule for later</span>
                   <button
                     role="switch"
+                    aria-label="Schedule for later"
                     aria-checked={form.scheduleEnabled}
                     onclick={() => { form.scheduleEnabled = !form.scheduleEnabled; }}
                     class={`relative h-5 w-9 rounded-full transition-colors ${form.scheduleEnabled ? 'bg-blue-600' : 'bg-slate-200'}`}
@@ -1360,6 +1364,7 @@
                   <span class="text-sm text-slate-700">Require approval before send</span>
                   <button
                     role="switch"
+                    aria-label="Require approval before send"
                     aria-checked={form.approvalRequired}
                     onclick={() => { form.approvalRequired = !form.approvalRequired; }}
                     class={`relative h-5 w-9 rounded-full transition-colors ${form.approvalRequired ? 'bg-blue-600' : 'bg-slate-200'}`}
@@ -1465,6 +1470,7 @@
                           </td>
                           <td class="px-4 py-3">
                             <button
+                              aria-label="Delete campaign"
                               onclick={() => handleDeleteCampaign(c.id)}
                               class="flex h-7 w-7 items-center justify-center rounded text-slate-300 hover:text-red-500 transition-colors"
                             >
@@ -1496,10 +1502,10 @@
                 <h2 class="text-lg font-semibold text-slate-800">{MONTHS[calViewMonth]} {calViewYear}</h2>
               </div>
               <div class="flex gap-1">
-                <button onclick={calPrevMonth} class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50">
+                <button aria-label="Previous month" onclick={calPrevMonth} class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
-                <button onclick={calNextMonth} class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50">
+                <button aria-label="Next month" onclick={calNextMonth} class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               </div>

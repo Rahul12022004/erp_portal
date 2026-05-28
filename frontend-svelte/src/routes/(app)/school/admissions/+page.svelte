@@ -537,7 +537,7 @@
 
       const [studentsRes, classesRes] = await Promise.all([
         fetch(`/api/students/${sid}`),
-        fetch(`/api/classes/${sid}`),
+        fetch(`/api/classes?schoolId=${sid}`),
       ]);
 
       if (!studentsRes.ok) throw new Error(`Failed to load admissions (${studentsRes.status})`);
@@ -545,8 +545,16 @@
 
       const admissionsData = await studentsRes.json().catch(() => []);
       const classesData = await classesRes.json().catch(() => []);
-      recentAdmissions = Array.isArray(admissionsData) ? admissionsData : [];
-      schoolClasses = Array.isArray(classesData) ? classesData : [];
+      // Go backend: { success, data: { students: [...], total } } or { success, data: [...] } or raw array
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      recentAdmissions = unwrap(admissionsData) as typeof recentAdmissions;
+      schoolClasses = unwrap(classesData) as typeof schoolClasses;
     } catch (err) {
       console.error('Fetch admissions error:', err);
       recentAdmissions = [];
@@ -721,6 +729,7 @@
       excelAdmissions = [];
       excelTotalRows = 0;
 
+      // @ts-ignore – optional runtime dep
       const XLSX = await import('xlsx');
       const fileBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(fileBuffer, { type: 'array', cellDates: true });
@@ -728,7 +737,7 @@
       if (!firstSheetName) { error = 'Excel file is empty.'; return; }
 
       const worksheet = workbook.Sheets[firstSheetName];
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
+      const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as Record<string, unknown>[];
 
       if (rows.length === 0) { error = 'No rows found in the uploaded file.'; return; }
 
@@ -837,6 +846,7 @@
       const sid = $page.data.user?.schoolId;
       if (!sid) { error = 'School not found. Please log in again.'; return; }
 
+      // @ts-ignore – optional runtime dep
       const XLSX = await import('xlsx');
       const fileBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(fileBuffer, { type: 'array', cellDates: true });
@@ -845,7 +855,7 @@
       let selectedSheet: { sheetName: string; rows: Record<string, unknown>[] } | null = null;
       for (const sheetName of workbook.SheetNames) {
         const worksheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
+        const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as Record<string, unknown>[];
         if (rows.length > 0) { selectedSheet = { sheetName, rows }; break; }
       }
 
@@ -863,11 +873,12 @@
       let classesToCreate = uniqueClasses.map((sc) => sc.label);
 
       try {
-        const classRes = await fetch(`/api/classes/${sid}`);
+        const classRes = await fetch(`/api/classes?schoolId=${sid}`);
         if (classRes.ok) {
-          const classData = (await classRes.json()) as SchoolClassSummary[];
+          const classRaw = await classRes.json();
+          const classData: SchoolClassSummary[] = Array.isArray((classRaw as {data?: unknown[]})?.data) ? (classRaw as {data: SchoolClassSummary[]}).data : (Array.isArray(classRaw) ? classRaw : []);
           const existingClassKeys = new Set(
-            (Array.isArray(classData) ? classData : []).map((sc) =>
+            classData.map((sc) =>
               buildClassKey(sc.name || '', sc.section || '')
             )
           );
@@ -933,15 +944,18 @@
 
       if (!result && shouldTryLegacyFallback) {
         const [classRes, studentRes] = await Promise.all([
-          fetch(`/api/classes/${sid}`),
+          fetch(`/api/classes?schoolId=${sid}`),
           fetch(`/api/students/${sid}`),
         ]);
 
         if (!classRes.ok) throw new Error(`Failed to load classes (${classRes.status})`);
         if (!studentRes.ok) throw new Error(`Failed to load students (${studentRes.status})`);
 
-        const existingClasses = (await classRes.json()) as SchoolClassSummary[];
-        const existingStudents = (await studentRes.json()) as Student[];
+        const classRaw = await classRes.json();
+        const existingClasses = (Array.isArray(classRaw?.data) ? classRaw.data : (Array.isArray(classRaw) ? classRaw : [])) as SchoolClassSummary[];
+        const studentRaw = await studentRes.json();
+        const sInner = studentRaw?.data;
+        const existingStudents = (Array.isArray(sInner) ? sInner : Array.isArray(sInner?.students) ? sInner.students : (Array.isArray(studentRaw) ? studentRaw : [])) as Student[];
 
         const existingClassKeys = new Set(
           (Array.isArray(existingClasses) ? existingClasses : []).map((sc) =>
@@ -2094,7 +2108,7 @@
             <p class="text-white font-semibold text-sm">{docModalStudent.name}</p>
             <p class="text-white/80 text-xs">{docModalStudent.admissionNumber} · {docModalStudent.class}{docModalStudent.classSection ? ` ${docModalStudent.classSection}` : ''}</p>
           </div>
-          <button type="button" onclick={() => (docModalStudent = null)} class="text-white/80 hover:text-white">
+          <button type="button" aria-label="Close" onclick={() => (docModalStudent = null)} class="text-white/80 hover:text-white">
             <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -2107,8 +2121,9 @@
 
             {#if !docModalStudent.rteDocument}
               <div class="space-y-1">
-                <label class="text-xs font-medium text-slate-600">Right to Education Document</label>
+                <label for="doc-rte-document" class="text-xs font-medium text-slate-600">Right to Education Document</label>
                 <input
+                  id="doc-rte-document"
                   type="file"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   class="block w-full text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700"
@@ -2119,8 +2134,9 @@
 
             {#if !docModalStudent.bodCertificate}
               <div class="space-y-1">
-                <label class="text-xs font-medium text-slate-600">Date of Birth Certificate</label>
+                <label for="doc-bod-certificate" class="text-xs font-medium text-slate-600">Date of Birth Certificate</label>
                 <input
+                  id="doc-bod-certificate"
                   type="file"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   class="block w-full text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700"
@@ -2131,8 +2147,9 @@
 
             {#if !docModalStudent.aadharCardDocument}
               <div class="space-y-1">
-                <label class="text-xs font-medium text-slate-600">Aadhaar Card</label>
+                <label for="doc-aadhar-card" class="text-xs font-medium text-slate-600">Aadhaar Card</label>
                 <input
+                  id="doc-aadhar-card"
                   type="file"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   class="block w-full text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700"

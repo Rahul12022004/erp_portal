@@ -21,17 +21,24 @@
   onMount(async () => {
     if (!schoolId || !teacherId) { error = 'Teacher session not found.'; loading = false; return; }
     try {
-      const [sRes, cRes] = await Promise.all([fetch(`/api/students/${schoolId}`), fetch(`/api/classes/${schoolId}`)]);
+      const [sRes, cRes] = await Promise.all([fetch(`/api/students/${schoolId}`), fetch(`/api/classes?schoolId=${schoolId}`)]);
       if (!sRes.ok) throw new Error(`Failed to load students (${sRes.status})`);
       if (!cRes.ok) throw new Error(`Failed to load classes (${cRes.status})`);
       const [sData, cData] = await Promise.all([sRes.json(), cRes.json()]);
-      const allClasses = Array.isArray(cData) ? cData : [];
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      const allClasses = unwrap(cData) as SchoolClass[];
       classes = allClasses.filter((cls: SchoolClass) => {
         if (!cls.classTeacher) return false;
         if (typeof cls.classTeacher === 'string') return cls.classTeacher === teacherId;
         return cls.classTeacher._id === teacherId;
       });
-      students = Array.isArray(sData) ? sData : [];
+      students = unwrap(sData) as typeof students;
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to fetch class students';
     } finally { loading = false; }

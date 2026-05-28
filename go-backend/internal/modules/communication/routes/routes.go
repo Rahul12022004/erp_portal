@@ -16,9 +16,10 @@ func Register(app *fiber.App) {
 	auth  := middleware.Authenticate
 
 	ann := app.Group("/api/announcements", auth)
-	ann.Get("",      h.ListAnnouncements)
-	ann.Post("",     h.CreateAnnouncement)
-	ann.Delete("/:id", h.DeleteAnnouncement)
+	ann.Get("",           h.ListAnnouncements)
+	ann.Post("/ai-draft", h.AIDraftAnnouncement)
+	ann.Post("",          h.CreateAnnouncement)
+	ann.Delete("/:id",    h.DeleteAnnouncement)
 
 	cam := app.Group("/api/campaigns", auth)
 	cam.Get("",  h.ListCampaigns)

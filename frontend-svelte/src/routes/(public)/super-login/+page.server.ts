@@ -43,23 +43,25 @@ export const actions: Actions = {
         body: JSON.stringify({ email, password }),
       });
 
-      // Go backend returns: { success, data: { token, user: { email, role } } }
-      const json = (await response.json()) as {
-        success?: boolean;
-        data?: { token?: string; user?: { email?: string; role?: string } };
-        error?: string;
-        message?: string;
-      };
+      // Node.js: { success, token, user: { id, email, name, role } }
+      // Go:      { success, data: { token, user: { email, role } } }
+      const json = (await response.json()) as Record<string, unknown>;
 
-      const token = json.data?.token;
+      const dataObj = json.data as Record<string, unknown> | undefined;
+      const token =
+        (dataObj?.token as string | undefined)
+        ?? (json.token as string | undefined);
+
+      const userObj = (dataObj?.user ?? json.user) as Record<string, unknown> | undefined;
 
       if (!response.ok || !token) {
-        return fail(401, { error: json.error ?? json.message ?? 'Invalid credentials', email });
+        const msg = (json.error ?? json.message ?? 'Invalid credentials') as string;
+        return fail(401, { error: msg, email });
       }
 
       const user: User = {
         id: 'super-admin',
-        email: json.data?.user?.email ?? email,
+        email: String(userObj?.email ?? email),
         name: 'Super Admin',
         role: 'super-admin',
       };

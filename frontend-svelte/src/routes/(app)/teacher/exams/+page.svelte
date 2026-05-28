@@ -37,7 +37,7 @@
     fetch(`/api/exams/teacher/${schoolId}/${teacherId}`)
       .then(r => { if (!r.ok) throw new Error(`Failed to load exams (${r.status})`); return r.json(); })
       .then(data => {
-        const nextExams = Array.isArray(data) ? data : [];
+        const nextExams: Exam[] = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: Exam[]}).data : (Array.isArray(data) ? data : []);
         exams = nextExams;
         const nextComments = { ...comments };
         nextExams.forEach((exam: Exam) => {
@@ -228,12 +228,11 @@
       </div>
 
       <div>
-        <label class="text-sm font-medium block mb-1">💬 Comment</label>
-        <textarea rows={4} placeholder="Add note for the school admin about this uploaded paper"
+        <label for="exam-comment" class="text-sm font-medium block mb-1">💬 Comment</label>
+        <textarea id="exam-comment" rows={4} placeholder="Add note for the school admin about this uploaded paper"
           class="border rounded p-2 w-full text-sm"
           value={comments[activeExam._id] || ''}
-          oninput={e => { comments = { ...comments, [activeExam!._id]: (e.target as HTMLTextAreaElement).value }; }}>
-        </textarea>
+          oninput={e => { comments = { ...comments, [activeExam!._id]: (e.target as HTMLTextAreaElement).value }; }}></textarea>
       </div>
 
       <div class="flex justify-end gap-3">

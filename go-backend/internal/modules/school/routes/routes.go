@@ -16,9 +16,17 @@ func Register(app *fiber.App) {
 	svc  := services.New(repo)
 	h    := handlers.New(svc)
 
+	// Public — self-service school registration
+	app.Post("/api/schools/register", h.Register)
+
 	// Public — used by the Svelte sidebar to fetch school data
 	schools := app.Group("/api/schools")
 	schools.Get("/:id",  h.GetByID)
+
+	// School-admin authenticated — geofence management
+	auth := app.Group("/api/schools", middleware.Authenticate)
+	auth.Put("/:id/location",        h.UpdateLocation)
+	auth.Patch("/:id/location-lock", h.UpdateLocationLock)
 
 	// Protected — super-admin only
 	adm := app.Group("/api/schools", middleware.Authenticate, middleware.SuperAdmin())

@@ -21,7 +21,7 @@
   $effect(() => {
     if (!schoolId || !teacherId) { loading = false; return; }
     loading = true; error = '';
-    Promise.all([fetch(`/api/classes/${schoolId}`), fetch(`/api/assignments/${schoolId}/${teacherId}`)])
+    Promise.all([fetch(`/api/classes?schoolId=${schoolId}`), fetch(`/api/assignments?schoolId=${schoolId}&teacherId=${teacherId}`)])
       .then(async ([cRes, aRes]) => {
         if (!cRes.ok) throw new Error(`Failed to load classes (${cRes.status})`);
         if (!aRes.ok) throw new Error(`Failed to load assignments (${aRes.status})`);
@@ -32,7 +32,7 @@
           return cls.classTeacher._id === teacherId;
         });
         classes = teacherClasses;
-        assignments = Array.isArray(aData) ? aData : [];
+        assignments = Array.isArray((aData as {data?: unknown[]})?.data) ? (aData as {data: typeof assignments}).data : (Array.isArray(aData) ? aData : []);
       })
       .catch(e => { error = e instanceof Error ? e.message : 'Failed to load assignments'; })
       .finally(() => { loading = false; });

@@ -123,7 +123,7 @@
   let leavesLoading: boolean        = $state(false);
   let updatingLeaveId: string | null = $state(null);
 
-  let finMetrics: FinMetrics | null   = $state(null);
+  let finMetrics = $state<FinMetrics | null>(null);
   let finDueDates: FinDueDateItem[]   = $state([]);
   let finStudentsLoading: boolean     = $state(false);
 
@@ -958,13 +958,14 @@
 
   <!-- ── date detail modal ─────────────────────────────────────────────────────── -->
   {#if selectedDate}
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onclick={() => (selectedDate = null)}
-    >
-      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-      <div class="w-full max-w-lg {clayShell} shadow-2xl" onclick={(e) => e.stopPropagation()}>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Close dialog"
+        class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onclick={() => (selectedDate = null)}
+      ></button>
+      <div class="relative w-full max-w-lg {clayShell} shadow-2xl" role="dialog" aria-modal="true" aria-label="Date details">
         <div class="flex items-start justify-between gap-3">
           <div>
             <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Date Details</p>

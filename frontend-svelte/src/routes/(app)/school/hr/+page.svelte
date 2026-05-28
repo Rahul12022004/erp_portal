@@ -84,8 +84,9 @@
       const [teachersData, cardsData, schoolData] = await Promise.all([
         teachersRes.json(), cardsRes.json(), schoolRes.ok ? schoolRes.json() : null,
       ]);
-      teachers = (Array.isArray(teachersData) ? teachersData : []).filter(
-        (s: Teacher) => /^Teacher$/i.test(s.position || '') && String(s.status || 'Active') !== 'Inactive'
+      const unwrapArr = (d: unknown) => Array.isArray((d as {data?: unknown[]})?.data) ? (d as {data: unknown[]}).data : (Array.isArray(d) ? d : []);
+      teachers = (unwrapArr(teachersData) as Teacher[]).filter(
+        (s) => /^Teacher$/i.test(s.position || '') && String(s.status || 'Active') !== 'Inactive'
       );
       cards = Array.isArray(cardsData?.data) ? cardsData.data : [];
       if (schoolData) {

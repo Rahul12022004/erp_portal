@@ -178,8 +178,9 @@
 
 <!-- Modal -->
 {#if showModal && selectedSchool}
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick={closeModal}>
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4" onclick={(e) => e.stopPropagation()}>
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <button type="button" aria-label="Close" class="absolute inset-0 bg-black/50" onclick={closeModal}></button>
+    <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
       <h2 class="text-lg font-bold text-gray-900">
         {actionType === 'upgrade' ? 'Upgrade Plan' : 'Renew Plan'}
       </h2>
@@ -188,13 +189,13 @@
       {#if actionType === 'upgrade'}
         <div class="space-y-2">
           {#each Object.entries(PLAN_PRICE) as [plan, price]}
-            <div
+            <button type="button"
               onclick={() => { selectedPlan = plan; }}
-              class="cursor-pointer border rounded-lg px-4 py-3 flex justify-between items-center transition {selectedPlan === plan ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}"
+              class="w-full cursor-pointer border rounded-lg px-4 py-3 flex justify-between items-center transition text-left {selectedPlan === plan ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}"
             >
               <span class="font-medium text-gray-800">{plan}</span>
               <span class="text-gray-600 text-sm">₹{price}/yr</span>
-            </div>
+            </button>
           {/each}
         </div>
       {/if}

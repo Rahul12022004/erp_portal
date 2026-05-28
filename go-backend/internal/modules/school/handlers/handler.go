@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/erp-portal/go-backend/internal/modules/school/dto"
@@ -28,6 +31,30 @@ func (h *SchoolHandler) GetByID(c *fiber.Ctx) error {
 		return response.NotFound(c, err.Error())
 	}
 	return response.OK(c, toSessionResp(school))
+}
+
+// Register  POST /api/schools/register  (public — self-service signup)
+func (h *SchoolHandler) Register(c *fiber.Ctx) error {
+	var req dto.CreateSchoolReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.BadRequest(c, "invalid request body")
+	}
+	if err := validate.Struct(req); err != nil {
+		return response.BadRequest(c, err.Error())
+	}
+	plainPass := req.AdminPassword
+	if plainPass == "" {
+		plainPass = fmt.Sprintf("Pass%d!", time.Now().UnixMilli()%100000)
+		req.AdminPassword = plainPass
+	}
+	school, err := h.svc.Create(c.Context(), req)
+	if err != nil {
+		return response.Conflict(c, err.Error())
+	}
+	return response.Created(c, fiber.Map{
+		"school":        toSessionResp(school),
+		"adminPassword": plainPass,
+	})
 }
 
 // Create  POST /api/schools
@@ -74,6 +101,38 @@ func (h *SchoolHandler) Delete(c *fiber.Ctx) error {
 		return response.InternalError(c, err.Error())
 	}
 	return response.NoContent(c)
+}
+
+// UpdateLocation  PUT /api/schools/:id/location
+func (h *SchoolHandler) UpdateLocation(c *fiber.Ctx) error {
+	var body struct {
+		Latitude     float64 `json:"latitude"`
+		Longitude    float64 `json:"longitude"`
+		RadiusMeters float64 `json:"radiusMeters"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return response.BadRequest(c, "invalid body")
+	}
+	school, err := h.svc.UpdateLocation(c.Context(), c.Params("id"), body.Latitude, body.Longitude, body.RadiusMeters)
+	if err != nil {
+		return response.InternalError(c, err.Error())
+	}
+	return response.OK(c, toSessionResp(school))
+}
+
+// UpdateLocationLock  PATCH /api/schools/:id/location-lock
+func (h *SchoolHandler) UpdateLocationLock(c *fiber.Ctx) error {
+	var body struct {
+		Locked bool `json:"locked"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return response.BadRequest(c, "invalid body")
+	}
+	school, err := h.svc.UpdateLocationLock(c.Context(), c.Params("id"), body.Locked)
+	if err != nil {
+		return response.InternalError(c, err.Error())
+	}
+	return response.OK(c, toSessionResp(school))
 }
 
 func toSessionResp(s interface{}) interface{} {

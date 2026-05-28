@@ -392,7 +392,9 @@
     class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 py-8"
     role="dialog"
     aria-modal="true"
-    onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+    tabindex="-1"
+    onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+    onkeydown={(e) => { if (e.key === 'Escape') closeModal(); }}>
 
     <div class="w-full max-w-2xl rounded-[28px] border border-[#12A588]/20 bg-white shadow-2xl">
 
@@ -412,10 +414,11 @@
         <!-- Name + Status row -->
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">
+            <label for="salary-name" class="mb-1 block text-xs font-semibold text-slate-600">
               Structure Name <span class="text-red-500">*</span>
             </label>
             <input
+              id="salary-name"
               type="text"
               placeholder="e.g. Teaching Staff Grade A"
               bind:value={formName}
@@ -423,8 +426,9 @@
               class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#12A588] focus:ring-2 focus:ring-[#12A588]/20 transition" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">Status</label>
+            <label for="salary-status" class="mb-1 block text-xs font-semibold text-slate-600">Status</label>
             <select
+              id="salary-status"
               bind:value={formStatus}
               class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#12A588] focus:ring-2 focus:ring-[#12A588]/20 transition">
               <option value="Active">Active</option>

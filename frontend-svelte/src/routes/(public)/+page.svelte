@@ -274,7 +274,7 @@
               <svg viewBox="0 0 420 340" class="w-full" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <defs>
                   <filter id="heroShadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="2" dy="3" stdDeviation="3" floodColor="rgba(0,0,0,0.12)" />
+                    <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.12)" />
                   </filter>
                 </defs>
                 <ellipse cx="210" cy="320" rx="90" ry="10" fill="rgba(0,0,0,0.08)" />

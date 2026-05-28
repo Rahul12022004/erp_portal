@@ -37,10 +37,10 @@
     if (!schoolId) { error = 'School not found. Please log in again.'; loading = false; return; }
     try {
       loading = true; error = '';
-      const res = await fetch(`/api/announcements/${schoolId}`);
+      const res = await fetch(`/api/announcements?schoolId=${schoolId}`);
       if (!res.ok) throw new Error(`Failed to load announcements (${res.status})`);
       const data = await res.json();
-      announcements = Array.isArray(data) ? data : [];
+      announcements = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load announcements';
     } finally { loading = false; }

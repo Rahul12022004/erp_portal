@@ -60,6 +60,11 @@ func (h *Handler) DeleteAnnouncement(c *fiber.Ctx) error {
 	return response.NoContent(c)
 }
 
+// POST /api/announcements/ai-draft
+func (h *Handler) AIDraftAnnouncement(c *fiber.Ctx) error {
+	return response.OK(c, fiber.Map{"draft": ""})
+}
+
 // GET /api/campaigns?schoolId=
 func (h *Handler) ListCampaigns(c *fiber.Ctx) error {
 	ctx, cancel := ctx10s()

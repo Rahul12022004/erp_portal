@@ -162,23 +162,23 @@
         <h3 class="text-sm font-semibold text-slate-700 mb-3">New Payroll Entry — {MONTHS[selMonth - 1]} {selYear}</h3>
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div class="col-span-2">
-            <label class="block text-xs text-slate-500 mb-1">Staff Name *</label>
-            <input bind:value={form.staffName} placeholder="Full name"
+            <label for="payroll-staff-name" class="block text-xs text-slate-500 mb-1">Staff Name *</label>
+            <input id="payroll-staff-name" bind:value={form.staffName} placeholder="Full name"
               class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white/80 outline-none focus:border-[#12A588] text-slate-800" />
           </div>
           <div>
-            <label class="block text-xs text-slate-500 mb-1">Basic Salary (₹) *</label>
-            <input bind:value={form.basicSalary} type="number" min="0" placeholder="0"
+            <label for="payroll-basic-salary" class="block text-xs text-slate-500 mb-1">Basic Salary (₹) *</label>
+            <input id="payroll-basic-salary" bind:value={form.basicSalary} type="number" min="0" placeholder="0"
               class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white/80 outline-none focus:border-[#12A588] text-slate-800" />
           </div>
           <div>
-            <label class="block text-xs text-slate-500 mb-1">Allowances (₹)</label>
-            <input bind:value={form.allowances} type="number" min="0" placeholder="0"
+            <label for="payroll-allowances" class="block text-xs text-slate-500 mb-1">Allowances (₹)</label>
+            <input id="payroll-allowances" bind:value={form.allowances} type="number" min="0" placeholder="0"
               class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white/80 outline-none focus:border-[#12A588] text-slate-800" />
           </div>
           <div>
-            <label class="block text-xs text-slate-500 mb-1">Deductions (₹)</label>
-            <input bind:value={form.deductions} type="number" min="0" placeholder="0"
+            <label for="payroll-deductions" class="block text-xs text-slate-500 mb-1">Deductions (₹)</label>
+            <input id="payroll-deductions" bind:value={form.deductions} type="number" min="0" placeholder="0"
               class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white/80 outline-none focus:border-[#12A588] text-slate-800" />
           </div>
           <div class="flex items-end">

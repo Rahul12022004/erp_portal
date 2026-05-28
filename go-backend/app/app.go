@@ -11,6 +11,7 @@ import (
 	admissionsRoutes    "github.com/erp-portal/go-backend/internal/modules/admissions/routes"
 	analyticsRoutes     "github.com/erp-portal/go-backend/internal/modules/analytics/routes"
 	authRoutes          "github.com/erp-portal/go-backend/internal/modules/auth/routes"
+	dataimportRoutes    "github.com/erp-portal/go-backend/internal/modules/dataimport/routes"
 	communicationRoutes "github.com/erp-portal/go-backend/internal/modules/communication/routes"
 	financeRoutes       "github.com/erp-portal/go-backend/internal/modules/finance/routes"
 	hostelRoutes        "github.com/erp-portal/go-backend/internal/modules/hostel/routes"
@@ -21,6 +22,7 @@ import (
 	payrollRoutes       "github.com/erp-portal/go-backend/internal/modules/payroll/routes"
 	reportsRoutes       "github.com/erp-portal/go-backend/internal/modules/reports/routes"
 	schoolRoutes        "github.com/erp-portal/go-backend/internal/modules/school/routes"
+	socialmediaRoutes   "github.com/erp-portal/go-backend/internal/modules/socialmedia/routes"
 	settingsRoutes      "github.com/erp-portal/go-backend/internal/modules/settings/routes"
 	staffRoutes         "github.com/erp-portal/go-backend/internal/modules/staff/routes"
 	studentsRoutes      "github.com/erp-portal/go-backend/internal/shared/students/routes"
@@ -67,6 +69,8 @@ func registerAll(app *fiber.App) {
 	payrollRoutes.Register(app)
 	reportsRoutes.Register(app)
 	analyticsRoutes.Register(app)
+	socialmediaRoutes.Register(app)
+	dataimportRoutes.Register(app)
 }
 
 func defaultErrorHandler(c *fiber.Ctx, err error) error {

@@ -212,7 +212,7 @@
       error = null;
 
       const [clsRes, staffRes] = await Promise.all([
-        fetch(`/api/classes/${schoolId}`).then(r => r.json()),
+        fetch(`/api/classes?schoolId=${schoolId}`).then(r => r.json()),
         fetch(`/api/staff/${schoolId}`).then(r => r.json()),
       ]);
 
@@ -604,9 +604,12 @@
                         class="group h-[86px] w-full rounded-lg border p-2 text-left shadow-sm transition hover:border-teal-300 hover:bg-teal-50 {hasConflict ? 'border-red-300' : 'border-slate-200'}"
                       >
                         {#if entry}
+                          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                           <div
                             draggable={viewMode === 'class' && !entry.locked}
                             ondragstart={() => onDragStart(entry.id)}
+                            role={viewMode === 'class' && !entry.locked ? 'button' : undefined}
+                            tabindex={viewMode === 'class' && !entry.locked ? 0 : undefined}
                             class="h-full"
                           >
                             <div class="flex items-start justify-between gap-2">

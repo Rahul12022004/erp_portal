@@ -51,8 +51,15 @@
       ]);
       if (!busRes.ok || !studentRes.ok) throw new Error('Failed to load transport data');
       const [busData, studentData] = await Promise.all([busRes.json(), studentRes.json()]);
-      buses = Array.isArray(busData) ? busData : [];
-      students = (Array.isArray(studentData) ? studentData : []).filter((s: Student & { needsTransport?: boolean }) => s.needsTransport);
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      buses = unwrap(busData) as typeof buses;
+      students = (unwrap(studentData) as (Student & { needsTransport?: boolean })[]).filter((s) => s.needsTransport);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load transport data';
       buses = []; students = [];
@@ -196,8 +203,8 @@
         <input type="tel" placeholder="Driver Phone Number" class="border rounded p-2" bind:value={formData.driverPhone} required />
         <input type="text" placeholder="Driver Driving Licence Number" class="border rounded p-2" bind:value={formData.driverLicenseNumber} required />
         <div class="space-y-2">
-          <label class="text-sm font-medium">Driver Licence (Photo or PDF)</label>
-          <input type="file" accept="image/*,application/pdf" class="border rounded p-2 w-full" onchange={handleFileUpload('driverLicensePhoto')} />
+          <label for="transport-driver-licence" class="text-sm font-medium">Driver Licence (Photo or PDF)</label>
+          <input id="transport-driver-licence" type="file" accept="image/*,application/pdf" class="border rounded p-2 w-full" onchange={handleFileUpload('driverLicensePhoto')} />
           {#if formData.driverLicensePhoto}
             {#if formData.driverLicensePhoto.startsWith('data:application/pdf')}
               <div class="flex items-center gap-2 rounded border bg-red-50 px-3 py-2">
@@ -219,40 +226,40 @@
         <p class="font-medium text-slate-900">Vehicle Documents & Expiry</p>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div class="space-y-2">
-            <label class="text-sm font-medium">RC Document</label>
-            <input type="file" accept="image/*,application/pdf" class="w-full border rounded p-2" onchange={handleFileUpload('rcDocument')} />
+            <label for="transport-rc-doc" class="text-sm font-medium">RC Document</label>
+            <input id="transport-rc-doc" type="file" accept="image/*,application/pdf" class="w-full border rounded p-2" onchange={handleFileUpload('rcDocument')} />
             {#if formData.rcDocument}<button type="button" onclick={() => viewDocument = { src: formData.rcDocument, title: 'RC Document', downloadName: 'rc-document' }} class="text-xs text-blue-600 hover:underline">View uploaded RC</button>{/if}
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium">RC Expiry Date</label>
-            <input type="date" class="w-full border rounded p-2" bind:value={formData.rcExpiryDate} />
+            <label for="transport-rc-expiry" class="mb-2 block text-sm font-medium">RC Expiry Date</label>
+            <input id="transport-rc-expiry" type="date" class="w-full border rounded p-2" bind:value={formData.rcExpiryDate} />
           </div>
           <div class="space-y-2">
-            <label class="text-sm font-medium">Pollution Certificate</label>
-            <input type="file" accept="image/*,application/pdf" class="w-full border rounded p-2" onchange={handleFileUpload('pollutionDocument')} />
+            <label for="transport-pollution-doc" class="text-sm font-medium">Pollution Certificate</label>
+            <input id="transport-pollution-doc" type="file" accept="image/*,application/pdf" class="w-full border rounded p-2" onchange={handleFileUpload('pollutionDocument')} />
             {#if formData.pollutionDocument}<button type="button" onclick={() => viewDocument = { src: formData.pollutionDocument, title: 'Pollution Certificate', downloadName: 'pollution-certificate' }} class="text-xs text-blue-600 hover:underline">View uploaded Pollution Certificate</button>{/if}
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium">Pollution Expiry Date</label>
-            <input type="date" class="w-full border rounded p-2" bind:value={formData.pollutionExpiryDate} />
+            <label for="transport-pollution-expiry" class="mb-2 block text-sm font-medium">Pollution Expiry Date</label>
+            <input id="transport-pollution-expiry" type="date" class="w-full border rounded p-2" bind:value={formData.pollutionExpiryDate} />
           </div>
           <div class="space-y-2">
-            <label class="text-sm font-medium">Insurance Document</label>
-            <input type="file" accept="image/*,application/pdf" class="w-full border rounded p-2" onchange={handleFileUpload('insuranceDocument')} />
+            <label for="transport-insurance-doc" class="text-sm font-medium">Insurance Document</label>
+            <input id="transport-insurance-doc" type="file" accept="image/*,application/pdf" class="w-full border rounded p-2" onchange={handleFileUpload('insuranceDocument')} />
             {#if formData.insuranceDocument}<button type="button" onclick={() => viewDocument = { src: formData.insuranceDocument, title: 'Insurance Document', downloadName: 'insurance-document' }} class="text-xs text-blue-600 hover:underline">View uploaded Insurance</button>{/if}
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium">Insurance Expiry Date</label>
-            <input type="date" class="w-full border rounded p-2" bind:value={formData.insuranceExpiryDate} />
+            <label for="transport-insurance-expiry" class="mb-2 block text-sm font-medium">Insurance Expiry Date</label>
+            <input id="transport-insurance-expiry" type="date" class="w-full border rounded p-2" bind:value={formData.insuranceExpiryDate} />
           </div>
           <div class="space-y-2">
-            <label class="text-sm font-medium">Fitness Certificate</label>
-            <input type="file" accept="image/*,application/pdf" class="w-full border rounded p-2" onchange={handleFileUpload('fitnessCertificateDocument')} />
+            <label for="transport-fitness-doc" class="text-sm font-medium">Fitness Certificate</label>
+            <input id="transport-fitness-doc" type="file" accept="image/*,application/pdf" class="w-full border rounded p-2" onchange={handleFileUpload('fitnessCertificateDocument')} />
             {#if formData.fitnessCertificateDocument}<button type="button" onclick={() => viewDocument = { src: formData.fitnessCertificateDocument, title: 'Fitness Certificate', downloadName: 'fitness-certificate' }} class="text-xs text-blue-600 hover:underline">View uploaded Fitness Certificate</button>{/if}
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium">Fitness Expiry Date</label>
-            <input type="date" class="w-full border rounded p-2" bind:value={formData.fitnessExpiryDate} />
+            <label for="transport-fitness-expiry" class="mb-2 block text-sm font-medium">Fitness Expiry Date</label>
+            <input id="transport-fitness-expiry" type="date" class="w-full border rounded p-2" bind:value={formData.fitnessExpiryDate} />
           </div>
         </div>
       </div>
@@ -398,7 +405,7 @@
           </div>
 
           {#if expandedBusId === bus._id}
-            <div class="border-t pt-4" onclick={(e) => e.stopPropagation()}>
+            <div class="border-t pt-4" role="presentation" onclick={(e) => e.stopPropagation()}>
               <div class="mb-3 flex items-center justify-between">
                 <p class="font-semibold text-slate-900">Odometer & Fuel Entry</p>
                 <p class="text-xs text-slate-500">Driver: {bus.driverName}</p>
@@ -406,20 +413,20 @@
               <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <label class="mb-1 block text-xs font-medium text-slate-600">Reading Date</label>
-                    <input type="date" class="w-full rounded border p-2 text-sm" bind:value={readingDate} />
+                    <label for="transport-reading-date" class="mb-1 block text-xs font-medium text-slate-600">Reading Date</label>
+                    <input id="transport-reading-date" type="date" class="w-full rounded border p-2 text-sm" bind:value={readingDate} />
                   </div>
                   <div>
-                    <label class="mb-1 block text-xs font-medium text-slate-600">Odometer Reading (KM)</label>
-                    <input type="number" min="0" class="w-full rounded border p-2 text-sm" bind:value={readingOdometer} placeholder="e.g. 45210" />
+                    <label for="transport-odometer" class="mb-1 block text-xs font-medium text-slate-600">Odometer Reading (KM)</label>
+                    <input id="transport-odometer" type="number" min="0" class="w-full rounded border p-2 text-sm" bind:value={readingOdometer} placeholder="e.g. 45210" />
                   </div>
                   <div>
-                    <label class="mb-1 block text-xs font-medium text-slate-600">Fuel Amount (optional)</label>
-                    <input type="number" min="0" step="0.01" class="w-full rounded border p-2 text-sm" bind:value={readingFuelAmount} placeholder="e.g. 3500" />
+                    <label for="transport-fuel-amount" class="mb-1 block text-xs font-medium text-slate-600">Fuel Amount (optional)</label>
+                    <input id="transport-fuel-amount" type="number" min="0" step="0.01" class="w-full rounded border p-2 text-sm" bind:value={readingFuelAmount} placeholder="e.g. 3500" />
                   </div>
                   <div>
-                    <label class="mb-1 block text-xs font-medium text-slate-600">Fuel Slip (image/pdf)</label>
-                    <input type="file" accept="image/*,application/pdf" class="w-full rounded border p-2 text-sm" onchange={(e) => { const f = (e.currentTarget as HTMLInputElement).files?.[0]; if (!f) return; const r = new FileReader(); r.onloadend = () => { readingFuelSlip = r.result as string; readingFuelSlipFileName = f.name || 'fuel-slip'; }; r.readAsDataURL(f); }} />
+                    <label for="transport-fuel-slip" class="mb-1 block text-xs font-medium text-slate-600">Fuel Slip (image/pdf)</label>
+                    <input id="transport-fuel-slip" type="file" accept="image/*,application/pdf" class="w-full rounded border p-2 text-sm" onchange={(e) => { const f = (e.currentTarget as HTMLInputElement).files?.[0]; if (!f) return; const r = new FileReader(); r.onloadend = () => { readingFuelSlip = r.result as string; readingFuelSlipFileName = f.name || 'fuel-slip'; }; r.readAsDataURL(f); }} />
                     {#if readingFuelSlipFileName}<p class="mt-1 text-xs text-slate-600">Attached: {readingFuelSlipFileName}</p>{/if}
                   </div>
                 </div>
@@ -478,8 +485,9 @@
 </div>
 
 {#if viewDocument}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onclick={() => (viewDocument = null)}>
-    <div class="relative w-full max-w-3xl rounded-xl bg-white shadow-2xl overflow-hidden" onclick={(e) => e.stopPropagation()}>
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <button type="button" aria-label="Close document viewer" class="absolute inset-0 bg-black/70" onclick={() => (viewDocument = null)}></button>
+    <div class="relative w-full max-w-3xl rounded-xl bg-white shadow-2xl overflow-hidden">
       <div class="flex items-center justify-between border-b px-4 py-3">
         <p class="font-semibold text-sm">{viewDocument.title}</p>
         <div class="flex items-center gap-2">

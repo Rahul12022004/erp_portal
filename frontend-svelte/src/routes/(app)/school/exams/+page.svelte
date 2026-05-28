@@ -112,19 +112,20 @@
     try {
       loading = true; error = '';
       const [classesRes, examsRes] = await Promise.all([
-        fetch(`/api/classes/${schoolId}`),
+        fetch(`/api/classes?schoolId=${schoolId}`),
         fetch(`/api/exams/school/${schoolId}`),
       ]);
       if (!classesRes.ok) throw new Error(`Failed to load classes (${classesRes.status})`);
       if (!examsRes.ok) throw new Error(`Failed to load exams (${examsRes.status})`);
       const [classesData, examsData] = await Promise.all([classesRes.json(), examsRes.json()]);
-      classes = Array.isArray(classesData) ? classesData : [];
-      exams = Array.isArray(examsData) ? examsData : [];
+      const unwrap = (d: unknown) => Array.isArray((d as {data?: unknown})?.data) ? (d as {data: unknown[]}).data : (Array.isArray(d) ? d : []);
+      classes = unwrap(classesData) as typeof classes;
+      exams = unwrap(examsData) as typeof exams;
       try {
         const staffRes = await fetch(`/api/staff/${schoolId}`);
         if (staffRes.ok) {
           const staffData = await staffRes.json();
-          teachers = Array.isArray(staffData) ? staffData.filter((s: Teacher) => /^Teacher$/i.test(String(s.position ?? '')) && String(s.status ?? 'Active') !== 'Inactive') : [];
+          teachers = (unwrap(staffData) as typeof teachers).filter((s) => /^Teacher$/i.test(String(s.position ?? '')) && String(s.status ?? 'Active') !== 'Inactive');
         }
       } catch { /* teachers optional */ }
     } catch (err) {
@@ -306,7 +307,12 @@
           <div class="bg-slate-50 px-2 py-1.5 text-center text-xs font-semibold text-slate-500">{day}</div>
         {/each}
         {#each calendarDays() as cell}
-          <div class="min-h-[80px] bg-white p-1 {cell.day ? 'cursor-pointer hover:bg-blue-50' : ''}" onclick={() => { if (cell.day) { const ds = `${calendarYear}-${String(calendarMonth + 1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`; openCreate(ds); } }}>
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <div class="min-h-[80px] bg-white p-1 {cell.day ? 'cursor-pointer hover:bg-blue-50' : ''}"
+            role={cell.day ? 'button' : undefined}
+            tabindex={cell.day ? 0 : undefined}
+            onclick={() => { if (cell.day) { const ds = `${calendarYear}-${String(calendarMonth + 1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`; openCreate(ds); } }}
+            onkeydown={(e) => { if (cell.day && (e.key === 'Enter' || e.key === ' ')) { const ds = `${calendarYear}-${String(calendarMonth + 1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`; openCreate(ds); } }}>
             {#if cell.day}
               <p class="text-xs font-medium text-slate-600 mb-1">{cell.day}</p>
               {#each cell.exams.slice(0, 3) as exam}
@@ -389,51 +395,51 @@
       <form onsubmit={handleSubmit} class="space-y-4">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">Exam Name</label>
-            <input type="text" bind:value={formTitle} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Enter exam name" />
+            <label for="exam-name" class="mb-1 block text-xs font-semibold text-slate-600">Exam Name</label>
+            <input id="exam-name" type="text" bind:value={formTitle} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Enter exam name" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">Exam Type</label>
-            <select bind:value={formExamType} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <label for="exam-type" class="mb-1 block text-xs font-semibold text-slate-600">Exam Type</label>
+            <select id="exam-type" bind:value={formExamType} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
               <option value="">Select exam type</option>
               {#each examTypes as t}<option value={t}>{t}</option>{/each}
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">Class</label>
-            <select bind:value={formClassName} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <label for="exam-class" class="mb-1 block text-xs font-semibold text-slate-600">Class</label>
+            <select id="exam-class" bind:value={formClassName} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
               <option value="">Select class</option>
               {#each classes as c}<option value={getClassLabel(c)}>{getClassLabel(c)}</option>{/each}
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">Assign Teacher (Optional)</label>
-            <select bind:value={formTeacherId} class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+            <label for="exam-teacher" class="mb-1 block text-xs font-semibold text-slate-600">Assign Teacher (Optional)</label>
+            <select id="exam-teacher" bind:value={formTeacherId} class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
               <option value="">Select teacher</option>
               {#each teachers as t}<option value={t._id}>{t.name}{t.email ? ` (${t.email})` : ''}</option>{/each}
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">Subject</label>
-            <input type="text" bind:value={formSubject} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="e.g. Mathematics" />
+            <label for="exam-subject" class="mb-1 block text-xs font-semibold text-slate-600">Subject</label>
+            <input id="exam-subject" type="text" bind:value={formSubject} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="e.g. Mathematics" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">Exam Date</label>
-            <input type="date" bind:value={formExamDate} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            <label for="exam-date" class="mb-1 block text-xs font-semibold text-slate-600">Exam Date</label>
+            <input id="exam-date" type="date" bind:value={formExamDate} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">Start Time</label>
-            <input type="time" bind:value={formStartTime} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            <label for="exam-start-time" class="mb-1 block text-xs font-semibold text-slate-600">Start Time</label>
+            <input id="exam-start-time" type="time" bind:value={formStartTime} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold text-slate-600">End Time</label>
-            <input type="time" bind:value={formEndTime} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            <label for="exam-end-time" class="mb-1 block text-xs font-semibold text-slate-600">End Time</label>
+            <input id="exam-end-time" type="time" bind:value={formEndTime} required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
           </div>
         </div>
 
         <div>
-          <label class="mb-1 block text-xs font-semibold text-slate-600">Additional Instructions</label>
-          <textarea bind:value={formInstructions} rows={3} class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Add instructions for teachers or students"></textarea>
+          <label for="exam-instructions" class="mb-1 block text-xs font-semibold text-slate-600">Additional Instructions</label>
+          <textarea id="exam-instructions" bind:value={formInstructions} rows={3} class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Add instructions for teachers or students"></textarea>
         </div>
 
         {#if editingExam?.uploads && editingExam.uploads.length > 0}

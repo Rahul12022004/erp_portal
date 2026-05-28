@@ -119,6 +119,22 @@ func (s *SchoolService) Update(ctx context.Context, id string, req dto.UpdateSch
 	return s.repo.Update(ctx, id, updates)
 }
 
+// UpdateLocation saves geofence coordinates for a school.
+func (s *SchoolService) UpdateLocation(ctx context.Context, id string, lat, lng, radiusMeters float64) (*domain.School, error) {
+	return s.repo.Update(ctx, id, map[string]interface{}{
+		"schoolInfo.location.latitude":    lat,
+		"schoolInfo.location.longitude":   lng,
+		"schoolInfo.location.radiusMeters": radiusMeters,
+	})
+}
+
+// UpdateLocationLock sets the geofence locked flag.
+func (s *SchoolService) UpdateLocationLock(ctx context.Context, id string, locked bool) (*domain.School, error) {
+	return s.repo.Update(ctx, id, map[string]interface{}{
+		"schoolInfo.location.locked": locked,
+	})
+}
+
 // List returns paginated schools.
 func (s *SchoolService) List(ctx context.Context, skip, limit int64) ([]*domain.School, int64, error) {
 	return s.repo.List(ctx, skip, limit)

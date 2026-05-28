@@ -109,12 +109,19 @@
     try {
       const [sRes, cRes] = await Promise.all([
         fetch(`/api/students/${schoolId}`),
-        fetch(`/api/classes/${schoolId}`),
+        fetch(`/api/classes?schoolId=${schoolId}`),
       ]);
       if (!sRes.ok || !cRes.ok) throw new Error(`Failed to load (${sRes.status}/${cRes.status})`);
       const [sd, cd] = await Promise.all([sRes.json(), cRes.json()]);
-      students = Array.isArray(sd) ? sd : [];
-      classes  = Array.isArray(cd) ? cd : [];
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      students = unwrap(sd) as typeof students;
+      classes  = unwrap(cd) as typeof classes;
       if (classes.length > 0 && !selectedClass) selectedClass = classes[0]?.name ?? '';
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to fetch house data';

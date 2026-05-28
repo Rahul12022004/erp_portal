@@ -171,7 +171,6 @@
     amount_paid: 'amountPaid',
     balance_remaining: 'balanceRemaining',
     total_students: 'totalStudents',
-    total_fee: 'totalFee',
     total_collected: 'totalCollected',
     total_outstanding: 'totalOutstanding',
     financial_year: 'financialYear',
@@ -846,6 +845,7 @@
               {currentRows.length} rows · {currentHeaders.length} columns
             </span>
             <button
+              aria-label="Close data view"
               onclick={() => { showDataView = false; }}
               class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
             >

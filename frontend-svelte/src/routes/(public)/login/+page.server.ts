@@ -43,31 +43,29 @@ export const actions: Actions = {
         body: JSON.stringify({ email, password }),
       });
 
-      // Go backend returns: { success, data: { token, staff: { _id, name, email, schoolId }, school: { ID } } }
-      const json = (await response.json()) as {
-        success?: boolean;
-        data?: {
-          token?: string;
-          staff?: { _id?: string; name?: string; email?: string; schoolId?: string };
-          school?: { ID?: string };
-        };
-        error?: string;
-        message?: string;
-      };
+      // Node.js: { success, token, teacher: { _id, name, email, schoolId }, school: {...} }
+      // Go:      { success, data: { token, staff: { _id, name, email, schoolId }, school: { ID } } }
+      const json = (await response.json()) as Record<string, unknown>;
 
-      const token = json.data?.token;
-      const staff = json.data?.staff;
+      const dataObj = json.data as Record<string, unknown> | undefined;
+      const token =
+        (dataObj?.token as string | undefined)
+        ?? (json.token as string | undefined);
+
+      const staff = (dataObj?.staff ?? json.teacher) as Record<string, unknown> | undefined;
+      const goSchoolId = (dataObj?.school as Record<string, unknown> | undefined)?.ID as string | undefined;
 
       if (!response.ok || !token) {
-        return fail(401, { error: json.error ?? json.message ?? 'Invalid credentials', email });
+        const msg = (json.error ?? json.message ?? 'Invalid credentials') as string;
+        return fail(401, { error: msg, email });
       }
 
       const user: User = {
         id: String(staff?._id ?? ''),
-        email: staff?.email ?? email,
-        name: staff?.name ?? email,
+        email: String(staff?.email ?? email),
+        name: String(staff?.name ?? email),
         role: 'teacher',
-        schoolId: String(staff?.schoolId ?? json.data?.school?.ID ?? ''),
+        schoolId: String(staff?.schoolId ?? goSchoolId ?? ''),
       };
 
       cookies.set('token', token, COOKIE_OPTS);

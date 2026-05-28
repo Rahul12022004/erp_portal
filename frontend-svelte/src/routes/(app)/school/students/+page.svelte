@@ -301,21 +301,25 @@
       }
       const [studentsRes, classesRes] = await Promise.all([
         fetch(`/api/students/${schoolId}`),
-        fetch(`/api/classes/${schoolId}`),
+        fetch(`/api/classes?schoolId=${schoolId}`),
       ]);
       if (!studentsRes.ok) throw new Error(`Failed to load students (${studentsRes.status})`);
       if (!classesRes.ok) throw new Error(`Failed to load classes (${classesRes.status})`);
       const studentData = await studentsRes.json().catch(() => []);
       const classData = await classesRes.json().catch(() => []);
 
-      students = Array.isArray(studentData)
-        ? studentData.map((s: Partial<StudentRecord>) => toStudentListItem(s ?? {}))
-        : [];
-      classes = Array.isArray(classData)
-        ? classData
-            .map((c: Partial<SchoolClass>) => toSchoolClass(c ?? {}))
-            .filter((c: SchoolClass) => c._id && c.name)
-        : [];
+      // Go backend: { success, data: { students: [...], total } } or { success, data: [...] } or raw array
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      students = (unwrap(studentData) as Partial<StudentRecord>[]).map((s) => toStudentListItem(s ?? {}));
+      classes = (unwrap(classData) as Partial<SchoolClass>[])
+          .map((c) => toSchoolClass(c ?? {}))
+          .filter((c) => c._id && c.name);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to fetch student data';
       students = [];

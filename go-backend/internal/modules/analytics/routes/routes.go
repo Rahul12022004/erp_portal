@@ -22,4 +22,7 @@ func Register(app *fiber.App) {
 	g.Get("/enrollment/trend",     h.EnrollmentTrend)
 	g.Get("/fee/trend",            h.FeeCollectionTrend)
 	g.Get("/attendance/rate",      h.AttendanceRate)
+
+	dash := app.Group("/api/dashboard", auth)
+	dash.Get("/teacher/:schoolId/:teacherId", h.TeacherDashboard)
 }

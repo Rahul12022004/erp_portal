@@ -30,10 +30,10 @@
   $effect(() => {
     if (!schoolId || !teacherId) { teacherClasses = []; loadingClasses = false; return; }
     loadingClasses = true; error = '';
-    fetch(`/api/classes/${schoolId}`)
+    fetch(`/api/classes?schoolId=${schoolId}`)
       .then(r => { if (!r.ok) throw new Error(`Failed to load classes (${r.status})`); return r.json(); })
       .then(data => {
-        const all = Array.isArray(data) ? data : [];
+        const all = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: typeof teacherClasses}).data : (Array.isArray(data) ? data : []);
         const assigned = all.filter((cls: SchoolClass) => {
           if (!cls.classTeacher) return false;
           if (typeof cls.classTeacher === 'string') return cls.classTeacher === teacherId;
@@ -51,7 +51,7 @@
     loadingStudents = true; error = '';
     fetch(`/api/attendance/students/${schoolId}/${encodeURIComponent(selectedClass)}/${selectedDate}`)
       .then(r => { if (!r.ok) throw new Error(`Failed to load attendance (${r.status})`); return r.json(); })
-      .then(data => { students = Array.isArray(data) ? data : []; })
+      .then(data => { students = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: typeof students}).data : (Array.isArray(data) ? data : []); })
       .catch(e => { error = e instanceof Error ? e.message : 'Failed to load attendance'; })
       .finally(() => { loadingStudents = false; });
   });
@@ -227,8 +227,8 @@
 
   <div class="flex gap-4 flex-wrap items-center">
     <div>
-      <label class="mr-2 font-medium">Class:</label>
-      <select class="border rounded px-3 py-2" bind:value={selectedClass} disabled={loadingClasses || teacherClasses.length === 0}>
+      <label for="teacher-att-class" class="mr-2 font-medium">Class:</label>
+      <select id="teacher-att-class" class="border rounded px-3 py-2" bind:value={selectedClass} disabled={loadingClasses || teacherClasses.length === 0}>
         <option value="">Choose Class</option>
         {#each teacherClasses as cls (cls._id)}
           <option value={cls.name}>{cls.name}</option>
@@ -236,8 +236,8 @@
       </select>
     </div>
     <div>
-      <label class="mr-2 font-medium">Date:</label>
-      <input type="date" class="border rounded px-3 py-2" bind:value={selectedDate} />
+      <label for="teacher-att-date" class="mr-2 font-medium">Date:</label>
+      <input id="teacher-att-date" type="date" class="border rounded px-3 py-2" bind:value={selectedDate} />
     </div>
     <div class="relative">
       <button type="button" onclick={() => (showDownloadMenu = !showDownloadMenu)} disabled={!selectedClass}

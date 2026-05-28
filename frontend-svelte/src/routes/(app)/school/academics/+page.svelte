@@ -429,12 +429,12 @@
               {#if subjectError}<p class="text-xs text-red-600">{subjectError}</p>{/if}
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Subject Name *</label>
-                  <input class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="e.g. Mathematics" bind:value={subjectForm.name} />
+                  <label for="subject-name" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Subject Name *</label>
+                  <input id="subject-name" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="e.g. Mathematics" bind:value={subjectForm.name} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Code</label>
-                  <input class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="e.g. MATH10" bind:value={subjectForm.code} />
+                  <label for="subject-code" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Code</label>
+                  <input id="subject-code" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="e.g. MATH10" bind:value={subjectForm.code} />
                 </div>
               </div>
               <input class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="Description (optional)" bind:value={subjectForm.description} />
@@ -522,30 +522,30 @@
             <div class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-sm">
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Title *</label>
-                  <input class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="Assignment title" bind:value={assignmentForm.title} />
+                  <label for="assignment-title" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Title *</label>
+                  <input id="assignment-title" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="Assignment title" bind:value={assignmentForm.title} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Subject</label>
-                  <input class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="e.g. Mathematics" bind:value={assignmentForm.subject} />
+                  <label for="assignment-subject" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Subject</label>
+                  <input id="assignment-subject" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="e.g. Mathematics" bind:value={assignmentForm.subject} />
                 </div>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Instructions</label>
-                <textarea rows={4} class="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="What students need to do..." bind:value={assignmentForm.instructions}></textarea>
+                <label for="assignment-instructions" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Instructions</label>
+                <textarea id="assignment-instructions" rows={4} class="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="What students need to do..." bind:value={assignmentForm.instructions}></textarea>
               </div>
               <div class="grid grid-cols-3 gap-4">
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Due Date</label>
-                  <input type="date" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={assignmentForm.dueDate} />
+                  <label for="assignment-due-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Due Date</label>
+                  <input id="assignment-due-date" type="date" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={assignmentForm.dueDate} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Points</label>
-                  <input type="number" min={1} class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={assignmentForm.totalPoints} />
+                  <label for="assignment-points" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Points</label>
+                  <input id="assignment-points" type="number" min={1} class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={assignmentForm.totalPoints} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
-                  <select class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={assignmentForm.status}>
+                  <label for="assignment-status" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
+                  <select id="assignment-status" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={assignmentForm.status}>
                     <option value="PUBLISHED">Publish</option>
                     <option value="DRAFT">Draft</option>
                   </select>
@@ -651,12 +651,12 @@
               {#if materialError}<p class="text-xs text-red-600">{materialError}</p>{/if}
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Title *</label>
-                  <input class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="Material title" bind:value={materialForm.title} />
+                  <label for="material-title" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Title *</label>
+                  <input id="material-title" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="Material title" bind:value={materialForm.title} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Type</label>
-                  <select class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={materialForm.type}>
+                  <label for="material-type" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Type</label>
+                  <select id="material-type" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={materialForm.type}>
                     {#each (['LINK','VIDEO','DOCUMENT','FILE','OTHER'] as const) as t}<option value={t}>{t}</option>{/each}
                   </select>
                 </div>
@@ -713,12 +713,12 @@
       {/if}
       {#if gradeError}<p class="text-xs text-red-600">{gradeError}</p>{/if}
       <div>
-        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Points (max {selectedAssignment.totalPoints})</label>
-        <input type="number" min={0} max={selectedAssignment.totalPoints} class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={grading.points} />
+        <label for="grade-points" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Points (max {selectedAssignment.totalPoints})</label>
+        <input id="grade-points" type="number" min={0} max={selectedAssignment.totalPoints} class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={grading.points} />
       </div>
       <div>
-        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Comment</label>
-        <textarea rows={3} class="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={grading.comment}></textarea>
+        <label for="grade-comment" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Comment</label>
+        <textarea id="grade-comment" rows={3} class="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400" bind:value={grading.comment}></textarea>
       </div>
       <div class="flex justify-end gap-2">
         <button onclick={() => (grading = null)} class="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600">Cancel</button>

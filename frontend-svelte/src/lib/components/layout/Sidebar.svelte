@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import {
     LayoutDashboard, School, UserCog, Users, CreditCard, Settings,
-    ScrollText, GraduationCap, Menu, X,
+    ScrollText, GraduationCap, Menu, X, Shield,
     MessageSquare, BookOpen, ClipboardCheck, Monitor, FileText,
     DollarSign, UserPlus, Briefcase, Download, Building,
     Library, HeadphonesIcon, Bus, Package,
@@ -218,8 +218,12 @@
 
 <!-- Mobile sidebar -->
 {#if mobileOpen}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 bg-foreground/50 z-40 lg:hidden" onclick={() => (mobileOpen = false)}></div>
+  <button
+    type="button"
+    aria-label="Close sidebar"
+    class="fixed inset-0 bg-foreground/50 z-40 lg:hidden cursor-default"
+    onclick={() => (mobileOpen = false)}
+  ></button>
   <aside class="fixed inset-y-0 left-0 w-64 z-50 lg:hidden flex flex-col">
     {@render sidebarContent()}
   </aside>

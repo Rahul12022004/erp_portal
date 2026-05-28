@@ -34,7 +34,7 @@
     loading = true; error = '';
     fetch(`/api/leaves/${schoolId}/${teacherId}`)
       .then(r => { if (!r.ok) throw new Error(`Failed to load leaves (${r.status})`); return r.json(); })
-      .then(data => { leaves = Array.isArray(data) ? data : []; })
+      .then(data => { leaves = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: typeof leaves}).data : (Array.isArray(data) ? data : []); })
       .catch(e => { error = e instanceof Error ? e.message : 'Failed to load leave applications'; })
       .finally(() => { loading = false; });
   });

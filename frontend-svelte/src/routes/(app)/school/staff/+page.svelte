@@ -53,7 +53,7 @@
       const res = await fetch(`/api/staff/${schoolId}`);
       if (!res.ok) throw new Error(`Failed to load staff (${res.status})`);
       const data = await res.json();
-      staffList = Array.isArray(data) ? data : [];
+      staffList = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: typeof staffList}).data : (Array.isArray(data) ? data : []);
     } catch (err) {
       staffList = [];
       error = err instanceof Error ? err.message : 'Failed to fetch staff';
@@ -259,8 +259,8 @@
         <div class="rounded-lg border p-4 space-y-4">
           <p class="font-medium text-sm">Documents</p>
           <div class="space-y-1">
-            <label class="text-sm text-gray-600">Past Working History Document (PDF / Image)</label>
-            <input type="file" accept="image/*,application/pdf" class="border rounded p-2 w-full text-sm" onchange={handleFileUpload('workHistoryDoc')} />
+            <label for="staff-work-history-doc" class="text-sm text-gray-600">Past Working History Document (PDF / Image)</label>
+            <input id="staff-work-history-doc" type="file" accept="image/*,application/pdf" class="border rounded p-2 w-full text-sm" onchange={handleFileUpload('workHistoryDoc')} />
             {#if formData.workHistoryDoc}
               <div class="flex items-center gap-2 rounded bg-green-50 px-3 py-1.5 text-sm text-green-700">
                 <FileText class="h-4 w-4" /><span class="flex-1">Work history document uploaded</span>
@@ -270,8 +270,8 @@
           </div>
           {#if staffType === 'teachers'}
             <div class="space-y-1">
-              <label class="text-sm text-gray-600">Previous School Offer Letter (PDF / Image)</label>
-              <input type="file" accept="image/*,application/pdf" class="border rounded p-2 w-full text-sm" onchange={handleFileUpload('offerLetterDoc')} />
+              <label for="staff-offer-letter-doc" class="text-sm text-gray-600">Previous School Offer Letter (PDF / Image)</label>
+              <input id="staff-offer-letter-doc" type="file" accept="image/*,application/pdf" class="border rounded p-2 w-full text-sm" onchange={handleFileUpload('offerLetterDoc')} />
               {#if formData.offerLetterDoc}
                 <div class="flex items-center gap-2 rounded bg-blue-50 px-3 py-1.5 text-sm text-blue-700">
                   <FileText class="h-4 w-4" /><span class="flex-1">Offer letter uploaded</span>
@@ -281,8 +281,8 @@
             </div>
           {/if}
           <div class="space-y-1">
-            <label class="text-sm text-gray-600">Aadhaar Card / Identity Proof (PDF / Image)</label>
-            <input type="file" accept="image/*,application/pdf" class="border rounded p-2 w-full text-sm" onchange={handleFileUpload('identityDoc')} />
+            <label for="staff-identity-doc" class="text-sm text-gray-600">Aadhaar Card / Identity Proof (PDF / Image)</label>
+            <input id="staff-identity-doc" type="file" accept="image/*,application/pdf" class="border rounded p-2 w-full text-sm" onchange={handleFileUpload('identityDoc')} />
             {#if formData.identityDoc}
               <div class="flex items-center gap-2 rounded bg-orange-50 px-3 py-1.5 text-sm text-orange-700">
                 <FileText class="h-4 w-4" /><span class="flex-1">Identity proof uploaded</span>
@@ -399,10 +399,9 @@
 
 <!-- Document Viewer Modal -->
 {#if viewDocStaff}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onclick={() => (viewDocStaff = null)}>
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="relative w-full max-w-3xl rounded-xl bg-white shadow-2xl overflow-hidden" onclick={(e) => e.stopPropagation()}>
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <button type="button" aria-label="Close document viewer" class="absolute inset-0 bg-black/70" onclick={() => (viewDocStaff = null)}></button>
+    <div class="relative w-full max-w-3xl rounded-xl bg-white shadow-2xl overflow-hidden">
       <div class="flex items-center justify-between border-b px-4 py-3">
         <p class="font-semibold">{viewDocStaff.name} — Documents</p>
         <button onclick={() => (viewDocStaff = null)} class="rounded p-1 hover:bg-gray-100"><X class="h-5 w-5" /></button>

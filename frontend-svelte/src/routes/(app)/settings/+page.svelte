@@ -169,6 +169,7 @@
           <div class="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
             <span class="text-sm font-medium text-gray-700">{mod.name}</span>
             <button
+              aria-label={mod.name}
               onclick={() => { modules[i] = { ...mod, enabled: !mod.enabled }; }}
               class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {mod.enabled ? 'bg-green-500' : 'bg-gray-300'}"
               role="switch"

@@ -210,20 +210,20 @@
         </div>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Assign Date</label>
-            <input type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" value={assignmentForm.assignDate} onchange={(e) => { const v = (e.currentTarget as HTMLInputElement).value; assignmentForm = { ...assignmentForm, assignDate: v, dueDate: addDays(v, 14) }; }} required />
+            <label for="lib-assign-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Assign Date</label>
+            <input id="lib-assign-date" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" value={assignmentForm.assignDate} onchange={(e) => { const v = (e.currentTarget as HTMLInputElement).value; assignmentForm = { ...assignmentForm, assignDate: v, dueDate: addDays(v, 14) }; }} required />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Due Date</label>
-            <input type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={assignmentForm.dueDate} required />
+            <label for="lib-due-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Due Date</label>
+            <input id="lib-due-date" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={assignmentForm.dueDate} required />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Return Date</label>
-            <input type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={assignmentForm.returnDate} />
+            <label for="lib-return-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Return Date</label>
+            <input id="lib-return-date" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={assignmentForm.returnDate} />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Issue Status</label>
-            <select class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={assignmentForm.issueStatus}>
+            <label for="lib-issue-status" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Issue Status</label>
+            <select id="lib-issue-status" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={assignmentForm.issueStatus}>
               <option value="issued">Issued</option>
               <option value="returned">Returned</option>
               <option value="overdue">Overdue</option>

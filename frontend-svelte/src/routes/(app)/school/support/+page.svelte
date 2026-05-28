@@ -24,8 +24,10 @@
       const [schoolRes, staffRes] = await Promise.all([fetch(`/api/schools/${schoolId}`), fetch(`/api/staff/${schoolId}`)]);
       if (!schoolRes.ok) throw new Error(`Failed to load school (${schoolRes.status})`);
       if (!staffRes.ok) throw new Error(`Failed to load staff (${staffRes.status})`);
-      school = await schoolRes.json();
-      staff = await staffRes.json();
+      const schoolRaw = await schoolRes.json();
+      school = (schoolRaw?.data ?? schoolRaw) as SchoolRecord;
+      const staffRaw = await staffRes.json();
+      staff = Array.isArray((staffRaw as {data?: unknown[]})?.data) ? (staffRaw as {data: StaffMember[]}).data : (Array.isArray(staffRaw) ? staffRaw : []);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load';
     } finally { loading = false; }

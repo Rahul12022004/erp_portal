@@ -37,7 +37,7 @@
       const res = await fetch(`/api/surveys/${schoolId}`);
       if (!res.ok) throw new Error(`Failed to load surveys (${res.status})`);
       const data = await res.json();
-      surveys = Array.isArray(data) ? data : [];
+      surveys = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: typeof surveys}).data : (Array.isArray(data) ? data : []);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load surveys';
       surveys = [];

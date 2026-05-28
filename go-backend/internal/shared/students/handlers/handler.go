@@ -15,7 +15,7 @@ type Handler struct{ svc *services.StudentService }
 
 func New(svc *services.StudentService) *Handler { return &Handler{svc: svc} }
 
-// GET /api/students/:schoolId
+// GET /api/students/:schoolId — list all students for a school, OR fall back to detail if no students found
 func (h *Handler) List(c *fiber.Ctx) error {
 	limit, _ := strconv.ParseInt(c.Query("limit", "50"), 10, 64)
 	page, _ := strconv.ParseInt(c.Query("page", "1"), 10, 64)
@@ -36,6 +36,13 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	list, total, err := h.svc.List(c.Context(), f)
 	if err != nil {
 		return response.InternalError(c, err.Error())
+	}
+	// If no students found, the caller may have passed a student ID — try detail lookup
+	if total == 0 && c.Query("classId") == "" && c.Query("search") == "" {
+		s, detailErr := h.svc.GetByID(c.Context(), c.Params("schoolId"))
+		if detailErr == nil && s != nil {
+			return response.OK(c, s)
+		}
 	}
 	return response.OK(c, fiber.Map{"students": list, "total": total, "page": page, "limit": limit})
 }

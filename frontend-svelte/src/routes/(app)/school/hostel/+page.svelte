@@ -24,8 +24,15 @@
         fetch(`/api/students/${schoolId}`),
       ]);
       if (!hostelRes.ok || !studentRes.ok) throw new Error('Failed to load hostel data');
-      hostels = await hostelRes.json();
-      students = await studentRes.json();
+      const unwrap = (d: unknown): unknown[] => {
+        const inner = (d as Record<string, unknown>)?.data;
+        if (Array.isArray(inner)) return inner;
+        if (Array.isArray((inner as Record<string, unknown>)?.students)) return (inner as Record<string, unknown[]>).students;
+        if (Array.isArray(d)) return d;
+        return [];
+      };
+      hostels = unwrap(await hostelRes.json()) as typeof hostels;
+      students = unwrap(await studentRes.json()) as typeof students;
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load hostel data';
       hostels = []; students = [];

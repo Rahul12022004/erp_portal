@@ -176,7 +176,7 @@
       : []
   );
 
-  const calendarDays = $derived<CalendarDayCell[]>(() => {
+  const calendarDays = $derived.by<CalendarDayCell[]>(() => {
     if (!selectedTeacherForCalendar) return [];
 
     const firstDay = new Date(selectedYear, selectedMonthNumber - 1, 1);
@@ -293,7 +293,7 @@
       const res = await fetch(`/api/attendance/${schoolId}/${selectedDate}?position=Teacher`);
       if (!res.ok) throw new Error(`Failed to load attendance (${res.status})`);
       const data = await res.json();
-      teachers = Array.isArray(data) ? data : [];
+      teachers = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: typeof teachers}).data : (Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Attendance fetch error:', err);
       teachers = [];
@@ -328,9 +328,10 @@
         throw new Error('Failed to load monthly attendance insights');
       }
 
-      const staffData = (await staffRes.json()) as StaffRecord[];
-      const attendanceData = (await attendanceRes.json()) as AttendanceRecord[];
-      const leaveData = (await leavesRes.json()) as LeaveRecord[];
+      const unwrap = (d: unknown): unknown[] => Array.isArray((d as {data?: unknown[]})?.data) ? (d as {data: unknown[]}).data : (Array.isArray(d) ? d : []);
+      const staffData = unwrap(await staffRes.json()) as StaffRecord[];
+      const attendanceData = unwrap(await attendanceRes.json()) as AttendanceRecord[];
+      const leaveData = unwrap(await leavesRes.json()) as LeaveRecord[];
 
       const teachersOnly = staffData.filter(
         (s) => String(s.position ?? '').toLowerCase() === 'teacher'
@@ -636,8 +637,9 @@
     </p>
     <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
       <div>
-        <label class="block text-xs font-medium mb-1">Latitude</label>
+        <label for="geo-latitude" class="block text-xs font-medium mb-1">Latitude</label>
         <input
+          id="geo-latitude"
           type="number"
           step="0.000001"
           value={geoLatitude}
@@ -648,8 +650,9 @@
         />
       </div>
       <div>
-        <label class="block text-xs font-medium mb-1">Longitude</label>
+        <label for="geo-longitude" class="block text-xs font-medium mb-1">Longitude</label>
         <input
+          id="geo-longitude"
           type="number"
           step="0.000001"
           value={geoLongitude}
@@ -660,8 +663,9 @@
         />
       </div>
       <div>
-        <label class="block text-xs font-medium mb-1">Radius (meters)</label>
+        <label for="geo-radius" class="block text-xs font-medium mb-1">Radius (meters)</label>
         <input
+          id="geo-radius"
           type="number"
           min={10}
           value={geoRadiusMeters}
@@ -703,8 +707,9 @@
   <!-- ─── Controls Row ─────────────────────────────────────────────────── -->
   <div class="flex gap-4 items-center flex-wrap">
     <div>
-      <label class="mr-2 font-medium">Date:</label>
+      <label for="att-date" class="mr-2 font-medium">Date:</label>
       <input
+        id="att-date"
         type="date"
         class="border px-3 py-2 rounded"
         value={selectedDate}
@@ -713,8 +718,9 @@
     </div>
 
     <div>
-      <label class="mr-2 font-medium">Year:</label>
+      <label for="att-year" class="mr-2 font-medium">Year:</label>
       <select
+        id="att-year"
         class="border px-3 py-2 rounded"
         value={selectedYear}
         onchange={(e) => (selectedYear = Number((e.currentTarget as HTMLSelectElement).value))}
@@ -726,8 +732,9 @@
     </div>
 
     <div>
-      <label class="mr-2 font-medium">Month:</label>
+      <label for="att-month" class="mr-2 font-medium">Month:</label>
       <select
+        id="att-month"
         class="border px-3 py-2 rounded"
         value={selectedMonthNumber}
         onchange={(e) => (selectedMonthNumber = Number((e.currentTarget as HTMLSelectElement).value))}
@@ -1009,6 +1016,7 @@
               {/each}
 
               {#each calendarDays as cell, i (cell.iso ?? `blank-${i}`)}
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                 <div
                   class={`min-h-[78px] rounded border p-2 ${getCalendarTone(cell.status)} ${cell.iso ? 'cursor-pointer' : ''}`}
                   onclick={() => startCalendarEdit(cell)}

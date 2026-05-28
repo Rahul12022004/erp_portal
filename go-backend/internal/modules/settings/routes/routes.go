@@ -11,10 +11,13 @@ import (
 
 func Register(app *fiber.App) {
 	repo := repositories.New(db.Col("schoolsettings"))
-	h    := handlers.New(repo)
+	h    := handlers.NewWithLogs(repo, db.Col("auditlogs"))
 	auth := middleware.Authenticate
 
 	g := app.Group("/api/settings", auth)
 	g.Get("",  h.Get)
 	g.Put("",  h.Upsert)
+
+	// Audit logs — return from logs collection
+	app.Get("/api/logs", auth, h.ListLogs)
 }

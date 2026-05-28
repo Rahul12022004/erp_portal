@@ -80,7 +80,29 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\JAY\\\\OneDrive\\\\Desktop\\\\erp\\\\erp_portal\\\\backend\\\\src\" -Recurse | Select-Object FullName | Where-Object { $_.FullName -match '\\(routes|controllers\\)' } | Select-Object -First 30)",
       "Bash(xargs grep -l \"express\\\\|Router\")",
       "Bash(xargs grep -h \"{ path:\")",
-      "Bash(Select-Object -First 20)"
+      "Bash(Select-Object -First 20)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\JAY\\\\OneDrive\\\\Desktop\\\\erp\\\\erp_portal\" -Recurse -Directory)",
+      "Bash(Get-ChildItem -Directory)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(tree \"C:\\\\Users\\\\JAY\\\\OneDrive\\\\Desktop\\\\erp\\\\erp_portal\\\\go-backend\" -L 3 -Attributes)",
+      "Bash(find C:\\\\Users\\\\JAY\\\\OneDrive\\\\Desktop\\\\erp\\\\erp_portal\\\\go-backend\\\\internal\\\\modules *)",
+      "Bash(xargs wc -l)",
+      "Bash(xargs grep -l \"salary-struct\\\\|salary_struct\\\\|salaryStruct\")",
+      "Bash(xargs grep -l \"assignments\\\\|materials\")",
+      "Bash(xargs grep -l \"teacher.*dashboard\\\\|dashboard.*teacher\\\\|staff/session\")",
+      "Bash(xargs grep -l \"teacher-roles\\\\|teacher_roles\")",
+      "Bash(xargs grep -l \"/api/logs\")",
+      "Bash(npm list *)",
+      "Bash(ls backend/)",
+      "Bash(ls go-backend/)",
+      "Bash(xargs grep -l \"analytics\\\\|dashboard\")",
+      "Bash(xargs grep -l \"analytics\")",
+      "Bash(grep -rn \"^  const [a-zA-Z]* = fetch\\\\|fetch\\(\\\\`/api\\\\|fetch\\('/api\" /c/Users/JAY/OneDrive/Desktop/erp/erp_portal/frontend-svelte/src/routes/\\\\\\(app\\\\\\)/school/students/+page.svelte)",
+      "Bash(grep -rln \"fetch\\(\\\\`/api\\\\|fetch\\('/api\" /c/Users/JAY/OneDrive/Desktop/erp/erp_portal/frontend-svelte/src/routes/\\\\\\(app\\\\\\)/school/)",
+      "Bash(grep *)",
+      "Bash(netstat -ano)",
+      "Bash(powershell.exe \"Get-Process -Id 9352 | Select-Object Id,Name,Path\")",
+      "Bash(tasklist /fi \"PID eq 9352\")"
     ]
   }
 }

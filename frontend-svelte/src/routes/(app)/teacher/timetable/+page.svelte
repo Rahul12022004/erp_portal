@@ -24,8 +24,8 @@
     <h3 class="text-lg font-semibold mb-4">TEACHER TIMETABLE</h3>
     <div class="grid grid-cols-3 gap-4">
       <div>
-        <label class="text-sm font-medium">Select Day</label>
-        <select class="border rounded p-2 w-full" bind:value={day}>
+        <label for="timetable-day" class="text-sm font-medium">Select Day</label>
+        <select id="timetable-day" class="border rounded p-2 w-full" bind:value={day}>
           <option value="">Select Day</option>
           <option>Monday</option>
           <option>Tuesday</option>
@@ -35,8 +35,8 @@
         </select>
       </div>
       <div>
-        <label class="text-sm font-medium">Select Teacher</label>
-        <select class="border rounded p-2 w-full" bind:value={teacher}>
+        <label for="timetable-teacher" class="text-sm font-medium">Select Teacher</label>
+        <select id="timetable-teacher" class="border rounded p-2 w-full" bind:value={teacher}>
           <option value="">Select Teacher</option>
           <option>Mr. John Smith</option>
           <option>Ms. Sarah Lee</option>

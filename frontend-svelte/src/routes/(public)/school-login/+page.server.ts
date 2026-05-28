@@ -43,33 +43,33 @@ export const actions: Actions = {
         body: JSON.stringify({ email, password }),
       });
 
-      // Go backend returns: { success, data: { token, school: { ID, AdminInfo: { Name, Email } } } }
-      const json = (await response.json()) as {
-        success?: boolean;
-        data?: {
-          token?: string;
-          school?: {
-            ID?: string;
-            AdminInfo?: { Name?: string; Email?: string };
-          };
-        };
-        error?: string;
-        message?: string;
-      };
+      // Node.js: { _id, token, adminInfo, schoolInfo, modules }
+      // Go:      { success, data: { token, school: { ID, AdminInfo } } }
+      const json = (await response.json()) as Record<string, unknown>;
 
-      const token = json.data?.token;
-      const school = json.data?.school;
+      const token =
+        (json.data as Record<string, unknown> | undefined)?.token as string | undefined
+        ?? json.token as string | undefined;
+
+      const goSchool = (json.data as Record<string, unknown> | undefined)?.school as Record<string, unknown> | undefined;
+      const adminInfo = goSchool?.AdminInfo as Record<string, unknown> | undefined
+        ?? json.adminInfo as Record<string, unknown> | undefined;
+
+      const schoolId = String(
+        (goSchool?.ID ?? json._id ?? '') as string
+      );
 
       if (!response.ok || !token) {
-        return fail(401, { error: json.error ?? json.message ?? 'Invalid credentials', email });
+        const msg = (json.error ?? json.message ?? 'Invalid credentials') as string;
+        return fail(401, { error: msg, email });
       }
 
       const user: User = {
-        id: String(school?.ID ?? ''),
-        email: school?.AdminInfo?.Email ?? email,
-        name: school?.AdminInfo?.Name ?? email,
+        id: schoolId,
+        email: String(adminInfo?.email ?? email),
+        name: String(adminInfo?.name ?? email),
         role: 'school-admin',
-        schoolId: String(school?.ID ?? ''),
+        schoolId,
       };
 
       cookies.set('token', token, COOKIE_OPTS);

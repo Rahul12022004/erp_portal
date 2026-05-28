@@ -15,7 +15,7 @@ func Register(app *fiber.App) {
 	leaveRepo := repositories.NewMongoLeaveRepo(db.Col("leaveapplications"))
 	staffSvc  := services.NewStaffService(staffRepo)
 	leaveSvc  := services.NewLeaveService(leaveRepo)
-	h         := handlers.New(staffSvc, leaveSvc)
+	h         := handlers.New(staffSvc, leaveSvc, db.Col("teacher_roles"))
 
 	auth := middleware.Authenticate
 
@@ -31,4 +31,11 @@ func Register(app *fiber.App) {
 	leaves.Get("/:schoolId/:teacherId",          h.ListLeavesByTeacher)
 	leaves.Post("",                              h.CreateLeave)
 	leaves.Patch("/:id/status",                  h.UpdateLeaveStatus)
+
+	// Teacher roles — literal /login must be before /:schoolId
+	roles := app.Group("/api/teacher-roles", auth)
+	roles.Post("/login",         h.TeacherRoleLogin)
+	roles.Get("/:schoolId",      h.ListTeacherRoles)
+	roles.Post("",               h.CreateTeacherRole)
+	roles.Delete("/:id",         h.DeleteTeacherRole)
 }

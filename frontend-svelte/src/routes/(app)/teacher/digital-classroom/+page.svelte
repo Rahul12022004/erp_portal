@@ -26,10 +26,10 @@
   $effect(() => {
     if (!schoolId || !teacherId) { classList = []; loading = false; return; }
     loading = true; error = '';
-    fetch(`/api/classes/${schoolId}`)
+    fetch(`/api/classes?schoolId=${schoolId}`)
       .then(r => { if (!r.ok) throw new Error(`Failed to load classes (${r.status})`); return r.json(); })
       .then(data => {
-        const all = Array.isArray(data) ? data : [];
+        const all: ClassItem[] = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: ClassItem[]}).data : (Array.isArray(data) ? data : []);
         classList = all.filter((cls: ClassItem) => cls.classTeacher?._id === teacherId);
       })
       .catch(e => { error = e instanceof Error ? e.message : 'Failed to fetch classes'; })
@@ -91,10 +91,10 @@
   async function fetchClassDetails(classId: string, className: string) {
     if (!schoolId) return;
     try {
-      const res = await fetch(`/api/classes/${schoolId}/${encodeURIComponent(className)}`);
+      const res = await fetch(`/api/classes/${classId}`);
       if (!res.ok) throw new Error(`Failed to load class details (${res.status})`);
       const data = await res.json();
-      classDetails = { ...classDetails, [classId]: data };
+      classDetails = { ...classDetails, [classId]: data?.data ?? data };
     } catch { /* ignore */ }
   }
 
@@ -133,8 +133,8 @@
       <form onsubmit={handleSubmit} class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
-            <select class="border rounded p-2 w-full" bind:value={formData.name} required>
+            <label for="dc-class-name" class="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
+            <select id="dc-class-name" class="border rounded p-2 w-full" bind:value={formData.name} required>
               <option value="">Select Class</option>
               {#each Array.from({ length: 12 }, (_, i) => i + 1) as num}
                 <option value="Class {num}">Class {num}</option>
@@ -142,8 +142,8 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Section</label>
-            <select class="border rounded p-2 w-full" bind:value={formData.section}>
+            <label for="dc-section" class="block text-sm font-medium text-gray-700 mb-1">Section</label>
+            <select id="dc-section" class="border rounded p-2 w-full" bind:value={formData.section}>
               <option value="">Select Section</option>
               <option value="A">A</option>
               <option value="B">B</option>
@@ -152,8 +152,8 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Stream</label>
-            <select class="border rounded p-2 w-full" bind:value={formData.stream}>
+            <label for="dc-stream" class="block text-sm font-medium text-gray-700 mb-1">Stream</label>
+            <select id="dc-stream" class="border rounded p-2 w-full" bind:value={formData.stream}>
               <option value="">Select Stream</option>
               <option value="Science">Science</option>
               <option value="Commerce">Commerce</option>
@@ -162,17 +162,17 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
-            <input type="text" placeholder="e.g. 2026-2027" class="border rounded p-2 w-full" bind:value={formData.academicYear} />
+            <label for="dc-academic-year" class="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+            <input id="dc-academic-year" type="text" placeholder="e.g. 2026-2027" class="border rounded p-2 w-full" bind:value={formData.academicYear} />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Google Meet Link</label>
-          <input type="url" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="border rounded p-2 w-full" bind:value={formData.meetLink} />
+          <label for="dc-meet-link" class="block text-sm font-medium text-gray-700 mb-1">Google Meet Link</label>
+          <input id="dc-meet-link" type="url" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="border rounded p-2 w-full" bind:value={formData.meetLink} />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Teaching Notes</label>
-          <textarea placeholder="Add a short note for this classroom..." class="border rounded p-2 w-full" rows={3} bind:value={formData.description}></textarea>
+          <label for="dc-teaching-notes" class="block text-sm font-medium text-gray-700 mb-1">Teaching Notes</label>
+          <textarea id="dc-teaching-notes" placeholder="Add a short note for this classroom..." class="border rounded p-2 w-full" rows={3} bind:value={formData.description}></textarea>
         </div>
         <div class="flex gap-2">
           <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded" disabled={saving}>
