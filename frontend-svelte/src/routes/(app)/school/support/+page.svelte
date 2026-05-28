@@ -11,23 +11,46 @@
     modules?: string[];
   };
   type StaffMember = { _id: string; name: string; email: string; phone: string; position: string; department?: string; status?: string };
+  type GeneralCfg = { appName?: string; supportEmail?: string; supportPhone?: string; logoUrl?: string };
 
   const schoolId = $derived($page.data.user?.schoolId ?? '');
   let school = $state<SchoolRecord | null>(null);
   let staff = $state<StaffMember[]>([]);
+  let generalCfg = $state<GeneralCfg>({});
   let loading = $state(true);
   let error = $state('');
+
+  // Reads client_token cookie (non-httpOnly) and injects Authorization: Bearer header
+  function authedFetch(url: string): Promise<Response> {
+    const m = typeof document !== 'undefined'
+      ? document.cookie.match(/(?:^|;\s*)client_token=([^;]*)/)
+      : null;
+    const token = m ? decodeURIComponent(m[1]) : null;
+    return fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }
 
   onMount(async () => {
     if (!schoolId) { error = 'School not found.'; loading = false; return; }
     try {
-      const [schoolRes, staffRes] = await Promise.all([fetch(`/api/schools/${schoolId}`), fetch(`/api/staff/${schoolId}`)]);
+      const [schoolRes, staffRes, cfgRes] = await Promise.all([
+        fetch(`/api/schools/${schoolId}`),      // public endpoint — no auth needed
+        authedFetch(`/api/staff/${schoolId}`),  // requires Bearer token
+        authedFetch('/api/admin/config'),   // requires Bearer token
+      ]);
       if (!schoolRes.ok) throw new Error(`Failed to load school (${schoolRes.status})`);
       if (!staffRes.ok) throw new Error(`Failed to load staff (${staffRes.status})`);
       const schoolRaw = await schoolRes.json();
       school = (schoolRaw?.data ?? schoolRaw) as SchoolRecord;
       const staffRaw = await staffRes.json();
-      staff = Array.isArray((staffRaw as {data?: unknown[]})?.data) ? (staffRaw as {data: StaffMember[]}).data : (Array.isArray(staffRaw) ? staffRaw : []);
+      staff = Array.isArray((staffRaw as {data?: unknown[]})?.data)
+        ? (staffRaw as {data: StaffMember[]}).data
+        : (Array.isArray(staffRaw) ? staffRaw : []);
+      if (cfgRes.ok) {
+        const cfgRaw = await cfgRes.json();
+        generalCfg = (cfgRaw?.data ?? cfgRaw) as GeneralCfg;
+      }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load';
     } finally { loading = false; }
@@ -93,14 +116,42 @@
       <div class="stat-card p-5 space-y-4">
         <div class="flex items-center gap-2"><BadgeHelp class="w-5 h-5 text-rose-600" /><h3 class="text-lg font-semibold">Software Support</h3></div>
         <div class="space-y-3 text-sm">
-          <p class="font-medium">Nexavise Consulting Pvt. Ltd.</p>
-          <p class="flex items-start gap-2"><Mail class="w-4 h-4 mt-0.5 text-muted-foreground" /><span>helpdesk@nexavise.in</span></p>
-          <p class="flex items-start gap-2"><Phone class="w-4 h-4 mt-0.5 text-muted-foreground" /><span>+91 98765 43210</span></p>
-          <p class="flex items-start gap-2"><Globe class="w-4 h-4 mt-0.5 text-muted-foreground" /><a href="https://www.nexavise.com" target="_blank" rel="noreferrer" class="text-blue-600 hover:underline break-all">www.nexavise.com</a></p>
+          {#if generalCfg.logoUrl}
+            <img src={generalCfg.logoUrl} alt={generalCfg.appName ?? 'App'} class="h-8 object-contain" />
+          {/if}
+          <p class="font-medium">{generalCfg.appName || 'ERP Portal'}</p>
+          {#if generalCfg.supportEmail}
+            <p class="flex items-start gap-2"><Mail class="w-4 h-4 mt-0.5 text-muted-foreground" /><span>{generalCfg.supportEmail}</span></p>
+          {:else}
+            <p class="flex items-start gap-2 text-muted-foreground"><Mail class="w-4 h-4 mt-0.5" /><span>Support email not configured</span></p>
+          {/if}
+          {#if generalCfg.supportPhone}
+            <p class="flex items-start gap-2"><Phone class="w-4 h-4 mt-0.5 text-muted-foreground" /><span>{generalCfg.supportPhone}</span></p>
+          {:else}
+            <p class="flex items-start gap-2 text-muted-foreground"><Phone class="w-4 h-4 mt-0.5" /><span>Support phone not configured</span></p>
+          {/if}
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <a href="mailto:helpdesk@nexavise.in" class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">Contact Us</a>
-          <a href="tel:+919876543210" class="inline-flex items-center justify-center rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">Get Support</a>
+          {#if generalCfg.supportEmail}
+            <a href="mailto:{generalCfg.supportEmail}"
+              class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              Contact Us
+            </a>
+          {:else}
+            <span class="inline-flex items-center justify-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+              Contact Us
+            </span>
+          {/if}
+          {#if generalCfg.supportPhone}
+            <a href="tel:{generalCfg.supportPhone}"
+              class="inline-flex items-center justify-center rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">
+              Get Support
+            </a>
+          {:else}
+            <span class="inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+              Get Support
+            </span>
+          {/if}
         </div>
       </div>
     </div>

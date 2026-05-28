@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -49,8 +51,12 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 // POST /api/staff
 func (h *Handler) Create(c *fiber.Ctx) error {
 	var req services.CreateStaffReq
-	if err := c.BodyParser(&req); err != nil {
-		return response.BadRequest(c, "invalid body")
+	raw := c.Body()
+	if len(raw) == 0 {
+		return response.BadRequest(c, "empty body — no data received by server")
+	}
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return response.BadRequest(c, fmt.Sprintf("parse error: %s", err.Error()))
 	}
 	if err := validate.Struct(req); err != nil {
 		return response.BadRequest(c, err.Error())
@@ -65,8 +71,8 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // PUT /api/staff/:id
 func (h *Handler) Update(c *fiber.Ctx) error {
 	var updates map[string]interface{}
-	if err := c.BodyParser(&updates); err != nil {
-		return response.BadRequest(c, "invalid body")
+	if err := json.Unmarshal(c.Body(), &updates); err != nil {
+		return response.BadRequest(c, fmt.Sprintf("parse error: %s", err.Error()))
 	}
 	delete(updates, "password")
 	s, err := h.staffSvc.Update(c.Context(), c.Params("id"), updates)

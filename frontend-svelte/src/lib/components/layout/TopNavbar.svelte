@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { Bell, ChevronDown, LogOut, PencilLine } from 'lucide-svelte';
   import type { User } from '$lib/types';
+  import { schoolStore } from '$lib/stores/school';
 
   let { user }: { user: User | undefined } = $props();
 
@@ -42,6 +43,14 @@
       .toUpperCase() || 'AD'
   );
 
+  // Admin photo: prefer fetched from store (includes base64), fall back to cookie URL
+  const adminPhoto = $derived(
+    $schoolStore.adminPhoto || user?.adminPhoto || ''
+  );
+  const showAdminPhoto = $derived(
+    !!adminPhoto && (adminPhoto.startsWith('data:image') || adminPhoto.startsWith('http'))
+  );
+
   function closeDropdown() {
     dropdownOpen = false;
   }
@@ -71,9 +80,13 @@
         onclick={() => (dropdownOpen = !dropdownOpen)}
         class="flex items-center gap-3 rounded-full border border-border bg-background/80 px-2 py-1.5 shadow-sm backdrop-blur transition-colors hover:bg-muted"
       >
-        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shadow-sm">
-          {initials}
-        </div>
+        {#if showAdminPhoto}
+          <img src={adminPhoto} alt={displayName} class="h-9 w-9 rounded-full object-cover shadow-sm" />
+        {:else}
+          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shadow-sm">
+            {initials}
+          </div>
+        {/if}
         <div class="hidden text-left sm:block">
           <p class="text-sm font-medium text-foreground">{displayName}</p>
           <p class="text-xs text-muted-foreground">{displayEmail}</p>

@@ -33,7 +33,38 @@ func (r *ClassRepo) FindBySchool(ctx context.Context, schoolID string) ([]*domai
 			list = append(list, classFromBSON(d))
 		}
 	}
-	return list, cur.Err()
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+
+	// Dynamically compute per-class student counts
+	if len(list) > 0 {
+		studentsCol := r.col.Database().Collection("students")
+		pipeline := mongo.Pipeline{
+			{{Key: "$match", Value: bson.M{"schoolId": oid}}},
+			{{Key: "$group", Value: bson.M{"_id": "$class_id", "count": bson.M{"$sum": 1}}}},
+		}
+		cntCur, cntErr := studentsCol.Aggregate(ctx, pipeline)
+		if cntErr == nil {
+			defer cntCur.Close(ctx)
+			counts := make(map[string]int)
+			for cntCur.Next(ctx) {
+				var row bson.M
+				if cntCur.Decode(&row) == nil {
+					if id, ok := row["_id"].(primitive.ObjectID); ok {
+						counts[id.Hex()] = intVal(row, "count")
+					}
+				}
+			}
+			for _, cl := range list {
+				if n, ok := counts[cl.ID]; ok {
+					cl.StudentCount = n
+				}
+			}
+		}
+	}
+
+	return list, nil
 }
 
 func (r *ClassRepo) FindByID(ctx context.Context, id string) (*domain.Class, error) {
@@ -373,6 +404,7 @@ func (r *ExamRepo) Create(ctx context.Context, e *domain.Exam) (*domain.Exam, er
 		"_id":        primitive.NewObjectID(),
 		"schoolId":   sid,
 		"classId":    cid,
+		"className":  e.ClassName,
 		"title":      e.Title,
 		"examType":   e.ExamType,
 		"subject":    e.Subject,
@@ -449,6 +481,7 @@ func examFromBSON(d bson.M) *domain.Exam {
 	e := &domain.Exam{
 		Title:      strVal(d, "title"),
 		ExamType:   strVal(d, "examType"),
+		ClassName:  strVal(d, "className"),
 		Subject:    strVal(d, "subject"),
 		ExamDate:   strVal(d, "examDate"),
 		StartTime:  strVal(d, "startTime"),

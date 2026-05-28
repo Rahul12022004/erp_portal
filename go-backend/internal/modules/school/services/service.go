@@ -29,6 +29,7 @@ func (s *SchoolService) GetByID(ctx context.Context, id string) (*domain.School,
 	if school == nil {
 		return nil, fmt.Errorf("school not found")
 	}
+	s.syncModulesIfStale(ctx, school)
 	return school, nil
 }
 
@@ -135,9 +136,76 @@ func (s *SchoolService) UpdateLocationLock(ctx context.Context, id string, locke
 	})
 }
 
-// List returns paginated schools.
+// ToggleStatus flips adminInfo.status between Active and Disabled.
+func (s *SchoolService) ToggleStatus(ctx context.Context, id string) (*domain.School, error) {
+	school, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	newStatus := "Disabled"
+	if school.AdminInfo.Status == "Disabled" || school.AdminInfo.Status == "Inactive" {
+		newStatus = "Active"
+	}
+	return s.repo.Update(ctx, id, map[string]interface{}{
+		"adminInfo.status": newStatus,
+	})
+}
+
+// UpgradeSubscription changes the subscription plan and resets end date.
+func (s *SchoolService) UpgradeSubscription(ctx context.Context, id, plan string) (*domain.School, error) {
+	updates := map[string]interface{}{
+		"systemInfo.subscriptionPlan":    plan,
+		"systemInfo.subscriptionEndDate": endDate(plan),
+		"modules":                        modulesByPlan(plan),
+	}
+	return s.repo.Update(ctx, id, updates)
+}
+
+// RenewSubscription extends the subscription end date by 1 year from today (or from existing end date if future).
+func (s *SchoolService) RenewSubscription(ctx context.Context, id, plan string) (*domain.School, error) {
+	school, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	base := time.Now()
+	if school.SystemInfo.SubscriptionEndDate != "" {
+		if t, err2 := time.Parse("2006-01-02", school.SystemInfo.SubscriptionEndDate); err2 == nil && t.After(base) {
+			base = t
+		}
+	}
+	updates := map[string]interface{}{
+		"systemInfo.subscriptionEndDate": base.AddDate(1, 0, 0).Format("2006-01-02"),
+	}
+	if plan != "" && plan != school.SystemInfo.SubscriptionPlan {
+		updates["systemInfo.subscriptionPlan"] = plan
+		updates["modules"] = modulesByPlan(plan)
+	}
+	return s.repo.Update(ctx, id, updates)
+}
+
+// List returns paginated schools with modules auto-synced to their plan.
 func (s *SchoolService) List(ctx context.Context, skip, limit int64) ([]*domain.School, int64, error) {
-	return s.repo.List(ctx, skip, limit)
+	schools, total, err := s.repo.List(ctx, skip, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, school := range schools {
+		s.syncModulesIfStale(ctx, school)
+	}
+	return schools, total, nil
+}
+
+// syncModulesIfStale updates school.Modules to match its plan if stale, writing to DB async.
+func (s *SchoolService) syncModulesIfStale(_ context.Context, school *domain.School) {
+	expected := modulesByPlan(school.SystemInfo.SubscriptionPlan)
+	if len(expected) == 0 || len(school.Modules) == len(expected) {
+		return
+	}
+	school.Modules = expected
+	go func() {
+		bg := context.Background()
+		_, _ = s.repo.Update(bg, school.ID, map[string]interface{}{"modules": expected})
+	}()
 }
 
 // Delete removes a school.
@@ -153,10 +221,14 @@ func modulesByPlan(plan string) []string {
 		return []string{"Student Management", "Staff Management", "Attendance",
 			"Marks & Results", "Announcements", "Leave Management", "Class Management", "Finance & Fees"}
 	case "Premium":
-		return []string{"Student Management", "Staff Management", "Attendance",
+		return []string{
+			"Student Management", "Staff Management", "Attendance",
 			"Marks & Results", "Announcements", "Leave Management", "Class Management", "Finance & Fees",
-			"Hostel Management", "Transport Management", "Library Management",
-			"Inventory Management", "Surveys & Feedback", "Social Media Integration"}
+			"Hostel", "Transport", "Library", "Inventory", "Survey", "Social Media",
+			"Academics", "Time Table", "Admissions", "HR", "Payroll",
+			"Visitor", "Data Import", "Sports", "House",
+			"Notifications", "Reports", "Maintenance", "Support",
+		}
 	default: // Basic
 		return []string{"Student Management", "Attendance", "Marks & Results", "Announcements"}
 	}

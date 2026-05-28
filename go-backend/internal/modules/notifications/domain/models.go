@@ -3,12 +3,12 @@ package domain
 import "time"
 
 type Notification struct {
-	ID        string
-	SchoolID  string
-	UserID    string
-	Title     string
-	Body      string
-	Type      string // info | warning | success | error
-	IsRead    bool
-	CreatedAt time.Time
+	ID        string    `json:"_id"`
+	SchoolID  string    `json:"schoolId"`
+	UserID    string    `json:"userId"`
+	Title     string    `json:"title"`
+	Body      string    `json:"body"`
+	Type      string    `json:"type"`
+	IsRead    bool      `json:"isRead"`
+	CreatedAt time.Time `json:"createdAt"`
 }

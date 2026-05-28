@@ -3,16 +3,16 @@ package domain
 import "time"
 
 type MaintenanceRequest struct {
-	ID          string
-	SchoolID    string
-	Title       string
-	Description string
-	Location    string
-	Priority    string // low | medium | high
-	Status      string // open | in_progress | resolved
-	ReportedBy  string
-	AssignedTo  string
-	ResolvedAt  *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          string     `json:"_id"`
+	SchoolID    string     `json:"schoolId"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Location    string     `json:"location"`
+	Priority    string     `json:"priority"`
+	Status      string     `json:"status"`
+	ReportedBy  string     `json:"reportedBy"`
+	AssignedTo  string     `json:"assignedTo"`
+	ResolvedAt  *time.Time `json:"resolvedAt"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
 }

@@ -5,7 +5,8 @@
     Users, BookOpen, GraduationCap, Clock, Bell, CalendarDays, X,
     TrendingUp, TrendingDown, IndianRupee, BarChart3,
     ArrowUpRight, ArrowDownRight, CheckCircle2, AlertTriangle,
-    Check, FileText, ClipboardList,
+    Check, FileText, ClipboardList, Sparkles,
+    ChevronLeft, ChevronRight,
   } from 'lucide-svelte';
   import {
     Chart,
@@ -20,14 +21,6 @@
     CategoryScale, LinearScale,
     Tooltip, Legend,
   );
-
-  // ─── clay tokens ──────────────────────────────────────────────────────────────
-  const clayOuter = 'rounded-[36px] bg-[radial-gradient(circle_at_top_left,rgba(18,165,136,0.08),transparent_40%),linear-gradient(180deg,#f0faf8_0%,#f1f8f6_50%,#f8fbff_100%)] p-3 space-y-5';
-  const clayShell = 'rounded-[28px] border border-[#12A588]/20 bg-[linear-gradient(180deg,#ffffff_0%,#f2faf8_100%)] p-5 shadow-[0_18px_45px_rgba(18,165,136,0.08)]';
-  const clayCard  = 'rounded-[24px] border border-slate-200/90 bg-[linear-gradient(180deg,#ffffff_0%,#f7fbff_100%)] p-4 shadow-[0_10px_28px_rgba(148,163,184,0.14)]';
-  const clayInset = 'rounded-[22px] border border-slate-200/75 bg-[linear-gradient(180deg,#f8fbff_0%,#eef4fb_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_6px_20px_rgba(148,163,184,0.10)]';
-
-  const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'];
 
   // ─── types ────────────────────────────────────────────────────────────────────
   type DashboardStats   = { totalClasses: number; totalStudents: number; totalTeachers: number; attendance: number };
@@ -126,11 +119,11 @@
   let finMetrics = $state<FinMetrics | null>(null);
   let finDueDates: FinDueDateItem[]   = $state([]);
   let finStudentsLoading: boolean     = $state(false);
+  let finError: string                = $state('');
 
-  // ─── auth ─────────────────────────────────────────────────────────────────────
   const schoolId = $derived($page.data.user?.schoolId ?? '');
+  const schoolName = $derived($page.data.user?.schoolName ?? 'School');
 
-  // ─── derived ──────────────────────────────────────────────────────────────────
   const visibleNotifications = $derived(
     notifications.filter((n) => !n.id || !dismissedIds.includes(n.id))
   );
@@ -218,75 +211,87 @@
     overdue:   finMetrics?.overdueCount  ?? 0,
   });
 
-  // ─── chart canvas refs ────────────────────────────────────────────────────────
+  const collectionPct = $derived(
+    finStats.total > 0 ? Math.round((finStats.collected / finStats.total) * 100) : 0
+  );
+
+  // ─── chart refs ───────────────────────────────────────────────────────────────
   let pieCanvas: HTMLCanvasElement | undefined = $state();
   let barCanvas: HTMLCanvasElement | undefined = $state();
 
-  // ─── chart effects ────────────────────────────────────────────────────────────
   $effect(() => {
-    if (!pieCanvas || classData.length === 0) return;
-    const chart = new Chart(pieCanvas, {
-      type: 'pie',
-      data: {
-        labels: classData.map((c) => c.name),
-        datasets: [{
-          data: classData.map((c) => c.students),
-          backgroundColor: classData.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
-          borderWidth: 2,
-          borderColor: '#fff',
-          hoverOffset: 6,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } },
-          tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed} students` } },
+    const canvas   = pieCanvas;
+    const labels   = classData.map((c) => c.name);
+    const values   = classData.map((c) => c.students);
+    if (!canvas || labels.length === 0) return;
+    let chart: Chart | undefined;
+    const raf = requestAnimationFrame(() => {
+      chart = new Chart(canvas, {
+        type: 'pie',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ['#6366f1','#10b981','#f59e0b','#ec4899','#06b6d4','#8b5cf6','#f97316','#14b8a6'],
+            borderWidth: 3,
+            borderColor: '#fff',
+            hoverOffset: 8,
+          }],
         },
-      },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 11, family: 'Inter' }, padding: 14, usePointStyle: true, pointStyleWidth: 8 } },
+            tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed} students` } },
+          },
+        },
+      });
     });
-    return () => chart.destroy();
+    return () => { cancelAnimationFrame(raf); chart?.destroy(); };
   });
 
   $effect(() => {
-    if (!barCanvas || financeData.length === 0) return;
-    const chart = new Chart(barCanvas, {
-      type: 'bar',
-      data: {
-        labels: financeData.map((f) => f.month),
-        datasets: [
-          { label: 'Fees',    data: financeData.map((f) => f.fees),    backgroundColor: '#6366f1', borderRadius: 4 },
-          { label: 'Expense', data: financeData.map((f) => f.expense), backgroundColor: '#f59e0b', borderRadius: 4 },
-          { label: 'Profit',  data: financeData.map((f) => f.profit),  backgroundColor: '#10b981', borderRadius: 4 },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => ` ${ctx.dataset.label}: ${fmtShort(ctx.parsed.y as number)}`,
-            },
+    const canvas   = barCanvas;
+    const labels   = financeData.map((f) => f.month);
+    const fees     = financeData.map((f) => f.fees);
+    const expenses = financeData.map((f) => f.expense);
+    const profits  = financeData.map((f) => f.profit);
+    if (!canvas || labels.length === 0) return;
+    let chart: Chart | undefined;
+    const raf = requestAnimationFrame(() => {
+      chart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Fees',    data: fees,     backgroundColor: '#6366f1cc', borderRadius: 6 },
+            { label: 'Expense', data: expenses, backgroundColor: '#f59e0bcc', borderRadius: 6 },
+            { label: 'Profit',  data: profits,  backgroundColor: '#10b981cc', borderRadius: 6 },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 11, family: 'Inter' }, padding: 14, usePointStyle: true, pointStyleWidth: 8 } },
+            tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${fmtShort(ctx.parsed.y as number)}` } },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: { grid: { color: '#f1f5f9' }, border: { dash: [4,2] }, ticks: { font: { size: 11 }, callback: (v) => fmtShort(Number(v)) } },
           },
         },
-        scales: {
-          x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
-          y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, callback: (v) => fmtShort(Number(v)) } },
-        },
-      },
+      });
     });
-    return () => chart.destroy();
+    return () => { cancelAnimationFrame(raf); chart?.destroy(); };
   });
 
   // ─── data fetching ────────────────────────────────────────────────────────────
   const fetchDashboard = async () => {
     if (!schoolId) { error = 'School not found. Please log in again.'; loading = false; return; }
     try {
-      loading = true;
-      error = '';
+      loading = true; error = '';
       activeSchoolId = schoolId;
       dismissedIds = loadDismissed(schoolId);
 
@@ -367,54 +372,66 @@
   const fetchFinStudents = async () => {
     if (!schoolId) return;
     finStudentsLoading = true;
+    finError = '';
     try {
-      const r = await authedFetch(`/api/finance/assignments?schoolId=${schoolId}&limit=50`);
-      if (!r.ok) return;
-      const resp = await r.json();
-      // Go returns { success, data: { data: [...assignments], total, page, limit } }
-      const assignments: Record<string, unknown>[] = Array.isArray(resp?.data?.data) ? resp.data.data : [];
-      const paidCount    = assignments.filter((a) => String(a.FeeStatus ?? a.feeStatus) === 'PAID').length;
-      const partialCount = assignments.filter((a) => String(a.FeeStatus ?? a.feeStatus) === 'PARTIAL').length;
-      const pendingCount = assignments.filter((a) => String(a.FeeStatus ?? a.feeStatus) === 'UNPAID').length;
-      const overdueCount = assignments.filter((a) => String(a.FeeStatus ?? a.feeStatus) === 'OVERDUE').length;
-      const currentTotalFee      = assignments.reduce((s, a) => s + Number(a.TotalFee   ?? a.totalFee   ?? 0), 0);
-      const currentPaidAmount    = assignments.reduce((s, a) => s + Number(a.PaidAmount  ?? a.paidAmount  ?? 0), 0);
-      const currentPendingAmount = assignments.reduce((s, a) => s + Number(a.DueAmount   ?? a.dueAmount   ?? 0), 0);
-      finMetrics = { totalStudents: assignments.length, currentTotalFee, currentPaidAmount, currentPendingAmount, paidCount, partialCount, pendingCount, overdueCount };
-      const now = Date.now();
-      finDueDates = assignments
-        .filter((a) => String(a.FeeStatus ?? a.feeStatus) !== 'PAID' && (a.DueDate ?? a.dueDate))
-        .sort((a, b) =>
-          new Date(String(a.DueDate ?? a.dueDate ?? '')).getTime() -
-          new Date(String(b.DueDate ?? b.dueDate ?? '')).getTime()
-        )
-        .slice(0, 8)
-        .map((a) => {
-          const dueDate = String(a.DueDate ?? a.dueDate ?? '');
-          return {
-            studentName: String(a.StudentID ?? a.studentId ?? 'Student'),
-            className:   String(a.ClassID   ?? a.classId   ?? ''),
-            dueAmount:   Number(a.DueAmount  ?? a.dueAmount  ?? 0),
-            status:      String(a.FeeStatus  ?? a.feeStatus  ?? 'UNPAID').toLowerCase(),
-            dueDate,
-            daysLeft: dueDate ? Math.ceil((new Date(dueDate).getTime() - now) / 86_400_000) : 0,
-          };
-        });
-    } catch { /* silent */ }
-    finally { finStudentsLoading = false; }
+      // Use the purpose-built dashboard-summary endpoint for aggregated metrics
+      const summaryRes = await authedFetch(`/api/finance/${schoolId}/dashboard-summary`);
+      if (summaryRes.ok) {
+        const sd = await summaryRes.json();
+        const fee = (sd?.data?.fee ?? {}) as Record<string, number>;
+        finMetrics = {
+          totalStudents:        Number(fee.totalStudents   ?? 0),
+          currentTotalFee:      Number(fee.totalFeeAmount  ?? 0),
+          currentPaidAmount:    Number(fee.collectedAmount ?? 0),
+          currentPendingAmount: Number(fee.pendingAmount   ?? 0),
+          paidCount:    Number(fee.paidCount    ?? 0),
+          partialCount: Number(fee.partialCount ?? 0),
+          pendingCount: Number(fee.unpaidCount  ?? 0),
+          overdueCount: Number(fee.overdueCount ?? 0),
+        };
+      } else {
+        const errBody = await summaryRes.json().catch(() => ({})) as Record<string, unknown>;
+        finError = String(errBody?.error ?? errBody?.message ?? `Finance API error ${summaryRes.status}`);
+      }
+
+      // Fetch upcoming due dates separately
+      const listRes = await authedFetch(`/api/finance/assignments?schoolId=${schoolId}&limit=50`);
+      if (listRes.ok) {
+        const resp = await listRes.json();
+        const assignments: Record<string, unknown>[] = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+        const now = Date.now();
+        finDueDates = assignments
+          .filter((a) => String(a.feeStatus ?? '') !== 'PAID' && a.dueDate)
+          .sort((a, b) => new Date(String(a.dueDate ?? '')).getTime() - new Date(String(b.dueDate ?? '')).getTime())
+          .slice(0, 8)
+          .map((a) => {
+            const dueDate = String(a.dueDate ?? '');
+            return {
+              studentName: String(a.studentId ?? 'Student'),
+              className:   String(a.classFeeStructureId ?? ''),
+              dueAmount:   Number(a.dueAmount  ?? 0),
+              status:      String(a.feeStatus  ?? 'UNPAID').toLowerCase(),
+              dueDate,
+              daysLeft: dueDate ? Math.ceil((new Date(dueDate).getTime() - now) / 86_400_000) : 0,
+            };
+          });
+      }
+    } catch (err) {
+      finError = err instanceof Error ? err.message : 'Failed to load finance data';
+    } finally {
+      finStudentsLoading = false;
+    }
   };
 
   onMount(() => {
     fetchDashboard();
     fetchLeaves();
     fetchFinStudents();
-
     const handler = () => fetchDashboard();
     window.addEventListener('announcements-updated', handler);
     return () => window.removeEventListener('announcements-updated', handler);
   });
 
-  // ─── handlers ─────────────────────────────────────────────────────────────────
   const handleDismiss = (id?: string) => {
     if (!id) return;
     slidingId = id;
@@ -440,293 +457,375 @@
       const updated = data?.data ?? {};
       const newStatus = String(updated?.Status ?? updated?.status ?? status) as LeaveApplication['status'];
       leaves = leaves.map((l) => l._id === leaveId ? { ...l, status: newStatus } : l);
-    } catch { /* silent on dashboard */ }
+    } catch { /* silent */ }
     finally { updatingLeaveId = null; }
   };
 
-  const TABS: { id: DashTab; label: string; icon: typeof BarChart3 }[] = [
-    { id: 'overview',  label: 'Overview',  icon: BarChart3     },
-    { id: 'approval',  label: 'Approval',  icon: ClipboardList },
-    { id: 'finance',   label: 'Finance',   icon: IndianRupee   },
-    { id: 'calendar',  label: 'Calendar',  icon: CalendarDays  },
+  const TABS: { id: DashTab; label: string }[] = [
+    { id: 'overview',  label: 'Overview'  },
+    { id: 'approval',  label: 'Approvals' },
+    { id: 'finance',   label: 'Finance'   },
+    { id: 'calendar',  label: 'Calendar'  },
   ];
+
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  // ─── calendar grid ────────────────────────────────────────────────────────────
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let calendarMonth = $state(new Date().getMonth());
+  let calendarYear  = $state(new Date().getFullYear());
+
+  const calendarGrid = $derived.by(() => {
+    const firstDow = new Date(calendarYear, calendarMonth, 1).getDay();
+    const lastDate  = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+    const days: (Date | null)[] = [];
+    for (let i = 0; i < firstDow; i++) days.push(null);
+    for (let d = 1; d <= lastDate; d++) days.push(new Date(calendarYear, calendarMonth, d));
+    while (days.length % 7 !== 0) days.push(null);
+    return days;
+  });
+
+  function prevMonth() {
+    if (calendarMonth === 0) { calendarMonth = 11; calendarYear--; }
+    else calendarMonth--;
+  }
+  function nextMonth() {
+    if (calendarMonth === 11) { calendarMonth = 0; calendarYear++; }
+    else calendarMonth++;
+  }
 </script>
 
-<svelte:head><title>Admin Dashboard — ERP Portal</title></svelte:head>
+<svelte:head><title>Dashboard — {schoolName}</title></svelte:head>
 
-<div class={clayOuter}>
+<div class="space-y-5">
 
-  <!-- ── header ──────────────────────────────────────────────────────────────── -->
-  <section class={clayShell}>
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-extrabold tracking-[-0.03em] text-slate-950">Admin Dashboard</h1>
-        <p class="mt-1 text-sm text-slate-500">
-          {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-        </p>
+  <!-- ── PAGE HEADER ─────────────────────────────────────────────────────────── -->
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <div class="flex items-center gap-2">
+        <Sparkles class="h-4 w-4 text-primary" />
+        <p class="text-xs font-medium text-muted-foreground">{today}</p>
       </div>
-      <div class="flex flex-wrap gap-2 text-xs">
-        <div class="{clayInset} flex items-center gap-2 !py-2 !px-3">
-          <Users class="h-3.5 w-3.5 text-indigo-500" />
-          <span class="font-bold text-slate-800">{stats.totalStudents}</span>
-          <span class="text-slate-400">students</span>
-        </div>
-        <div class="{clayInset} flex items-center gap-2 !py-2 !px-3">
-          <BookOpen class="h-3.5 w-3.5 text-emerald-500" />
-          <span class="font-bold text-slate-800">{stats.totalClasses}</span>
-          <span class="text-slate-400">classes</span>
-        </div>
-        {#if upcomingExamCount > 0}
-          <div class="{clayInset} flex items-center gap-2 !py-2 !px-3">
-            <AlertTriangle class="h-3.5 w-3.5 text-amber-500" />
-            <span class="font-bold text-slate-800">{upcomingExamCount}</span>
-            <span class="text-slate-400">exams upcoming</span>
-          </div>
-        {/if}
-      </div>
+      <h1 class="mt-1 text-2xl font-bold text-foreground">School Dashboard</h1>
+      <p class="text-sm text-muted-foreground">{schoolName}</p>
     </div>
 
-    <!-- tab bar -->
-    <div class="mt-5 overflow-x-auto pb-0.5">
-      <div class="flex min-w-max items-center gap-1 rounded-[22px] bg-[linear-gradient(180deg,#eef2ff_0%,#e8ecff_100%)] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_4px_12px_rgba(99,102,241,0.08)]">
-        {#each TABS as t}
-          <button
-            onclick={() => (activeTab = t.id)}
-            class="inline-flex items-center gap-1.5 rounded-[18px] px-4 py-2 text-[13px] font-semibold whitespace-nowrap transition-all duration-150 {activeTab === t.id ? 'bg-white text-indigo-700 shadow-[0_4px_16px_rgba(99,102,241,0.18)] ring-1 ring-indigo-200/80' : 'text-slate-500 hover:bg-white/70 hover:text-slate-800 hover:shadow-sm'}"
-          >
-            <t.icon class="h-3.5 w-3.5 shrink-0" />
-            {t.label}
-          </button>
+    <!-- quick stats pills -->
+    <div class="flex flex-wrap gap-2">
+      {#if loading}
+        {#each { length: 3 } as _}
+          <div class="h-8 w-24 animate-pulse rounded-full bg-muted"></div>
         {/each}
-      </div>
+      {:else}
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-3 py-1.5 text-xs font-semibold text-indigo-700">
+          <Users class="h-3 w-3" />{stats.totalStudents} Students
+        </span>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+          <BookOpen class="h-3 w-3" />{stats.totalClasses} Classes
+        </span>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">
+          <GraduationCap class="h-3 w-3" />{stats.totalTeachers} Teachers
+        </span>
+        {#if upcomingExamCount > 0}
+          <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-700">
+            <AlertTriangle class="h-3 w-3" />{upcomingExamCount} Exams Upcoming
+          </span>
+        {/if}
+      {/if}
     </div>
-  </section>
+  </div>
 
   {#if error}
-    <div class="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>
+    <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
   {/if}
 
-  <!-- ── OVERVIEW TAB ─────────────────────────────────────────────────────────── -->
+  <!-- ── TAB NAVIGATION ──────────────────────────────────────────────────────── -->
+  <div class="flex border-b border-border">
+    {#each TABS as t}
+      <button
+        onclick={() => (activeTab = t.id)}
+        class="px-5 py-3 text-sm font-medium border-b-2 transition-colors
+          {activeTab === t.id
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}"
+      >
+        {t.label}
+      </button>
+    {/each}
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- OVERVIEW TAB                                                               -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
   {#if activeTab === 'overview'}
+  <div class="tab-content-enter space-y-5">
 
-    <!-- KPI row -->
-    <section class={clayShell}>
-      <p class="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Key Metrics</p>
-      {#if loading}
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {#each { length: 4 } as _}
-            <div class="h-28 animate-pulse rounded-[24px] bg-slate-100/80"></div>
-          {/each}
-        </div>
-      {:else}
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <!-- Total Classes -->
-          <div class="{clayCard} relative overflow-hidden">
-            <div class="pointer-events-none absolute -right-3 -top-3 h-16 w-16 rounded-full bg-indigo-50 opacity-30 blur-2xl"></div>
-            <div class="inline-flex h-9 w-9 items-center justify-center rounded-[14px] bg-indigo-50 text-indigo-600">
-              <BookOpen class="h-4 w-4" />
-            </div>
-            <p class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 leading-tight">{stats.totalClasses}</p>
-            <p class="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Classes</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">Active this year</p>
-            <div class="mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700">
-              <ArrowUpRight class="h-2.5 w-2.5" />Active
-            </div>
-          </div>
+    <!-- KPI Cards -->
+    {#if loading}
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {#each { length: 4 } as _}
+          <div class="h-32 animate-pulse rounded-xl bg-muted"></div>
+        {/each}
+      </div>
+    {:else}
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
 
-          <!-- Total Students -->
-          <div class="{clayCard} relative overflow-hidden">
-            <div class="pointer-events-none absolute -right-3 -top-3 h-16 w-16 rounded-full bg-emerald-50 opacity-30 blur-2xl"></div>
-            <div class="inline-flex h-9 w-9 items-center justify-center rounded-[14px] bg-emerald-50 text-emerald-600">
-              <Users class="h-4 w-4" />
+        <!-- Classes -->
+        <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div class="h-1 bg-indigo-500"></div>
+          <div class="p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
+                <BookOpen class="h-4 w-4 text-indigo-600" />
+              </div>
+              <span class="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-600">
+                <ArrowUpRight class="h-3 w-3" />Active
+              </span>
             </div>
-            <p class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 leading-tight">{stats.totalStudents}</p>
-            <p class="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Students</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">{studentPerClass} per class avg</p>
-            <div class="mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700">
-              <ArrowUpRight class="h-2.5 w-2.5" />Enrolled
-            </div>
-          </div>
-
-          <!-- Total Teachers -->
-          <div class="{clayCard} relative overflow-hidden">
-            <div class="pointer-events-none absolute -right-3 -top-3 h-16 w-16 rounded-full bg-amber-50 opacity-30 blur-2xl"></div>
-            <div class="inline-flex h-9 w-9 items-center justify-center rounded-[14px] bg-amber-50 text-amber-600">
-              <GraduationCap class="h-4 w-4" />
-            </div>
-            <p class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 leading-tight">{stats.totalTeachers}</p>
-            <p class="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Teachers</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">1 : {stats.totalTeachers > 0 ? Math.round(stats.totalStudents / stats.totalTeachers) : 0} ratio</p>
-          </div>
-
-          <!-- Avg Attendance -->
-          <div class="{clayCard} relative overflow-hidden">
-            <div class="pointer-events-none absolute -right-3 -top-3 h-16 w-16 rounded-full {stats.attendance >= 75 ? 'bg-emerald-50' : 'bg-rose-50'} opacity-30 blur-2xl"></div>
-            <div class="inline-flex h-9 w-9 items-center justify-center rounded-[14px] {stats.attendance >= 75 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">
-              <Clock class="h-4 w-4" />
-            </div>
-            <p class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 leading-tight">{stats.attendance}%</p>
-            <p class="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Avg Attendance</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">{stats.attendance >= 75 ? 'On target' : 'Below target'}</p>
-            <div class="mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold {stats.attendance >= 75 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">
-              {#if stats.attendance >= 75}
-                <ArrowUpRight class="h-2.5 w-2.5" />Good
-              {:else}
-                <ArrowDownRight class="h-2.5 w-2.5" />Low
-              {/if}
-            </div>
+            <p class="text-3xl font-bold text-foreground">{stats.totalClasses}</p>
+            <p class="text-xs font-medium text-muted-foreground mt-0.5">Total Classes</p>
+            <p class="text-xs text-muted-foreground mt-1">{studentPerClass} students/class avg</p>
           </div>
         </div>
-      {/if}
-    </section>
 
-    <!-- charts + announcements -->
+        <!-- Students -->
+        <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div class="h-1 bg-emerald-500"></div>
+          <div class="p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
+                <Users class="h-4 w-4 text-emerald-600" />
+              </div>
+              <span class="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-600">
+                <ArrowUpRight class="h-3 w-3" />Enrolled
+              </span>
+            </div>
+            <p class="text-3xl font-bold text-foreground">{stats.totalStudents}</p>
+            <p class="text-xs font-medium text-muted-foreground mt-0.5">Total Students</p>
+            <p class="text-xs text-muted-foreground mt-1">Across {stats.totalClasses} classes</p>
+          </div>
+        </div>
+
+        <!-- Teachers -->
+        <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div class="h-1 bg-amber-500"></div>
+          <div class="p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+                <GraduationCap class="h-4 w-4 text-amber-600" />
+              </div>
+            </div>
+            <p class="text-3xl font-bold text-foreground">{stats.totalTeachers}</p>
+            <p class="text-xs font-medium text-muted-foreground mt-0.5">Teachers</p>
+            <p class="text-xs text-muted-foreground mt-1">
+              1:{stats.totalTeachers > 0 ? Math.round(stats.totalStudents / stats.totalTeachers) : 0} student ratio
+            </p>
+          </div>
+        </div>
+
+        <!-- Finance snapshot -->
+        <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div class="h-1 {finStats.total > 0 && collectionPct >= 70 ? 'bg-teal-500' : 'bg-rose-400'}"></div>
+          <div class="p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50">
+                <IndianRupee class="h-4 w-4 text-teal-600" />
+              </div>
+              <span class="text-xs font-semibold {collectionPct >= 70 ? 'text-emerald-600' : 'text-rose-600'}">{collectionPct}%</span>
+            </div>
+            <p class="text-3xl font-bold text-foreground">{fmtShort(finStats.collected)}</p>
+            <p class="text-xs font-medium text-muted-foreground mt-0.5">Fees Collected</p>
+            <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+              <div class="h-full rounded-full {collectionPct >= 70 ? 'bg-emerald-500' : 'bg-rose-400'} transition-all duration-700"
+                style="width:{collectionPct}%"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    {/if}
+
+    <!-- Charts + Announcements -->
     <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
-      <section class={clayShell}>
-        <p class="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Class Distribution</p>
-        <p class="mb-4 text-xs text-slate-500">Students enrolled per class</p>
+
+      <!-- Class distribution chart -->
+      <div class="bg-white rounded-xl border border-border shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-foreground mb-0.5">Class Distribution</h3>
+        <p class="text-xs text-muted-foreground mb-4">Students enrolled per class</p>
         {#if loading}
-          <div class="h-72 animate-pulse rounded-[20px] bg-slate-100/80"></div>
+          <div class="h-64 animate-pulse rounded-lg bg-muted"></div>
         {:else if classData.length === 0}
-          <p class="py-16 text-center text-sm text-slate-400">No class data yet.</p>
+          <div class="flex flex-col items-center justify-center h-64 text-muted-foreground">
+            <BookOpen class="h-10 w-10 mb-2 opacity-30" />
+            <p class="text-sm">No class data yet</p>
+          </div>
         {:else}
-          <div class="relative" style="height:280px">
+          <div class="relative" style="height:256px">
             <canvas bind:this={pieCanvas}></canvas>
           </div>
-        {/if}
-        {#if topClass}
-          <div class="mt-4 {clayInset}">
-            <div class="flex items-center justify-between">
-              <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Largest Class</p>
-              <CheckCircle2 class="h-3.5 w-3.5 text-emerald-500" />
+          {#if topClass}
+            <div class="mt-4 flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3">
+              <CheckCircle2 class="h-4 w-4 text-emerald-500 shrink-0" />
+              <div>
+                <p class="text-xs font-semibold text-foreground">Largest class: {topClass.name}</p>
+                <p class="text-xs text-muted-foreground">{topClass.students} students</p>
+              </div>
             </div>
-            <p class="mt-1 text-base font-bold text-slate-800">{topClass.name}</p>
-            <p class="text-xs text-slate-500">{topClass.students} students</p>
-          </div>
+          {/if}
         {/if}
-      </section>
+      </div>
 
-      <section class={clayShell}>
-        <div class="mb-4 flex items-center gap-2">
-          <Bell class="h-3.5 w-3.5 text-indigo-500" />
-          <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Announcements</p>
+      <!-- Announcements -->
+      <div class="bg-white rounded-xl border border-border shadow-sm p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <Bell class="h-4 w-4 text-primary" />
+          <h3 class="text-sm font-semibold text-foreground">Announcements</h3>
+          {#if visibleNotifications.length > 0}
+            <span class="ml-auto inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {visibleNotifications.length}
+            </span>
+          {/if}
         </div>
         {#if loading}
-          <div class="h-40 animate-pulse rounded-[20px] bg-slate-100/80"></div>
+          <div class="space-y-3">
+            {#each { length: 3 } as _}
+              <div class="h-16 animate-pulse rounded-lg bg-muted"></div>
+            {/each}
+          </div>
         {:else if visibleNotifications.length === 0}
-          <p class="py-8 text-center text-sm text-slate-400">No announcements yet.</p>
+          <div class="flex flex-col items-center justify-center h-40 text-muted-foreground">
+            <Bell class="h-10 w-10 mb-2 opacity-20" />
+            <p class="text-sm">No announcements</p>
+          </div>
         {:else}
-          <div class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+          <div class="space-y-2 max-h-[400px] overflow-y-auto pr-1">
             {#each visibleNotifications as n, i (n.id ?? i)}
-              <div class="{clayInset} transition-all duration-200 {slidingId === n.id ? '-translate-x-4 opacity-0' : 'translate-x-0 opacity-100'}">
+              <div class="rounded-lg border border-border bg-background p-3 transition-all duration-200
+                {slidingId === n.id ? '-translate-x-4 opacity-0' : 'translate-x-0 opacity-100'}">
                 <div class="flex items-start justify-between gap-2">
-                  <p class="text-sm font-semibold text-slate-800">{n.title}</p>
-                  <button
-                    onclick={() => handleDismiss(n.id)}
-                    disabled={!n.id}
-                    class="text-slate-400 hover:text-rose-500 disabled:opacity-40 shrink-0"
-                  >
+                  <p class="text-sm font-semibold text-foreground leading-snug">{n.title}</p>
+                  <button onclick={() => handleDismiss(n.id)} disabled={!n.id}
+                    class="text-muted-foreground hover:text-destructive disabled:opacity-30 shrink-0">
                     <X class="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <p class="mt-1 text-xs text-slate-500">{n.desc}</p>
-                <p class="mt-1 text-[10px] text-slate-400">{n.time}{n.author ? ` · ${n.author}` : ''}</p>
+                <p class="mt-1 text-xs text-muted-foreground line-clamp-2">{n.desc}</p>
+                <p class="mt-1 text-[10px] text-muted-foreground/70">{n.time}{n.author ? ` · ${n.author}` : ''}</p>
               </div>
             {/each}
           </div>
         {/if}
-      </section>
+      </div>
     </div>
 
-    <!-- finance snapshot -->
+    <!-- Finance trend chart -->
     {#if !loading && financeData.length > 0}
-      <section class={clayShell}>
-        <p class="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Finance Snapshot</p>
-        <p class="mb-4 text-xs text-slate-500">Monthly fees, expenses, and profit trend</p>
+      <div class="bg-white rounded-xl border border-border shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-foreground mb-0.5">Finance Trend</h3>
+        <p class="text-xs text-muted-foreground mb-4">Monthly fees, expenses, and profit</p>
         <div class="relative" style="height:220px">
           <canvas bind:this={barCanvas}></canvas>
         </div>
-      </section>
+      </div>
     {/if}
 
+  </div>
   {/if}
 
-  <!-- ── APPROVAL TAB ──────────────────────────────────────────────────────────── -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- APPROVAL TAB                                                               -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
   {#if activeTab === 'approval'}
+  <div class="tab-content-enter space-y-5">
 
-    <section class={clayShell}>
-      <p class="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Leave Request Summary</p>
-      <div class="grid grid-cols-3 gap-3">
-        <div class="{clayInset} text-center">
-          <p class="text-2xl font-extrabold text-amber-600">{leaves.filter((l) => l.status === 'Pending').length}</p>
-          <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Pending</p>
-        </div>
-        <div class="{clayInset} text-center">
-          <p class="text-2xl font-extrabold text-emerald-600">{leaves.filter((l) => l.status === 'Approved').length}</p>
-          <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Approved</p>
-        </div>
-        <div class="{clayInset} text-center">
-          <p class="text-2xl font-extrabold text-rose-600">{leaves.filter((l) => l.status === 'Rejected').length}</p>
-          <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Rejected</p>
-        </div>
+    <!-- Summary row -->
+    <div class="grid grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-amber-200 shadow-sm p-5 text-center">
+        <p class="text-3xl font-bold text-amber-600">{leaves.filter((l) => l.status === 'Pending').length}</p>
+        <p class="text-xs font-semibold text-muted-foreground mt-1 uppercase tracking-wide">Pending</p>
       </div>
-    </section>
+      <div class="bg-white rounded-xl border border-emerald-200 shadow-sm p-5 text-center">
+        <p class="text-3xl font-bold text-emerald-600">{leaves.filter((l) => l.status === 'Approved').length}</p>
+        <p class="text-xs font-semibold text-muted-foreground mt-1 uppercase tracking-wide">Approved</p>
+      </div>
+      <div class="bg-white rounded-xl border border-red-200 shadow-sm p-5 text-center">
+        <p class="text-3xl font-bold text-red-600">{leaves.filter((l) => l.status === 'Rejected').length}</p>
+        <p class="text-xs font-semibold text-muted-foreground mt-1 uppercase tracking-wide">Rejected</p>
+      </div>
+    </div>
 
-    <section class={clayShell}>
-      <p class="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Teacher Leave Requests</p>
+    <!-- Leave list -->
+    <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-border">
+        <h3 class="text-sm font-semibold text-foreground">Teacher Leave Requests</h3>
+      </div>
       {#if leavesLoading}
-        <div class="h-40 animate-pulse rounded-[20px] bg-slate-100/80"></div>
+        <div class="p-5 space-y-3">
+          {#each { length: 3 } as _}
+            <div class="h-24 animate-pulse rounded-lg bg-muted"></div>
+          {/each}
+        </div>
       {:else if leaves.length === 0}
-        <p class="py-10 text-center text-sm text-slate-400">No leave requests yet.</p>
+        <div class="flex flex-col items-center justify-center h-40 text-muted-foreground">
+          <ClipboardList class="h-10 w-10 mb-2 opacity-20" />
+          <p class="text-sm">No leave requests yet</p>
+        </div>
       {:else}
-        <div class="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+        <div class="divide-y divide-border max-h-[560px] overflow-y-auto">
           {#each leaves as leave (leave._id)}
-            {@const statusClr = leave.status === 'Approved'
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-              : leave.status === 'Pending'
-              ? 'bg-amber-50 text-amber-700 border-amber-100'
-              : 'bg-rose-50 text-rose-700 border-rose-100'}
-            <div class={clayInset}>
+            {@const isPending  = leave.status === 'Pending'}
+            {@const isApproved = leave.status === 'Approved'}
+            <div class="p-5 hover:bg-muted/30 transition-colors">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm font-bold text-slate-800">{leave.title}</p>
-                  <p class="mt-0.5 text-xs text-slate-500 line-clamp-2">{leave.description}</p>
-                </div>
-                <span class="shrink-0 self-start rounded-full border px-2.5 py-0.5 text-[11px] font-bold {statusClr}">{leave.status}</span>
-              </div>
-              <div class="mt-3 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Teacher</p>
-                  <p class="mt-0.5 font-semibold text-slate-800">{leave.teacherId?.name ?? 'Unknown'}</p>
-                  <p class="text-[11px] text-slate-400">{leave.teacherId?.email ?? ''}</p>
-                </div>
-                <div>
-                  <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Type · Applied</p>
-                  <p class="mt-0.5 font-semibold text-slate-800">{leave.leaveType}</p>
-                  <p class="text-[11px] text-slate-400">{new Date(leave.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="text-sm font-semibold text-foreground">{leave.title}</p>
+                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold
+                      {isApproved ? 'bg-emerald-100 text-emerald-700'
+                       : isPending ? 'bg-amber-100 text-amber-700'
+                       : 'bg-red-100 text-red-700'}">
+                      {leave.status}
+                    </span>
+                  </div>
+                  <p class="mt-1 text-xs text-muted-foreground line-clamp-2">{leave.description}</p>
                 </div>
               </div>
-              <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <div class="mt-3 grid grid-cols-2 gap-x-4 text-xs">
+                <div>
+                  <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Teacher</p>
+                  <p class="mt-0.5 font-semibold text-foreground">{leave.teacherId?.name ?? 'Unknown'}</p>
+                  <p class="text-[11px] text-muted-foreground">{leave.teacherId?.email ?? ''}</p>
+                </div>
+                <div>
+                  <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Type · Applied</p>
+                  <p class="mt-0.5 font-semibold text-foreground">{leave.leaveType}</p>
+                  <p class="text-[11px] text-muted-foreground">
+                    {new Date(leave.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+              <div class="mt-3 flex items-center justify-between gap-2">
                 {#if leave.fileData}
-                  <a href={leave.fileData} target="_blank" rel="noreferrer" class="inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:underline">
+                  <a href={leave.fileData} target="_blank" rel="noreferrer"
+                    class="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
                     <FileText class="h-3.5 w-3.5" />{leave.fileName ?? 'Attachment'}
                   </a>
                 {:else}
-                  <span class="text-xs text-slate-400">No attachment</span>
+                  <span class="text-xs text-muted-foreground">No attachment</span>
                 {/if}
                 <div class="flex gap-2">
                   <button
                     onclick={() => updateLeaveStatus(leave._id, 'Approved')}
-                    disabled={updatingLeaveId === leave._id || leave.status === 'Approved'}
-                    class="inline-flex items-center gap-1.5 rounded-[14px] bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                  >
+                    disabled={updatingLeaveId === leave._id || isApproved}
+                    class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
                     <Check class="h-3.5 w-3.5" /> Approve
                   </button>
                   <button
                     onclick={() => updateLeaveStatus(leave._id, 'Rejected')}
                     disabled={updatingLeaveId === leave._id || leave.status === 'Rejected'}
-                    class="inline-flex items-center gap-1.5 rounded-[14px] bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
-                  >
+                    class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
                     <X class="h-3.5 w-3.5" /> Reject
                   </button>
                 </div>
@@ -735,267 +834,298 @@
           {/each}
         </div>
       {/if}
-    </section>
+    </div>
 
+  </div>
   {/if}
 
-  <!-- ── FINANCE TAB ───────────────────────────────────────────────────────────── -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- FINANCE TAB                                                                -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
   {#if activeTab === 'finance'}
+  <div class="tab-content-enter space-y-5">
 
-    <!-- collection KPIs -->
-    <section class={clayShell}>
-      <p class="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Fee Collection Summary</p>
-      {#if finStudentsLoading}
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {#each { length: 4 } as _}
-            <div class="h-28 animate-pulse rounded-[24px] bg-slate-100/80"></div>
-          {/each}
-        </div>
-      {:else}
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <!-- Total Billed -->
-          <div class="{clayCard} relative overflow-hidden">
-            <div class="pointer-events-none absolute -right-3 -top-3 h-16 w-16 rounded-full bg-indigo-50 opacity-30 blur-2xl"></div>
-            <div class="inline-flex h-9 w-9 items-center justify-center rounded-[14px] bg-indigo-50 text-indigo-600">
-              <IndianRupee class="h-4 w-4" />
-            </div>
-            <p class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 leading-tight">{fmtShort(finStats.total)}</p>
-            <p class="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Billed</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">{finMetrics?.totalStudents ?? 0} students</p>
-            <div class="mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700">
-              <ArrowUpRight class="h-2.5 w-2.5" />Billed
-            </div>
-          </div>
+    {#if finError}
+      <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{finError}</div>
+    {/if}
 
-          <!-- Collected -->
-          <div class="{clayCard} relative overflow-hidden">
-            <div class="pointer-events-none absolute -right-3 -top-3 h-16 w-16 rounded-full bg-emerald-50 opacity-30 blur-2xl"></div>
-            <div class="inline-flex h-9 w-9 items-center justify-center rounded-[14px] bg-emerald-50 text-emerald-600">
-              <TrendingUp class="h-4 w-4" />
+    <!-- Finance KPIs -->
+    {#if finStudentsLoading}
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {#each { length: 4 } as _}
+          <div class="h-32 animate-pulse rounded-xl bg-muted"></div>
+        {/each}
+      </div>
+    {:else}
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div class="h-1 bg-indigo-500"></div>
+          <div class="p-4">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 mb-3">
+              <IndianRupee class="h-4 w-4 text-indigo-600" />
             </div>
-            <p class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 leading-tight">{fmtShort(finStats.collected)}</p>
-            <p class="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Collected</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">{finStats.total > 0 ? `${Math.round((finStats.collected / finStats.total) * 100)}% of billed` : '—'}</p>
-            <div class="mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700">
-              <ArrowUpRight class="h-2.5 w-2.5" />Paid
-            </div>
-          </div>
-
-          <!-- Pending -->
-          <div class="{clayCard} relative overflow-hidden">
-            <div class="pointer-events-none absolute -right-3 -top-3 h-16 w-16 rounded-full bg-amber-50 opacity-30 blur-2xl"></div>
-            <div class="inline-flex h-9 w-9 items-center justify-center rounded-[14px] bg-amber-50 text-amber-600">
-              <TrendingDown class="h-4 w-4" />
-            </div>
-            <p class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 leading-tight">{fmtShort(finStats.pending)}</p>
-            <p class="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">Outstanding</p>
-            <div class="mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700">
-              <ArrowDownRight class="h-2.5 w-2.5" />Due
-            </div>
-          </div>
-
-          <!-- Overdue -->
-          <div class="{clayCard} relative overflow-hidden">
-            <div class="pointer-events-none absolute -right-3 -top-3 h-16 w-16 rounded-full bg-rose-50 opacity-30 blur-2xl"></div>
-            <div class="inline-flex h-9 w-9 items-center justify-center rounded-[14px] bg-rose-50 text-rose-600">
-              <AlertTriangle class="h-4 w-4" />
-            </div>
-            <p class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 leading-tight">{finStats.overdue}</p>
-            <p class="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Overdue</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">Students overdue</p>
-            <div class="mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700">
-              <ArrowDownRight class="h-2.5 w-2.5" />At risk
-            </div>
+            <p class="text-2xl font-bold text-foreground">{fmtShort(finStats.total)}</p>
+            <p class="text-xs text-muted-foreground mt-0.5">Total Billed</p>
+            <p class="text-xs text-muted-foreground mt-1">{finMetrics?.totalStudents ?? 0} students</p>
           </div>
         </div>
-      {/if}
-    </section>
+        <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div class="h-1 bg-emerald-500"></div>
+          <div class="p-4">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 mb-3">
+              <TrendingUp class="h-4 w-4 text-emerald-600" />
+            </div>
+            <p class="text-2xl font-bold text-foreground">{fmtShort(finStats.collected)}</p>
+            <p class="text-xs text-muted-foreground mt-0.5">Collected</p>
+            <p class="text-xs text-emerald-600 font-semibold mt-1">{collectionPct}% of billed</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div class="h-1 bg-amber-500"></div>
+          <div class="p-4">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 mb-3">
+              <TrendingDown class="h-4 w-4 text-amber-600" />
+            </div>
+            <p class="text-2xl font-bold text-foreground">{fmtShort(finStats.pending)}</p>
+            <p class="text-xs text-muted-foreground mt-0.5">Outstanding</p>
+            <p class="text-xs text-muted-foreground mt-1">Yet to collect</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div class="h-1 bg-red-500"></div>
+          <div class="p-4">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 mb-3">
+              <AlertTriangle class="h-4 w-4 text-red-600" />
+            </div>
+            <p class="text-2xl font-bold text-foreground">{finStats.overdue}</p>
+            <p class="text-xs text-muted-foreground mt-0.5">Overdue</p>
+            <p class="text-xs text-red-600 font-semibold mt-1">Needs attention</p>
+          </div>
+        </div>
+      </div>
+    {/if}
 
-    <!-- student status breakdown -->
-    <section class={clayShell}>
-      <p class="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Student Payment Status</p>
-      <div class="grid grid-cols-4 gap-2">
+    <!-- Payment status + progress -->
+    <div class="bg-white rounded-xl border border-border shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-foreground mb-4">Payment Status Breakdown</h3>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-5">
         {#each [
-          { label: 'Paid',    count: finStats.paid,    color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-          { label: 'Partial', count: finStats.partial, color: 'bg-amber-50 text-amber-700 border-amber-100'       },
-          { label: 'Unpaid',  count: finStats.unpaid,  color: 'bg-slate-50 text-slate-600 border-slate-200'       },
-          { label: 'Overdue', count: finStats.overdue, color: 'bg-rose-50 text-rose-700 border-rose-100'          },
+          { label: 'Paid',    count: finStats.paid,    cls: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+          { label: 'Partial', count: finStats.partial, cls: 'bg-amber-50 border-amber-200 text-amber-700'       },
+          { label: 'Unpaid',  count: finStats.unpaid,  cls: 'bg-gray-50 border-gray-200 text-gray-600'          },
+          { label: 'Overdue', count: finStats.overdue, cls: 'bg-red-50 border-red-200 text-red-700'              },
         ] as s}
-          <div class="rounded-[18px] border py-4 text-center {s.color}">
-            <p class="text-2xl font-extrabold">{s.count}</p>
-            <p class="mt-1 text-[10px] font-semibold uppercase tracking-wide opacity-80">{s.label}</p>
+          <div class="rounded-xl border py-4 text-center {s.cls}">
+            <p class="text-2xl font-bold">{s.count}</p>
+            <p class="mt-1 text-[11px] font-semibold uppercase tracking-wide">{s.label}</p>
           </div>
         {/each}
       </div>
-      {#if finMetrics !== null}
-        <div class="mt-4">
-          <div class="flex items-center justify-between mb-1.5">
-            <p class="text-xs font-semibold text-slate-500">Collection progress</p>
-            <p class="text-xs font-bold text-slate-800">{finStats.total > 0 ? Math.round((finStats.collected / finStats.total) * 100) : 0}%</p>
-          </div>
-          <div class="h-2.5 w-full overflow-hidden rounded-full bg-slate-200/70">
-            <div
-              class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-700"
-              style="width: {finStats.total > 0 ? Math.round((finStats.collected / finStats.total) * 100) : 0}%"
-            ></div>
-          </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-medium text-muted-foreground">Collection progress</p>
+          <p class="text-xs font-bold text-foreground">{collectionPct}%</p>
         </div>
-      {/if}
-    </section>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+          <div class="h-full rounded-full transition-all duration-700
+            {collectionPct >= 80 ? 'bg-emerald-500' : collectionPct >= 50 ? 'bg-amber-500' : 'bg-red-400'}"
+            style="width:{collectionPct}%"></div>
+        </div>
+        <div class="mt-2 flex justify-between text-[10px] text-muted-foreground">
+          <span>{fmtShort(finStats.collected)} collected</span>
+          <span>{fmtShort(finStats.pending)} pending</span>
+        </div>
+      </div>
+    </div>
 
-    <!-- important dates -->
-    <section class={clayShell}>
-      <p class="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Important Dates</p>
-      <p class="mb-4 text-xs text-slate-500">Upcoming fee due dates for unpaid students</p>
+    <!-- Upcoming due dates -->
+    <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-border">
+        <h3 class="text-sm font-semibold text-foreground">Upcoming Fee Due Dates</h3>
+        <p class="text-xs text-muted-foreground mt-0.5">Students with pending payments</p>
+      </div>
       {#if finStudentsLoading}
-        <div class="h-40 animate-pulse rounded-[20px] bg-slate-100/80"></div>
+        <div class="p-5 space-y-2">
+          {#each { length: 4 } as _}
+            <div class="h-12 animate-pulse rounded-lg bg-muted"></div>
+          {/each}
+        </div>
       {:else if finDueDates.length === 0}
-        <p class="py-8 text-center text-sm text-slate-400">No upcoming due dates.</p>
+        <div class="flex flex-col items-center justify-center h-32 text-muted-foreground">
+          <CheckCircle2 class="h-8 w-8 mb-1.5 text-emerald-500 opacity-50" />
+          <p class="text-sm">No upcoming due dates</p>
+        </div>
       {:else}
-        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="divide-y divide-border">
           {#each finDueDates as s, i (s.studentName + i)}
             {@const isOverdue = s.daysLeft < 0}
-            {@const isUrgent  = s.daysLeft >= 0 && s.daysLeft <= 7}
-            {@const cardClr   = isOverdue ? 'border-rose-100 bg-rose-50/60' : isUrgent ? 'border-amber-100 bg-amber-50/60' : ''}
-            {@const dateClr   = isOverdue ? 'text-rose-600' : isUrgent ? 'text-amber-600' : 'text-indigo-600'}
-            {@const badge     = isOverdue ? `${Math.abs(s.daysLeft)}d overdue` : `${s.daysLeft}d left`}
-            {@const badgeClr  = isOverdue ? 'bg-rose-100 text-rose-700' : isUrgent ? 'bg-amber-100 text-amber-700' : 'bg-indigo-50 text-indigo-700'}
-            <div class="{clayInset} {cardClr}">
-              <div class="flex items-start justify-between gap-1">
-                <p class="text-[10px] font-bold uppercase tracking-wide {dateClr}">
-                  {new Date(s.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            {@const isUrgent  = !isOverdue && s.daysLeft <= 7}
+            <div class="flex items-center gap-4 px-5 py-3 hover:bg-muted/30 transition-colors">
+              <div class="shrink-0 w-12 text-center">
+                <p class="text-sm font-bold {isOverdue ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-indigo-600'}">
+                  {isOverdue ? `+${Math.abs(s.daysLeft)}d` : `${s.daysLeft}d`}
                 </p>
-                <span class="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold {badgeClr}">{badge}</span>
+                <p class="text-[9px] text-muted-foreground uppercase">{isOverdue ? 'overdue' : 'left'}</p>
               </div>
-              <p class="mt-1.5 text-xs font-semibold text-slate-800">{s.studentName || 'Student'}</p>
-              <p class="text-[11px] text-slate-500">{s.className || ''}</p>
-              <p class="mt-1.5 text-xs font-bold text-slate-700">{fmtShort(s.dueAmount)} <span class="font-normal text-slate-400">due</span></p>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-foreground">{s.studentName}</p>
+                <p class="text-xs text-muted-foreground">{s.className} · {new Date(s.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-sm font-semibold text-foreground">{fmtShort(s.dueAmount)}</p>
+                <span class="text-[10px] font-semibold uppercase
+                  {isOverdue ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-muted-foreground'}">
+                  {s.status}
+                </span>
+              </div>
             </div>
           {/each}
         </div>
       {/if}
-    </section>
-
-  {/if}
-
-  <!-- ── CALENDAR TAB ──────────────────────────────────────────────────────────── -->
-  {#if activeTab === 'calendar'}
-    <div class="grid gap-5 xl:grid-cols-[1fr_300px]">
-
-      <!-- events table -->
-      <section class={clayShell}>
-        <div class="mb-4 flex items-center justify-between">
-          <div>
-            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">School Calendar</p>
-            <p class="mt-0.5 text-xs text-slate-500">Exams and finance checkpoints</p>
-          </div>
-          <div class="{clayInset} !py-1.5 !px-3 text-[10px] font-bold text-slate-500">
-            <CalendarDays class="inline h-3 w-3 mr-1" />{calendarFeed.length} events
-          </div>
-        </div>
-        {#if loading}
-          <div class="h-[400px] animate-pulse rounded-[20px] bg-slate-100/80"></div>
-        {:else if calendarFeed.length === 0}
-          <p class="py-16 text-center text-sm text-slate-400">No calendar events found.</p>
-        {:else}
-          <div class="overflow-hidden rounded-[20px] border border-slate-200/70">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="bg-slate-50/80 border-b border-slate-200/70">
-                  <th class="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-slate-400">Event</th>
-                  <th class="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-slate-400">Date &amp; Time</th>
-                  <th class="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-slate-400">Type</th>
-                  <th class="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 hidden sm:table-cell">Details</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100">
-                {#each calendarFeed as ev (ev.id)}
-                  <tr
-                    class="hover:bg-slate-50/60 transition-colors cursor-pointer"
-                    onclick={() => (selectedDate = ev.start)}
-                  >
-                    <td class="px-4 py-3 font-medium text-slate-800 max-w-[180px] truncate">{ev.title}</td>
-                    <td class="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">{fmtCalDate(ev.start)}</td>
-                    <td class="px-4 py-3">
-                      <span class="rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase {ev.type === 'exam' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}">{ev.type}</span>
-                    </td>
-                    <td class="px-4 py-3 text-[11px] text-slate-400 hidden sm:table-cell max-w-[200px] truncate">{ev.meta}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {/if}
-      </section>
-
-      <!-- upcoming events sidebar -->
-      <section class={clayShell}>
-        <p class="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Upcoming Events</p>
-        {#if upcomingEvents.length === 0}
-          <p class="py-8 text-center text-sm text-slate-400">No upcoming events.</p>
-        {:else}
-          <div class="space-y-2">
-            {#each upcomingEvents as ev (ev.id)}
-              <button
-                class="{clayInset} w-full text-left hover:shadow-md transition-shadow"
-                onclick={() => (selectedDate = ev.start)}
-              >
-                <div class="flex items-start justify-between gap-1">
-                  <p class="text-xs font-semibold text-slate-800 leading-snug">{ev.title}</p>
-                  <span class="shrink-0 rounded-lg px-1.5 py-0.5 text-[9px] font-bold uppercase {ev.type === 'exam' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}">{ev.type}</span>
-                </div>
-                <p class="mt-1 text-[10px] text-slate-500">{fmtCalDate(ev.start)}</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">{ev.meta}</p>
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </section>
-
     </div>
+
+  </div>
   {/if}
 
-  <!-- ── date detail modal ─────────────────────────────────────────────────────── -->
-  {#if selectedDate}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Close dialog"
-        class="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onclick={() => (selectedDate = null)}
-      ></button>
-      <div class="relative w-full max-w-lg {clayShell} shadow-2xl" role="dialog" aria-modal="true" aria-label="Date details">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Date Details</p>
-            <h3 class="mt-1 text-base font-bold text-slate-900">
-              {selectedDate.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-            </h3>
-          </div>
-          <button
-            class="{clayInset} !py-1.5 !px-3 text-xs font-semibold text-slate-600"
-            onclick={() => (selectedDate = null)}
-          >Close</button>
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- CALENDAR TAB                                                               -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  {#if activeTab === 'calendar'}
+  <div class="tab-content-enter grid gap-5 xl:grid-cols-[1fr_280px]">
+
+    <!-- Month grid -->
+    <div class="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+      <!-- Month nav header -->
+      <div class="flex items-center justify-between px-5 py-3 border-b border-border">
+        <button onclick={prevMonth}
+          class="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+          <ChevronLeft class="h-4 w-4" />
+        </button>
+        <div class="text-center">
+          <p class="text-sm font-semibold text-foreground">{MONTH_NAMES[calendarMonth]} {calendarYear}</p>
+          <p class="text-xs text-muted-foreground">{calendarFeed.length} events total</p>
         </div>
-        <div class="mt-4 space-y-2">
-          {#if selectedDateEvents.length === 0}
-            <p class="{clayInset} text-sm text-slate-400 text-center">No events on this date.</p>
-          {:else}
-            {#each selectedDateEvents as ev (ev.id)}
-              <div class={clayInset}>
-                <div class="flex items-center justify-between gap-2">
-                  <p class="text-sm font-semibold text-slate-800">{ev.title}</p>
-                  <span class="rounded-lg px-2 py-0.5 text-[10px] font-bold {ev.type === 'exam' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}">{ev.type}</span>
-                </div>
-                <p class="mt-1 text-xs text-slate-500">{fmtCalDate(ev.start)}</p>
-                <p class="text-xs text-slate-400">{ev.meta}</p>
+        <button onclick={nextMonth}
+          class="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+          <ChevronRight class="h-4 w-4" />
+        </button>
+      </div>
+
+      <!-- Day-of-week headers -->
+      <div class="grid grid-cols-7 border-b border-border bg-muted/40">
+        {#each DAY_NAMES as d}
+          <div class="py-2 text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{d}</div>
+        {/each}
+      </div>
+
+      <!-- Calendar grid cells -->
+      <div class="grid grid-cols-7">
+        {#each calendarGrid as day, i (i)}
+          {@const todayKey   = toDateKey(new Date())}
+          {@const isToday    = !!day && toDateKey(day) === todayKey}
+          {@const isSelected = !!day && !!selectedDate && toDateKey(day) === toDateKey(selectedDate)}
+          {@const dayEvents  = day ? (eventsByDate.get(toDateKey(day)) ?? []) : []}
+          <div
+            role="button"
+            tabindex={day ? 0 : -1}
+            onclick={() => day && (selectedDate = day)}
+            onkeydown={(e) => e.key === 'Enter' && day && (selectedDate = day)}
+            class="min-h-[72px] p-1 border-b border-r border-border select-none
+              {i % 7 === 6 ? 'border-r-0' : ''}
+              {day ? 'cursor-pointer hover:bg-muted/40 transition-colors' : 'bg-muted/10 cursor-default'}
+              {isSelected ? 'bg-primary/5 ring-1 ring-inset ring-primary/20' : ''}"
+          >
+            {#if day}
+              <div class="flex justify-end mb-0.5">
+                <span class="text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full
+                  {isToday ? 'bg-primary text-primary-foreground font-bold' : isSelected ? 'bg-primary/20 text-primary font-semibold' : 'text-foreground'}">
+                  {day.getDate()}
+                </span>
               </div>
-            {/each}
-          {/if}
-        </div>
+              {#each dayEvents.slice(0, 2) as ev (ev.id)}
+                <div class="mb-0.5 truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight
+                  {ev.type === 'exam' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}">
+                  {ev.title}
+                </div>
+              {/each}
+              {#if dayEvents.length > 2}
+                <div class="text-[10px] text-muted-foreground pl-1">+{dayEvents.length - 2} more</div>
+              {/if}
+            {/if}
+          </div>
+        {/each}
       </div>
     </div>
+
+    <!-- Upcoming sidebar -->
+    <div class="bg-white rounded-xl border border-border shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-foreground mb-4">Upcoming Events</h3>
+      {#if upcomingEvents.length === 0}
+        <div class="flex flex-col items-center justify-center h-32 text-muted-foreground">
+          <CalendarDays class="h-8 w-8 mb-1.5 opacity-20" />
+          <p class="text-sm">No upcoming events</p>
+        </div>
+      {:else}
+        <div class="space-y-2">
+          {#each upcomingEvents as ev (ev.id)}
+            <button class="w-full text-left rounded-lg border border-border p-3 hover:bg-muted/40 transition-colors"
+              onclick={() => (selectedDate = ev.start)}>
+              <div class="flex items-start justify-between gap-2">
+                <p class="text-xs font-semibold text-foreground leading-snug">{ev.title}</p>
+                <span class="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded
+                  {ev.type === 'exam' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}">
+                  {ev.type}
+                </span>
+              </div>
+              <p class="mt-1 text-[10px] text-muted-foreground">{fmtCalDate(ev.start)}</p>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+
+  </div>
   {/if}
 
 </div>
+
+<!-- ── Date detail modal ─────────────────────────────────────────────────────── -->
+{#if selectedDate}
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <button type="button" aria-label="Close" class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+      onclick={() => (selectedDate = null)}></button>
+    <div class="relative w-full max-w-md bg-white rounded-xl shadow-xl border border-border p-6">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Events on</p>
+          <h3 class="mt-0.5 text-base font-bold text-foreground">
+            {selectedDate.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+          </h3>
+        </div>
+        <button onclick={() => (selectedDate = null)}
+          class="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors">
+          <X class="h-4 w-4" />
+        </button>
+      </div>
+      <div class="space-y-2">
+        {#if selectedDateEvents.length === 0}
+          <p class="text-sm text-muted-foreground text-center py-6">No events on this date.</p>
+        {:else}
+          {#each selectedDateEvents as ev (ev.id)}
+            <div class="rounded-lg border border-border p-3">
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <p class="text-sm font-semibold text-foreground">{ev.title}</p>
+                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded
+                  {ev.type === 'exam' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}">
+                  {ev.type}
+                </span>
+              </div>
+              <p class="text-xs text-muted-foreground">{fmtCalDate(ev.start)}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{ev.meta}</p>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}

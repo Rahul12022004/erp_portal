@@ -13,7 +13,7 @@ func Register(app *fiber.App) {
 		db.Col("students"),
 		db.Col("studentfeeassignments"),
 		db.Col("attendancerecords"),
-		db.Col("staffmembers"),
+		db.Col("staff"),
 	)
 	auth := middleware.Authenticate
 

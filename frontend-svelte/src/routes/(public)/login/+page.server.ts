@@ -53,7 +53,8 @@ export const actions: Actions = {
         ?? (json.token as string | undefined);
 
       const staff = (dataObj?.staff ?? json.teacher) as Record<string, unknown> | undefined;
-      const goSchoolId = (dataObj?.school as Record<string, unknown> | undefined)?.ID as string | undefined;
+      const goSchoolRaw = dataObj?.school as Record<string, unknown> | undefined;
+      const goSchoolId = (goSchoolRaw?._id ?? goSchoolRaw?.id ?? goSchoolRaw?.ID) as string | undefined;
 
       if (!response.ok || !token) {
         const msg = (json.error ?? json.message ?? 'Invalid credentials') as string;

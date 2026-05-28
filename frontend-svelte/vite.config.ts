@@ -3,6 +3,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [sveltekit()],
+  optimizeDeps: {
+    include: ['jspdf', 'jspdf-autotable', 'xlsx'],
+  },
   server: {
     port: 5174,
     host: true,

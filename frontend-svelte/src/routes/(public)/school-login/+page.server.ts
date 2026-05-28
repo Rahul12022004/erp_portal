@@ -44,7 +44,7 @@ export const actions: Actions = {
       });
 
       // Node.js: { _id, token, adminInfo, schoolInfo, modules }
-      // Go:      { success, data: { token, school: { ID, AdminInfo } } }
+      // Go:      { success, data: { token, school: { _id, adminInfo } } }
       const json = (await response.json()) as Record<string, unknown>;
 
       const token =
@@ -52,11 +52,15 @@ export const actions: Actions = {
         ?? json.token as string | undefined;
 
       const goSchool = (json.data as Record<string, unknown> | undefined)?.school as Record<string, unknown> | undefined;
-      const adminInfo = goSchool?.AdminInfo as Record<string, unknown> | undefined
+      // Support both camelCase (Go with json tags) and PascalCase (legacy)
+      const adminInfo = (goSchool?.adminInfo ?? goSchool?.AdminInfo) as Record<string, unknown> | undefined
         ?? json.adminInfo as Record<string, unknown> | undefined;
 
+      const schoolInfoRaw = (goSchool?.schoolInfo ?? goSchool?.SchoolInfo) as Record<string, unknown> | undefined
+        ?? json.schoolInfo as Record<string, unknown> | undefined;
+
       const schoolId = String(
-        (goSchool?.ID ?? json._id ?? '') as string
+        (goSchool?._id ?? goSchool?.id ?? goSchool?.ID ?? json._id ?? '') as string
       );
 
       if (!response.ok || !token) {
@@ -64,12 +68,19 @@ export const actions: Actions = {
         return fail(401, { error: msg, email });
       }
 
+      const rawAdminPhoto = String(adminInfo?.image ?? adminInfo?.photo ?? adminInfo?.Image ?? '');
+      const rawSchoolLogo = String(schoolInfoRaw?.logo ?? schoolInfoRaw?.Logo ?? '');
+
       const user: User = {
         id: schoolId,
         email: String(adminInfo?.email ?? email),
         name: String(adminInfo?.name ?? email),
         role: 'school-admin',
         schoolId,
+        schoolName: String(schoolInfoRaw?.name ?? schoolInfoRaw?.Name ?? ''),
+        // Only store if it looks like a URL — base64 blobs would overflow the cookie
+        schoolLogo: rawSchoolLogo.startsWith('http') ? rawSchoolLogo : '',
+        adminPhoto: rawAdminPhoto.startsWith('http') ? rawAdminPhoto : '',
       };
 
       cookies.set('token', token, COOKIE_OPTS);

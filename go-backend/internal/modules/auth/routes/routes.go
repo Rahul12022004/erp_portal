@@ -13,7 +13,7 @@ import (
 func Register(app *fiber.App) {
 	sr  := schoolRepo.NewMongoSchoolRepo(db.Col("schools"))
 	svc := services.New(sr, db.Col("staff"))
-	h   := handlers.New(svc)
+	h   := handlers.New(svc, db.Col("auditlogs"))
 
 	auth := app.Group("/api/auth")
 	auth.Post("/school/login",       h.SchoolLogin)

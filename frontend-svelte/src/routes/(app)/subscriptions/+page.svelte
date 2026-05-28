@@ -19,6 +19,8 @@
   let selectedPlan = $state('Basic');
   let actionType = $state<'upgrade' | 'renew'>('upgrade');
   let showModal = $state(false);
+  let saving = $state(false);
+  let saveError = $state('');
 
   onMount(async () => {
     await fetchSchools();
@@ -28,7 +30,8 @@
     loading = true;
     try {
       const res = await fetch('/api/schools');
-      schools = await res.json();
+      const json = await res.json();
+      schools = json?.data?.schools ?? json?.schools ?? (Array.isArray(json) ? json : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -52,9 +55,19 @@
     }).length
   );
 
+  const PLAN_ORDER = ['Basic', 'Standard', 'Premium'];
+
   function openModal(school: School, type: 'upgrade' | 'renew') {
     selectedSchool = school;
-    selectedPlan = school.systemInfo?.subscriptionPlan ?? 'Basic';
+    saveError = '';
+    const current = school.systemInfo?.subscriptionPlan || 'Basic';
+    if (type === 'upgrade') {
+      // Pre-select the next tier up, not the current plan
+      const idx = PLAN_ORDER.indexOf(current);
+      selectedPlan = PLAN_ORDER[Math.min(idx + 1, PLAN_ORDER.length - 1)];
+    } else {
+      selectedPlan = current;
+    }
     actionType = type;
     showModal = true;
   }
@@ -62,24 +75,34 @@
   function closeModal() {
     showModal = false;
     selectedSchool = null;
+    saveError = '';
   }
 
   async function handleConfirm() {
-    if (!selectedSchool) return;
+    if (!selectedSchool || saving) return;
+    saving = true;
+    saveError = '';
     const url =
       actionType === 'upgrade'
         ? `/api/schools/upgrade/${selectedSchool._id}`
         : `/api/schools/renew/${selectedSchool._id}`;
     try {
-      await fetch(url, {
+      const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: selectedPlan }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        saveError = String(data?.error ?? data?.message ?? `Server error ${res.status}`);
+        return;
+      }
       closeModal();
       await fetchSchools();
     } catch (e) {
-      console.error(e);
+      saveError = e instanceof Error ? e.message : 'Network error';
+    } finally {
+      saving = false;
     }
   }
 </script>
@@ -188,30 +211,40 @@
 
       {#if actionType === 'upgrade'}
         <div class="space-y-2">
-          {#each Object.entries(PLAN_PRICE) as [plan, price]}
+          {#each PLAN_ORDER as plan}
             <button type="button"
               onclick={() => { selectedPlan = plan; }}
-              class="w-full cursor-pointer border rounded-lg px-4 py-3 flex justify-between items-center transition text-left {selectedPlan === plan ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}"
+              class="w-full cursor-pointer border rounded-lg px-4 py-3 flex justify-between items-center transition text-left {selectedPlan === plan ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-gray-300'}"
             >
               <span class="font-medium text-gray-800">{plan}</span>
-              <span class="text-gray-600 text-sm">₹{price}/yr</span>
+              <span class="text-gray-500 text-sm">₹{PLAN_PRICE[plan]}/yr</span>
             </button>
           {/each}
         </div>
+      {:else}
+        <p class="text-sm text-gray-600">
+          Renew <strong>{selectedSchool.schoolInfo?.name}</strong> on <strong>{selectedPlan}</strong> plan for 1 year.
+        </p>
+      {/if}
+
+      {#if saveError}
+        <p class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{saveError}</p>
       {/if}
 
       <div class="flex gap-3 pt-2">
         <button
           onclick={closeModal}
-          class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50"
+          disabled={saving}
+          class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           onclick={handleConfirm}
-          class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm"
+          disabled={saving}
+          class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm"
         >
-          Confirm
+          {saving ? 'Saving...' : 'Confirm'}
         </button>
       </div>
     </div>

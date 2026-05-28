@@ -32,7 +32,7 @@ func (h *Handler) Dashboard(c *fiber.Ctx) error {
 	ctx, cancel := ctx10s()
 	defer cancel()
 
-	studentCount, _ := h.students.CountDocuments(ctx, bson.M{"schoolId": sid, "status": "active"})
+	studentCount, _ := h.students.CountDocuments(ctx, bson.M{"schoolId": sid, "status": "Active"})
 	staffCount, _ := h.staff.CountDocuments(ctx, bson.M{"schoolId": sid})
 
 	finPipeline := mongo.Pipeline{

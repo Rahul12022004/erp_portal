@@ -3,10 +3,10 @@ package domain
 import "time"
 
 type Hostel struct {
-	ID               string
-	SchoolID         string
-	Name             string
-	AssignedStudents []string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID               string    `json:"_id"`
+	SchoolID         string    `json:"schoolId"`
+	Name             string    `json:"name"`
+	AssignedStudents []string  `json:"assignedStudents"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }

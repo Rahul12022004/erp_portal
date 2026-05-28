@@ -3,14 +3,14 @@ package domain
 import "time"
 
 type Visitor struct {
-	ID          string
-	SchoolID    string
-	Name        string
-	Phone       string
-	Purpose     string
-	PersonToMeet string
-	CheckIn     time.Time
-	CheckOut    *time.Time
-	Status      string // checked_in | checked_out
-	CreatedAt   time.Time
+	ID           string     `json:"_id"`
+	SchoolID     string     `json:"schoolId"`
+	Name         string     `json:"name"`
+	Phone        string     `json:"phone"`
+	Purpose      string     `json:"purpose"`
+	PersonToMeet string     `json:"personToMeet"`
+	CheckIn      time.Time  `json:"checkIn"`
+	CheckOut     *time.Time `json:"checkOut"`
+	Status       string     `json:"status"`
+	CreatedAt    time.Time  `json:"createdAt"`
 }

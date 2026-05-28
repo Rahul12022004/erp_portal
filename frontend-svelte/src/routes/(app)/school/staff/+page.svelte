@@ -86,10 +86,10 @@
         }
       } else {
         const data = await res.json().catch(() => null);
-        alert(data?.message || 'Failed to save staff');
+        alert(data?.error || data?.message || `Failed to save staff [${res.status}]`);
       }
     } catch (err) {
-      alert('Error saving staff');
+      alert(`Error saving staff: ${err instanceof Error ? err.message : 'network error'}`);
     }
   }
 

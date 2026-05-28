@@ -8,6 +8,7 @@ export interface User {
   schoolId?: string;
   schoolName?: string;
   schoolLogo?: string;
+  adminPhoto?: string;
   schoolPhone?: string;
   schoolEmail?: string;
   schoolAddress?: string;

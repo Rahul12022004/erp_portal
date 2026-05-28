@@ -4,8 +4,8 @@
   interface School {
     _id: string;
     schoolInfo: { name: string; logo: string; email: string };
-    adminInfo: { name: string; email: string; phone: string };
-    systemInfo: { isActive?: boolean; lastLogin?: string };
+    adminInfo: { name: string; email: string; phone: string; status?: string };
+    systemInfo: { subscriptionPlan?: string };
   }
 
   interface Admin {
@@ -32,7 +32,8 @@
     loading = true;
     try {
       const res = await fetch('/api/schools');
-      schools = await res.json();
+      const json = await res.json();
+      schools = json?.data?.schools ?? json?.schools ?? (Array.isArray(json) ? json : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -48,9 +49,10 @@
       phone: s.adminInfo?.phone ?? '',
       school: s.schoolInfo?.name ?? '',
       logo: s.schoolInfo?.logo ?? '',
-      status: s.systemInfo?.isActive !== false,
+      // Status lives in adminInfo.status ("Active" | "Disabled") — not systemInfo
+      status: (s.adminInfo?.status ?? 'Active') !== 'Disabled',
       role: 'School Admin',
-      lastLogin: s.systemInfo?.lastLogin ?? '',
+      lastLogin: '',  // not stored in DB
     }))
   );
 

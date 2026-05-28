@@ -14,7 +14,7 @@ import (
 func Register(app *fiber.App) {
 	repo := repositories.NewMongoSchoolRepo(db.Col("schools"))
 	svc  := services.New(repo)
-	h    := handlers.New(svc)
+	h    := handlers.New(svc, db.Col("auditlogs"))
 
 	// Public — self-service school registration
 	app.Post("/api/schools/register", h.Register)
@@ -30,8 +30,12 @@ func Register(app *fiber.App) {
 
 	// Protected — super-admin only
 	adm := app.Group("/api/schools", middleware.Authenticate, middleware.SuperAdmin())
-	adm.Get("",         h.List)
-	adm.Post("",        h.Create)
-	adm.Put("/:id",     h.Update)
-	adm.Delete("/:id",  h.Delete)
+	adm.Get("",              h.List)
+	adm.Post("",             h.Create)
+	// Specific verb routes BEFORE the generic /:id to avoid shadowing
+	adm.Put("/toggle/:id",   h.Toggle)
+	adm.Put("/upgrade/:id",  h.Upgrade)
+	adm.Put("/renew/:id",    h.Renew)
+	adm.Put("/:id",          h.Update)
+	adm.Delete("/:id",       h.Delete)
 }

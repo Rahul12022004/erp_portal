@@ -11,12 +11,18 @@ import (
 
 func Register(app *fiber.App) {
 	repo := repositories.New(db.Col("schoolsettings"))
-	h    := handlers.NewWithLogs(repo, db.Col("auditlogs"))
+	h    := handlers.NewWithLogs(repo, db.Col("auditlogs"), db.Col("globalsettings"))
 	auth := middleware.Authenticate
 
 	g := app.Group("/api/settings", auth)
 	g.Get("",  h.Get)
 	g.Put("",  h.Upsert)
+	g.Get("/global-modules", h.GetGlobalModules)
+	g.Put("/global-modules", middleware.SuperAdmin(), h.PutGlobalModules)
+
+	// General platform config — public GET, super-admin PUT, registered outside any group
+	app.Get("/api/admin/config", h.GetGeneral)
+	app.Put("/api/admin/config", auth, middleware.SuperAdmin(), h.PutGeneral)
 
 	// Audit logs — return from logs collection
 	app.Get("/api/logs", auth, h.ListLogs)

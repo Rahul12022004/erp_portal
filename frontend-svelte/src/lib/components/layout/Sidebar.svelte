@@ -11,6 +11,7 @@
     Database, Clock, PenTool, Bell, ChartLine, Banknote,
   } from 'lucide-svelte';
   import type { User } from '$lib/types';
+  import { schoolStore } from '$lib/stores/school';
 
   let { user }: { user: User | undefined } = $props();
 
@@ -187,11 +188,23 @@
     try {
       const res = await fetch(`/api/schools/${user.schoolId}`);
       if (!res.ok) return;
-      const data = await res.json();
-      schoolName = data?.schoolInfo?.name || 'School';
-      schoolLogo = data?.schoolInfo?.logo || '';
-      enabledModules = Array.isArray(data?.modules) ? data.modules : [];
-      subscriptionPlan = data?.systemInfo?.subscriptionPlan || '';
+      const json = await res.json();
+      // Go wraps response: { success, data: <School> }
+      const school = json?.data ?? json;
+      schoolName = school?.schoolInfo?.name || 'School';
+      schoolLogo = school?.schoolInfo?.logo || '';
+      enabledModules = Array.isArray(school?.modules) ? school.modules : [];
+      subscriptionPlan = school?.systemInfo?.subscriptionPlan || '';
+      const adminPhoto = school?.adminInfo?.image || school?.adminInfo?.photo || '';
+      // Populate shared store so TopNavbar can read admin photo + logo
+      schoolStore.set({
+        name: schoolName,
+        logo: schoolLogo,
+        adminPhoto,
+        modules: enabledModules,
+        subscriptionPlan,
+        loaded: true,
+      });
     } catch { /* silent */ } finally {
       schoolDataLoaded = true;
     }
@@ -242,7 +255,7 @@
       {/if}
       <div>
         <h1 class="text-sm font-display font-bold" style="color: hsl(var(--sidebar-fg-active))">
-          {#if role === 'super-admin'}EduAdmin
+          {#if role === 'super-admin'}Nexavise
           {:else if role === 'school-admin'}{schoolName}
           {:else}Teacher Portal
           {/if}
