@@ -22,22 +22,25 @@
     Tooltip, Legend,
   );
 
+  import { api } from '$lib/api/client';
+  import { ENDPOINTS } from '$lib/api/endpoints';
+  import {
+    normalizeClasses,
+    normalizeAnnouncements,
+    normalizeFeeTrend,
+    normalizeExams,
+    normalizeLeaves,
+    type ClassData,
+    type FinanceData,
+    type NotificationItem,
+    type ExamItem,
+    type LeaveApplication,
+  } from '$lib/api/normalize';
+
   // ─── types ────────────────────────────────────────────────────────────────────
   type DashboardStats   = { totalClasses: number; totalStudents: number; totalTeachers: number; attendance: number };
-  type ClassData        = { name: string; students: number };
-  type FinanceData      = { month: string; fees: number; expense: number; profit: number };
-  type NotificationItem = { id?: string; title: string; desc: string; time: string; author?: string };
-  type ExamItem         = { _id: string; title: string; examType: string; className: string; subject: string; examDate: string; startTime: string; endTime: string };
   type CalendarFeedItem = { id: string; title: string; start: Date; end?: Date; allDay?: boolean; type: 'exam' | 'finance'; meta: string };
   type DashTab          = 'overview' | 'approval' | 'finance' | 'calendar';
-  type LeaveApplication = {
-    _id: string; title: string; description: string;
-    leaveType: 'Paid' | 'Unpaid' | 'Emergency';
-    fileName?: string; fileData?: string;
-    status: 'Pending' | 'Approved' | 'Rejected';
-    createdAt: string;
-    teacherId?: { _id: string; name: string; email: string; position: string };
-  };
   type FinDueDateItem = {
     studentName: string; className: string;
     dueAmount: number; dueDate: string; daysLeft: number;
@@ -70,28 +73,6 @@
   };
   const saveDismissed = (sid: string, ids: string[]) =>
     localStorage.setItem(getDismissedKey(sid), JSON.stringify(ids));
-
-  function authedFetch(url: string, init: RequestInit = {}): Promise<Response> {
-    const m = typeof document !== 'undefined' && document.cookie.match(/(?:^|;\s*)client_token=([^;]*)/);
-    const token = m ? decodeURIComponent(m[1]) : null;
-    return fetch(url, {
-      ...init,
-      headers: { ...(init.headers as Record<string, string> ?? {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    });
-  }
-
-  function normalizeLeave(raw: Record<string, unknown>): LeaveApplication {
-    return {
-      _id: String(raw.ID ?? raw._id ?? ''),
-      title: String(raw.Title ?? raw.title ?? ''),
-      description: String(raw.Description ?? raw.description ?? ''),
-      leaveType: String(raw.LeaveType ?? raw.leaveType ?? 'Paid') as LeaveApplication['leaveType'],
-      status: String(raw.Status ?? raw.status ?? 'Pending') as LeaveApplication['status'],
-      fileName: String(raw.FileName ?? raw.fileName ?? '') || undefined,
-      fileData: String(raw.FileData ?? raw.fileData ?? '') || undefined,
-      createdAt: String(raw.CreatedAt ?? raw.createdAt ?? ''),
-    };
-  }
 
   const parseDateTime = (v: string) => { const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d; };
   const toDateKey     = (d: Date)   => d.toLocaleDateString('en-CA');
@@ -295,61 +276,35 @@
       activeSchoolId = schoolId;
       dismissedIds = loadDismissed(schoolId);
 
-      const [analyticsRes, classesRes, announcementsRes, feeTrendRes, examsRes] = await Promise.all([
-        authedFetch(`/api/analytics/dashboard?schoolId=${schoolId}`),
-        authedFetch(`/api/classes?schoolId=${schoolId}`),
-        authedFetch(`/api/announcements?schoolId=${schoolId}`),
-        authedFetch(`/api/analytics/fee/trend?schoolId=${schoolId}`),
-        authedFetch(`/api/exams/school/${schoolId}`),
-      ]);
+      // Go: GET /api/analytics/dashboard?schoolId= → { students, staff, feeCollection }
+      const analyticsP = api
+        .get<{ data?: { students?: number; staff?: number } }>(ENDPOINTS.analytics.dashboard(schoolId))
+        .catch(() => null);
+      // Go: GET /api/classes?schoolId= → ClassData[]
+      const classesP = api.get(ENDPOINTS.classes.bySchool(schoolId)).catch(() => null);
+      // Go: GET /api/announcements?schoolId= → NotificationItem[]
+      const annP = api.get(ENDPOINTS.announcements.bySchool(schoolId)).catch(() => null);
+      // Go: GET /api/analytics/fee/trend?schoolId= → FinanceData[]
+      const feeTrendP = api.get(ENDPOINTS.analytics.feeTrend(schoolId)).catch(() => null);
+      // Go: GET /api/exams/school/:schoolId → ExamItem[]
+      const examsP = api.get(ENDPOINTS.exams.bySchool(schoolId)).catch(() => null);
+
+      const [analyticsJson, classesJson, annJson, feeTrendJson, examsJson] =
+        await Promise.all([analyticsP, classesP, annP, feeTrendP, examsP]);
 
       let totalStudents = 0, totalTeachers = 0;
-      if (analyticsRes.ok) {
-        const ad = await analyticsRes.json();
-        const d = ad?.data ?? {};
+      if (analyticsJson) {
+        const d = analyticsJson.data ?? {};
         totalStudents = Number(d.students ?? 0);
         totalTeachers = Number(d.staff ?? 0);
       }
 
-      if (classesRes.ok) {
-        const cd = await classesRes.json();
-        const list: Record<string, unknown>[] = Array.isArray(cd?.data) ? cd.data : [];
-        classData = list.map((c) => ({
-          name: String(c.Name ?? '') + (c.Section ? `-${String(c.Section)}` : ''),
-          students: Number(c.StudentCount ?? 0),
-        }));
-        stats = { totalClasses: list.length, totalStudents, totalTeachers, attendance: 0 };
-      } else {
-        stats = { totalClasses: 0, totalStudents, totalTeachers, attendance: 0 };
-      }
+      classData = normalizeClasses(classesJson);
+      stats = { totalClasses: classData.length, totalStudents, totalTeachers, attendance: 0 };
 
-      if (announcementsRes.ok) {
-        const ad = await announcementsRes.json();
-        const annList: Record<string, unknown>[] = Array.isArray(ad?.data) ? ad.data : [];
-        notifications = annList.map((a) => ({
-          id:     String(a.ID ?? a._id ?? ''),
-          title:  String(a.Title ?? a.title ?? ''),
-          desc:   String(a.Message ?? a.message ?? ''),
-          time:   (a.CreatedAt ?? a.createdAt) ? new Date(String(a.CreatedAt ?? a.createdAt)).toLocaleDateString('en-IN') : '',
-          author: String(a.Author ?? a.author ?? ''),
-        }));
-      }
-
-      if (feeTrendRes.ok) {
-        const ft = await feeTrendRes.json();
-        const trendList: Record<string, unknown>[] = Array.isArray(ft?.data) ? ft.data : [];
-        financeData = trendList.map((r) => ({
-          month:   String(r._id ?? ''),
-          fees:    Number(r.collected ?? 0) + Number(r.pending ?? 0),
-          expense: Number(r.pending ?? 0),
-          profit:  Number(r.collected ?? 0),
-        }));
-      }
-
-      if (examsRes.ok) {
-        const ed = await examsRes.json();
-        exams = Array.isArray(ed?.data) ? ed.data : [];
-      }
+      notifications = normalizeAnnouncements(annJson);
+      financeData = normalizeFeeTrend(feeTrendJson);
+      exams = normalizeExams(examsJson);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load dashboard';
     } finally {
@@ -361,10 +316,9 @@
     if (!schoolId) return;
     leavesLoading = true;
     try {
-      const r = await authedFetch(`/api/leaves/school/${schoolId}`);
-      const d = r.ok ? await r.json() : null;
-      const list: Record<string, unknown>[] = Array.isArray(d?.data) ? d.data : (Array.isArray(d) ? d : []);
-      leaves = list.map(normalizeLeave);
+      // Go: GET /api/leaves/school/:schoolId → LeaveApplication[]
+      const json = await api.get(ENDPOINTS.leaves.bySchool(schoolId));
+      leaves = normalizeLeaves(json);
     } catch { leaves = []; }
     finally { leavesLoading = false; }
   };
@@ -374,11 +328,12 @@
     finStudentsLoading = true;
     finError = '';
     try {
-      // Use the purpose-built dashboard-summary endpoint for aggregated metrics
-      const summaryRes = await authedFetch(`/api/finance/${schoolId}/dashboard-summary`);
-      if (summaryRes.ok) {
-        const sd = await summaryRes.json();
-        const fee = (sd?.data?.fee ?? {}) as Record<string, number>;
+      // Go: GET /api/finance/:schoolId/dashboard-summary → { fee: {...} }
+      const summaryJson = await api
+        .get<{ data?: { fee?: Record<string, number> } }>(ENDPOINTS.finance.dashboardSummary(schoolId))
+        .catch((e) => { finError = e instanceof Error ? e.message : 'Finance summary failed'; return null; });
+      if (summaryJson) {
+        const fee = summaryJson.data?.fee ?? {};
         finMetrics = {
           totalStudents:        Number(fee.totalStudents   ?? 0),
           currentTotalFee:      Number(fee.totalFeeAmount  ?? 0),
@@ -389,33 +344,29 @@
           pendingCount: Number(fee.unpaidCount  ?? 0),
           overdueCount: Number(fee.overdueCount ?? 0),
         };
-      } else {
-        const errBody = await summaryRes.json().catch(() => ({})) as Record<string, unknown>;
-        finError = String(errBody?.error ?? errBody?.message ?? `Finance API error ${summaryRes.status}`);
       }
 
-      // Fetch upcoming due dates separately
-      const listRes = await authedFetch(`/api/finance/assignments?schoolId=${schoolId}&limit=50`);
-      if (listRes.ok) {
-        const resp = await listRes.json();
-        const assignments: Record<string, unknown>[] = Array.isArray(resp?.data?.data) ? resp.data.data : [];
-        const now = Date.now();
-        finDueDates = assignments
-          .filter((a) => String(a.feeStatus ?? '') !== 'PAID' && a.dueDate)
-          .sort((a, b) => new Date(String(a.dueDate ?? '')).getTime() - new Date(String(b.dueDate ?? '')).getTime())
-          .slice(0, 8)
-          .map((a) => {
-            const dueDate = String(a.dueDate ?? '');
-            return {
-              studentName: String(a.studentId ?? 'Student'),
-              className:   String(a.classFeeStructureId ?? ''),
-              dueAmount:   Number(a.dueAmount  ?? 0),
-              status:      String(a.feeStatus  ?? 'UNPAID').toLowerCase(),
-              dueDate,
-              daysLeft: dueDate ? Math.ceil((new Date(dueDate).getTime() - now) / 86_400_000) : 0,
-            };
-          });
-      }
+      // Go: GET /api/finance/assignments?schoolId=&limit= → { data: [...], total }
+      const listJson = await api
+        .get<{ data?: { data?: Record<string, unknown>[] } }>(`${ENDPOINTS.finance.assignments}?schoolId=${schoolId}&limit=50`)
+        .catch(() => null);
+      const assignments: Record<string, unknown>[] = Array.isArray(listJson?.data?.data) ? listJson!.data!.data! : [];
+      const now = Date.now();
+      finDueDates = assignments
+        .filter((a) => String(a.feeStatus ?? '') !== 'PAID' && a.dueDate)
+        .sort((a, b) => new Date(String(a.dueDate ?? '')).getTime() - new Date(String(b.dueDate ?? '')).getTime())
+        .slice(0, 8)
+        .map((a) => {
+          const dueDate = String(a.dueDate ?? '');
+          return {
+            studentName: String(a.studentId ?? 'Student'),
+            className:   String(a.classFeeStructureId ?? ''),
+            dueAmount:   Number(a.dueAmount ?? 0),
+            status:      String(a.feeStatus ?? 'UNPAID').toLowerCase(),
+            dueDate,
+            daysLeft: dueDate ? Math.ceil((new Date(dueDate).getTime() - now) / 86_400_000) : 0,
+          };
+        });
     } catch (err) {
       finError = err instanceof Error ? err.message : 'Failed to load finance data';
     } finally {
@@ -447,17 +398,15 @@
   const updateLeaveStatus = async (leaveId: string, status: LeaveApplication['status']) => {
     try {
       updatingLeaveId = leaveId;
-      const res = await authedFetch(`/api/leaves/${leaveId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) throw new Error(data?.message || 'Failed to update');
-      const updated = data?.data ?? {};
-      const newStatus = String(updated?.Status ?? updated?.status ?? status) as LeaveApplication['status'];
+      // Go: PATCH /api/leaves/:id/status → { success, data: {...} }
+      const json = await api.patch<{ success?: boolean; data?: Record<string, unknown>; message?: string }>(
+        ENDPOINTS.leaves.status(leaveId),
+        { status },
+      );
+      const updated = json?.data ?? {};
+      const newStatus = String(updated?.status ?? status) as LeaveApplication['status'];
       leaves = leaves.map((l) => l._id === leaveId ? { ...l, status: newStatus } : l);
-    } catch { /* silent */ }
+    } catch { /* surfaced via disabled state; no destructive change on failure */ }
     finally { updatingLeaveId = null; }
   };
 
