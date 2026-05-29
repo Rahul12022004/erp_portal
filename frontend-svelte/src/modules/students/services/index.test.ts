@@ -58,3 +58,11 @@ describe('studentsService.delete', () => {
     expect(api.delete).toHaveBeenCalledWith('/api/students/s9');
   });
 });
+
+describe('studentsService.update', () => {
+  it('puts the body to the update endpoint with the id in the path', async () => {
+    vi.mocked(api.put).mockResolvedValueOnce({ success: true, data: { _id: 's3' } });
+    await studentsService.update('s3', { phone: '99999' });
+    expect(api.put).toHaveBeenCalledWith('/api/students/s3', { phone: '99999' });
+  });
+});

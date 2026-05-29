@@ -1,4 +1,6 @@
-// Mirrors the Go backend Student domain (camelCase JSON).
+// Partial view of the Go backend Student domain (camelCase JSON). Holds the fields
+// the current UI needs — extend with more Go fields (dateOfBirth, address, parent
+// contacts, admissionNumber, createdAt, …) as features require them.
 export interface Student {
   _id: string;
   schoolId: string;

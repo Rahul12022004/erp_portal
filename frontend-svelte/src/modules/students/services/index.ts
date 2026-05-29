@@ -28,8 +28,8 @@ export const studentsService = {
     return api.put<GoEnvelope<Student>>(ENDPOINTS.students.update(id), body);
   },
 
-  /** Delete a student by id. */
-  delete(id: string): Promise<GoEnvelope<unknown>> {
-    return api.delete<GoEnvelope<unknown>>(ENDPOINTS.students.delete(id));
+  /** Delete a student by id. Go returns 204 No Content, so there is no body. */
+  async delete(id: string): Promise<void> {
+    await api.delete<void>(ENDPOINTS.students.delete(id));
   },
 };

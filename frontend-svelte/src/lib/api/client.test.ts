@@ -66,6 +66,16 @@ describe('api.get', () => {
     expect(customFetch).toHaveBeenCalled();
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  it('returns undefined on 204 No Content without parsing the body', async () => {
+    const jsonSpy = vi.fn();
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 204, json: jsonSpy });
+
+    const result = await api.delete('/api/students/s1');
+
+    expect(result).toBeUndefined();
+    expect(jsonSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe('api.post', () => {

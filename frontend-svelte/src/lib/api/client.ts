@@ -53,6 +53,10 @@ async function request<T>(
     throw new ApiError(response.status, msg);
   }
 
+  // 204/205 carry no body — calling response.json() would throw on the empty body.
+  if (response.status === 204 || response.status === 205) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }
 
