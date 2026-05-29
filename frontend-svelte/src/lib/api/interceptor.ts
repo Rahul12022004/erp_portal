@@ -1,3 +1,14 @@
+// AUTH INTERCEPTOR — safety net only.
+//
+// The canonical way to call the backend is the `api` client (src/lib/api/client.ts),
+// which already injects the Authorization header from the `client_token` cookie.
+// This interceptor patches window.fetch so that any *remaining* bare
+// `fetch('/api/...')` calls (e.g. in not-yet-migrated pages) still get the token.
+//
+// Once every page uses the `api` client, this file can be deleted. Before removing,
+// confirm no bare fetch('/api/...') calls remain:
+//   grep -rn "fetch('/api\|fetch(\`/api" frontend-svelte/src
+// TODO(go-migration): remove after full migration to the api client.
 let patched = false;
 
 export function installAuthInterceptor() {
