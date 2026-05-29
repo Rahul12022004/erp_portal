@@ -276,7 +276,7 @@
       activeSchoolId = schoolId;
       dismissedIds = loadDismissed(schoolId);
 
-      // Go: GET /api/analytics/dashboard?schoolId= → { students, staff, feeCollection }
+      // Go: GET /api/analytics/dashboard?schoolId= → { success, data: { students, staff, feeCollection } }
       const analyticsP = api
         .get<{ data?: { students?: number; staff?: number } }>(ENDPOINTS.analytics.dashboard(schoolId))
         .catch(() => null);
@@ -359,6 +359,8 @@
         .map((a) => {
           const dueDate = String(a.dueDate ?? '');
           return {
+            // TODO(go-migration): studentId is a bare ObjectID; backend should join the
+            // student name. Until then this shows the ID as a placeholder.
             studentName: String(a.studentId ?? 'Student'),
             className:   String(a.classFeeStructureId ?? ''),
             dueAmount:   Number(a.dueAmount ?? 0),
@@ -398,12 +400,14 @@
   const updateLeaveStatus = async (leaveId: string, status: LeaveApplication['status']) => {
     try {
       updatingLeaveId = leaveId;
-      // Go: PATCH /api/leaves/:id/status → { success, data: {...} }
-      const json = await api.patch<{ success?: boolean; data?: Record<string, unknown>; message?: string }>(
+      // Go: PATCH /api/leaves/:id/status. TODO(go-migration): this handler double-wraps
+      // its payload as { data: { data: leave } }, unlike sibling endpoints — peel both
+      // layers, falling back to single-layer if the backend is later normalized.
+      const json = await api.patch<{ data?: ({ data?: Record<string, unknown> } & Record<string, unknown>) }>(
         ENDPOINTS.leaves.status(leaveId),
         { status },
       );
-      const updated = json?.data ?? {};
+      const updated = (json?.data?.data ?? json?.data ?? {}) as Record<string, unknown>;
       const newStatus = String(updated?.status ?? status) as LeaveApplication['status'];
       leaves = leaves.map((l) => l._id === leaveId ? { ...l, status: newStatus } : l);
     } catch { /* surfaced via disabled state; no destructive change on failure */ }
