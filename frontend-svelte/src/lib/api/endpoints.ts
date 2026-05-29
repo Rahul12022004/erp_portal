@@ -107,7 +107,8 @@ export const ENDPOINTS = {
   },
 
   announcements: {
-    bySchool: (schoolId: string) => `/api/announcements/${schoolId}`,
+    // Go backend reads schoolId from query string, not a path param.
+    bySchool: (schoolId: string) => `/api/announcements?schoolId=${schoolId}`,
     create:   '/api/announcements',
     delete:   (id: string)       => `/api/announcements/${id}`,
     aiDraft:  '/api/announcements/ai-draft',
