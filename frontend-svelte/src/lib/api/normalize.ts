@@ -24,6 +24,13 @@ function toArray(json: unknown): Record<string, unknown>[] {
   return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
 }
 
+// Format an ISO date string for display; returns '' for missing/invalid input.
+function fmtDate(value: unknown): string {
+  if (!value) return '';
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN');
+}
+
 // ─── Frontend models (shared with the school dashboard) ─────────────────────────
 export type ClassData = { name: string; students: number };
 export type FinanceData = { month: string; fees: number; expense: number; profit: number };
@@ -60,7 +67,7 @@ export function normalizeAnnouncements(json: unknown): NotificationItem[] {
     id: String(a._id ?? ''),
     title: String(a.title ?? ''),
     desc: String(a.message ?? ''),
-    time: a.createdAt ? new Date(String(a.createdAt)).toLocaleDateString('en-IN') : '',
+    time: fmtDate(a.createdAt),
     author: String(a.author ?? ''),
   }));
 }
@@ -93,10 +100,7 @@ export function normalizeExams(json: unknown): ExamItem[] {
   }));
 }
 
-/** GET /api/leaves/school/:schoolId → LeaveApplication[]
- *  TODO(go-migration): Go returns teacherId as a bare string ID, not a populated
- *  object. Until the backend populates teacher details, teacherId is left
- *  undefined so the UI falls back to "Unknown". */
+/** GET /api/leaves/school/:schoolId → LeaveApplication[] */
 export function normalizeLeaves(json: unknown): LeaveApplication[] {
   return toArray(json).map((l) => ({
     _id: String(l._id ?? ''),
@@ -107,6 +111,12 @@ export function normalizeLeaves(json: unknown): LeaveApplication[] {
     fileName: l.fileName ? String(l.fileName) : undefined,
     fileData: l.fileData ? String(l.fileData) : undefined,
     createdAt: String(l.createdAt ?? ''),
-    teacherId: undefined,
+    // TODO(go-migration): Go currently sends teacherId as a bare string ID, which
+    // we map to undefined so the UI falls back to "Unknown". Once the backend
+    // populates a teacher object, it flows through here automatically.
+    teacherId:
+      l.teacherId && typeof l.teacherId === 'object'
+        ? (l.teacherId as { _id: string; name: string; email: string; position: string })
+        : undefined,
   }));
 }

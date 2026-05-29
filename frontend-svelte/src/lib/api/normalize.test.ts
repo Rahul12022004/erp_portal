@@ -48,6 +48,12 @@ describe('normalizeAnnouncements', () => {
     expect(out[0].desc).toBe('Body');
     expect(out[0].author).toBe('Admin');
   });
+  it('returns empty time string for a malformed createdAt', () => {
+    const json = { success: true, data: [
+      { _id: 'a2', title: 'X', message: 'Y', author: 'Z', createdAt: 'not-a-date' },
+    ]};
+    expect(normalizeAnnouncements(json)[0].time).toBe('');
+  });
 });
 
 describe('normalizeFeeTrend', () => {
@@ -86,5 +92,14 @@ describe('normalizeLeaves', () => {
     expect(out[0].status).toBe('Pending');
     // teacherId is a bare string from Go → no populated object
     expect(out[0].teacherId).toBeUndefined();
+  });
+  it('maps a populated teacherId object when Go provides one', () => {
+    const json = { success: true, data: [
+      { _id: 'l2', title: 'T', description: 'D', leaveType: 'Paid', status: 'Pending',
+        createdAt: '2026-05-01T00:00:00Z',
+        teacherId: { _id: 't1', name: 'Mr A', email: 'a@x.com', position: 'Teacher' } },
+    ]};
+    const out = normalizeLeaves(json);
+    expect(out[0].teacherId).toEqual({ _id: 't1', name: 'Mr A', email: 'a@x.com', position: 'Teacher' });
   });
 });
