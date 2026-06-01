@@ -14,7 +14,6 @@ func Register(app *fiber.App) {
 	h    := handlers.New(repo)
 	auth := middleware.Authenticate
 
-	g := app.Group("/api/notifications", auth)
-	g.Get("",               h.List)
-	g.Patch("/:id/read",    h.MarkRead)
+	app.Get("/api/notifications",             auth, h.List)
+	app.Patch("/api/notifications/:id/read", auth, h.MarkRead)
 }

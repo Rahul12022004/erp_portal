@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"net/url"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -11,21 +12,25 @@ import (
 	"github.com/erp-portal/go-backend/internal/core/logger"
 )
 
-var Client *mongo.Client
-var Database *mongo.Database
+var (
+	Client   *mongo.Client
+	Database *mongo.Database
+	mu       sync.RWMutex
+)
 
 const (
-	connectTimeout = 30 * time.Second
-	pingTimeout    = 15 * time.Second
+	connectTimeout = 10 * time.Second
+	pingTimeout    = 8 * time.Second
 	retryAttempts  = 3
-	retryDelay     = 3 * time.Second
+	retryDelay     = 1 * time.Second
 )
 
 // Connect opens a MongoDB connection with retry logic for Atlas.
 func Connect(uri, dbName string) error {
 	var lastErr error
 	for attempt := 1; attempt <= retryAttempts; attempt++ {
-		if err := connect(uri, dbName); err != nil {
+		client, db, err := connect(uri, dbName)
+		if err != nil {
 			lastErr = err
 			logger.Warn().
 				Int("attempt", attempt).
@@ -37,12 +42,17 @@ func Connect(uri, dbName string) error {
 			}
 			continue
 		}
+		// Assign globals only after successful connection
+		mu.Lock()
+		Client = client
+		Database = db
+		mu.Unlock()
 		return nil
 	}
 	return lastErr
 }
 
-func connect(uri, dbName string) error {
+func connect(uri, dbName string) (*mongo.Client, *mongo.Database, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancel()
 
@@ -51,42 +61,49 @@ func connect(uri, dbName string) error {
 		SetServerSelectionTimeout(connectTimeout).
 		SetConnectTimeout(connectTimeout).
 		SetMaxPoolSize(20).
-		SetMinPoolSize(2)
+		SetMinPoolSize(0)
 
 	client, err := mongo.Connect(ctx, opts)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	pingCtx, pingCancel := context.WithTimeout(context.Background(), pingTimeout)
 	defer pingCancel()
 	if err = client.Ping(pingCtx, nil); err != nil {
-		_ = client.Disconnect(context.Background())
-		return err
+		// Use a short timeout for disconnect on failure to avoid blocking the retry loop
+		discCtx, discCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer discCancel()
+		_ = client.Disconnect(discCtx)
+		return nil, nil, err
 	}
 
-	Client = client
-	Database = client.Database(dbName)
+	db := client.Database(dbName)
 	logger.Info().
 		Str("db", dbName).
 		Str("uri", maskURI(uri)).
 		Msg("MongoDB connected")
-	return nil
+	return client, db, nil
 }
 
 // Disconnect closes the MongoDB connection gracefully.
 func Disconnect() {
-	if Client == nil {
+	mu.RLock()
+	c := Client
+	mu.RUnlock()
+	if c == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = Client.Disconnect(ctx)
+	_ = c.Disconnect(ctx)
 	logger.Info().Msg("MongoDB disconnected")
 }
 
 // Col returns a collection handle by name.
 func Col(name string) *mongo.Collection {
+	mu.RLock()
+	defer mu.RUnlock()
 	return Database.Collection(name)
 }
 

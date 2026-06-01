@@ -1,1136 +1,825 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import Chart from 'chart.js/auto';
+  import {
+    CalendarDays, Download, Users, GraduationCap, Search,
+    CheckCircle2, XCircle, Clock, BarChart3, Settings2,
+    ChevronDown, Filter, MapPin, AlertCircle, RefreshCw,
+  } from 'lucide-svelte';
+  import { api } from '$lib/api/client';
 
-  // ─── Types ────────────────────────────────────────────────────────────────
+  import GeofenceCard    from '$lib/components/attendance/GeofenceCard.svelte';
+  import TeacherCard     from '$lib/components/attendance/TeacherCard.svelte';
+  import SchoolCalendar  from '$lib/components/attendance/SchoolCalendar.svelte';
+  import TeacherCalendarPanel from '$lib/components/attendance/TeacherCalendarPanel.svelte';
 
+  // ─── Types ────────────────────────────────────────────────────────────────────
   type TeacherAttendance = {
-    attendanceId: string | null;
-    remarks: string;
-    staffId: string;
-    name: string;
-    position: string;
-    status: string | null;
+    attendanceId: string | null; remarks: string;
+    staffId: string; name: string; position: string; status: string | null;
   };
-
   type AttendanceRecord = {
-    _id: string;
-    date: string;
+    _id: string; date: string;
     status: 'Present' | 'Absent' | 'Leave' | 'Half Day';
-    remarks?: string;
-    staffId: string | { _id?: string; name?: string; position?: string };
+    remarks?: string; staffId: string | { _id?: string };
   };
-
   type LeaveRecord = {
-    _id: string;
-    leaveType: 'Paid' | 'Unpaid' | 'Emergency';
+    _id: string; leaveType: 'Paid' | 'Unpaid' | 'Emergency';
     status: 'Pending' | 'Approved' | 'Rejected';
-    teacherId: string | { _id?: string };
-    createdAt?: string;
-    title?: string;
-    description?: string;
+    teacherId: string | { _id?: string }; createdAt?: string;
+    title?: string; description?: string;
   };
-
   type TeacherMonthlyStat = {
-    staffId: string;
-    name: string;
-    position: string;
-    present: number;
-    absent: number;
-    leaveDays: number;
-    halfDay: number;
-    totalMarkedDays: number;
-    attendancePercent: number;
-    monthLeavesTaken: number;
-    yearLeavesTaken: number;
-    paidTaken: number;
-    unpaidTaken: number;
-    emergencyTaken: number;
-    paidRemaining: number;
-    unpaidRemaining: number;
-    emergencyRemaining: number;
+    staffId: string; name: string; position: string;
+    present: number; absent: number; leaveDays: number; halfDay: number;
+    totalMarkedDays: number; attendancePercent: number;
+    monthLeavesTaken: number; yearLeavesTaken: number;
+    paidTaken: number; unpaidTaken: number; emergencyTaken: number;
+    paidRemaining: number; unpaidRemaining: number; emergencyRemaining: number;
   };
+  type StaffRecord    = { _id: string; name: string; position: string; department?: string };
+  type ClassItem      = { _id: string; name: string; section?: string };
+  type StudentRow     = { _id: string; name: string; rollNumber: string; gender?: string };
+  type StudentAttRow  = { studentId: string; status: string | null };
+  type TeacherCalendarTarget = { staffId: string; name: string; position: string };
 
-  type StaffRecord = {
-    _id: string;
-    name: string;
-    position: string;
-    department?: string;
-  };
-
-  type TeacherCalendarTarget = {
-    staffId: string;
-    name: string;
-    position: string;
-  };
-
-  type CalendarDayCell = {
-    date: Date | null;
-    iso: string | null;
-    status: string | null;
-    remarks?: string;
-  };
-
-  // ─── Constants ────────────────────────────────────────────────────────────
-
-  const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const LEAVE_LIMITS = { Paid: 12, Unpaid: 4, Emergency: 3 } as const;
+  const STATUS_COLORS: Record<string, string> = {
+    present:  'bg-green-100 text-green-700 border-green-200',
+    absent:   'bg-red-100 text-red-700 border-red-200',
+    leave:    'bg-amber-100 text-amber-700 border-amber-200',
+    'half day': 'bg-blue-100 text-blue-700 border-blue-200',
+  };
 
-  // ─── Auth / schoolId ──────────────────────────────────────────────────────
-
+  // ─── Auth ─────────────────────────────────────────────────────────────────────
   const schoolId = $derived($page.data.user?.schoolId ?? '');
 
-  // ─── Date / period state ──────────────────────────────────────────────────
+  // ─── Navigation ───────────────────────────────────────────────────────────────
+  type MainTab  = 'daily' | 'monthly' | 'reports' | 'settings';
+  type DailyTab = 'staff' | 'students';
 
+  let mainTab  = $state<MainTab>('daily');
+  let dailyTab = $state<DailyTab>('staff');
+
+  // ─── Date / period ────────────────────────────────────────────────────────────
   const now = new Date();
-  let selectedDate = $state(now.toISOString().split('T')[0]);
-  let selectedYear = $state(now.getFullYear());
-  let selectedMonthNumber = $state(now.getMonth() + 1);
+  let selectedDate       = $state(now.toISOString().split('T')[0]);
+  let selectedYear       = $state(now.getFullYear());
+  let selectedMonthNum   = $state(now.getMonth() + 1);
+  const selectedMonth    = $derived(`${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}`);
+  const yearOptions      = $derived(Array.from({ length: 8 }, (_, i) => now.getFullYear() - 5 + i));
+  const monthEnd         = $derived(new Date(selectedYear, selectedMonthNum, 0).toISOString().slice(0, 10));
+  const monthStart       = $derived(`${selectedMonth}-01`);
 
-  const selectedMonth = $derived(
-    `${selectedYear}-${String(selectedMonthNumber).padStart(2, '0')}`
-  );
+  // ─── Staff daily ──────────────────────────────────────────────────────────────
+  let teachers     = $state<TeacherAttendance[]>([]);
+  let staffLoading = $state(false);
+  let staffError   = $state('');
 
-  const yearOptions = $derived(
-    Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - 5 + i)
-  );
-
-  // ─── Daily attendance state ───────────────────────────────────────────────
-
-  let teachers = $state<TeacherAttendance[]>([]);
-  let loading = $state(false);
-
-  // ─── Monthly stats state ──────────────────────────────────────────────────
-
-  let monthlyStats = $state<TeacherMonthlyStat[]>([]);
-  let teacherLeavesMap = $state<Record<string, LeaveRecord[]>>({});
+  // ─── Staff monthly ────────────────────────────────────────────────────────────
+  let monthlyStats         = $state<TeacherMonthlyStat[]>([]);
+  let teacherLeavesMap     = $state<Record<string, LeaveRecord[]>>({});
   let teacherAttendanceMap = $state<Record<string, AttendanceRecord[]>>({});
-  let monthlyRefreshKey = $state(0);
+  let monthlyLoading       = $state(false);
+  let monthlyLoaded        = $state(false);
+  let monthlyRefreshKey    = $state(0);
 
-  // ─── Calendar modal state ─────────────────────────────────────────────────
+  // ─── Student daily ────────────────────────────────────────────────────────────
+  let classes          = $state<ClassItem[]>([]);
+  let classesLoading   = $state(false);
+  let selectedClassId  = $state('');
+  let students         = $state<StudentRow[]>([]);
+  let studentsLoading  = $state(false);
+  let studentAtt       = $state<Record<string, string | null>>({});
+  let studentAttLoading= $state(false);
+  let studentMarking   = $state<Record<string, boolean>>({});
 
-  let selectedTeacherForCalendar = $state<TeacherCalendarTarget | null>(null);
-  let calendarEditingDate = $state<string | null>(null);
-  let calendarEditStatus = $state<AttendanceRecord['status']>('Present');
-  let calendarEditReason = $state('');
-  let calendarSaving = $state(false);
-  let calendarMessage = $state('');
+  // ─── Slide-over ───────────────────────────────────────────────────────────────
+  let slideoverTeacher = $state<TeacherCalendarTarget | null>(null);
 
-  // ─── Geofence state ───────────────────────────────────────────────────────
+  // ─── Reports ──────────────────────────────────────────────────────────────────
+  let reportStart = $state(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`);
+  let reportEnd   = $state(now.toISOString().split('T')[0]);
+  let downloadOpen= $state(false);
 
-  let geoLatitude = $state('');
-  let geoLongitude = $state('');
-  let geoRadiusMeters = $state('200');
-  let geoLocked = $state(false);
-  let savingGeofence = $state(false);
-  let geofenceMessage = $state('');
+  // ─── Filters ──────────────────────────────────────────────────────────────────
+  let staffSearch    = $state('');
+  let statusFilter   = $state<'all'|'present'|'absent'|'leave'|'unmarked'>('all');
+  let studentSearch  = $state('');
 
-  // ─── Download dropdown state ──────────────────────────────────────────────
+  // ─── Derived ──────────────────────────────────────────────────────────────────
+  const monthlyStatsMap = $derived(Object.fromEntries(monthlyStats.map(s => [s.staffId, s])));
+  const mergedTeacherCards = $derived(teachers.map(t => ({ ...t, monthly: monthlyStatsMap[String(t.staffId)] ?? null })));
+  const monthlyAvgPercent = $derived(monthlyStats.length ? Math.round(monthlyStats.reduce((s, t) => s + t.attendancePercent, 0) / monthlyStats.length) : 0);
 
-  let downloadOpen = $state(false);
+  const filteredStaff = $derived(mergedTeacherCards.filter(t => {
+    const q = staffSearch.toLowerCase();
+    if (q && !t.name.toLowerCase().includes(q) && !t.position?.toLowerCase().includes(q)) return false;
+    if (statusFilter === 'present')  return t.status?.toLowerCase() === 'present';
+    if (statusFilter === 'absent')   return t.status?.toLowerCase() === 'absent';
+    if (statusFilter === 'leave')    return t.status?.toLowerCase() === 'leave';
+    if (statusFilter === 'unmarked') return !t.status;
+    return true;
+  }));
 
-  // ─── Chart.js ─────────────────────────────────────────────────────────────
-
-  let canvasEl: HTMLCanvasElement | undefined = $state();
-  let chartInstance: Chart | undefined;
-
-  // ─── Derived counts ───────────────────────────────────────────────────────
-
-  const presentCount = $derived(
-    teachers.filter((t) => t.status?.toLowerCase() === 'present').length
-  );
-  const absentCount = $derived(
-    teachers.filter((t) => t.status?.toLowerCase() === 'absent').length
-  );
-  const total = $derived(teachers.length);
-  const percent = $derived(total ? Math.round((presentCount / total) * 100) : 0);
-
-  const monthlyStatsMap = $derived(
-    Object.fromEntries(monthlyStats.map((s) => [s.staffId, s]))
-  );
-
-  const mergedTeacherCards = $derived(
-    teachers.map((t) => ({ ...t, monthly: monthlyStatsMap[String(t.staffId)] ?? null }))
+  const filteredStudents = $derived(
+    students.filter(s => !studentSearch || s.name.toLowerCase().includes(studentSearch.toLowerCase()) || s.rollNumber?.toLowerCase().includes(studentSearch.toLowerCase()))
   );
 
-  // ─── Calendar derived values ──────────────────────────────────────────────
+  const staffStats = $derived({
+    total:    teachers.length,
+    present:  teachers.filter(t => t.status?.toLowerCase() === 'present').length,
+    absent:   teachers.filter(t => t.status?.toLowerCase() === 'absent').length,
+    leave:    teachers.filter(t => ['leave','half day'].includes(t.status?.toLowerCase() ?? '')).length,
+    unmarked: teachers.filter(t => !t.status).length,
+  });
+  const staffPercent = $derived(staffStats.total ? Math.round((staffStats.present / staffStats.total) * 100) : 0);
 
-  const selectedTeacherLeaves = $derived(
-    selectedTeacherForCalendar
-      ? (teacherLeavesMap[selectedTeacherForCalendar.staffId] ?? []).filter(
-          (l) => l.createdAt?.startsWith(String(selectedYear))
-        )
-      : []
-  );
-
-  const selectedTeacherMonthAttendance = $derived(
-    selectedTeacherForCalendar
-      ? (teacherAttendanceMap[selectedTeacherForCalendar.staffId] ?? []).filter((r) =>
-          r.date.startsWith(selectedMonth)
-        )
-      : []
-  );
-
-  const calendarDays = $derived.by<CalendarDayCell[]>(() => {
-    if (!selectedTeacherForCalendar) return [];
-
-    const firstDay = new Date(selectedYear, selectedMonthNumber - 1, 1);
-    const daysInMonth = new Date(selectedYear, selectedMonthNumber, 0).getDate();
-    const startOffset = (firstDay.getDay() + 6) % 7;
-
-    const approvedLeaveDates = new Set(
-      (teacherLeavesMap[selectedTeacherForCalendar.staffId] ?? [])
-        .filter((l) => l.status === 'Approved' && l.createdAt)
-        .map((l) => l.createdAt!.slice(0, 10))
-        .filter((iso) => iso.startsWith(selectedMonth))
-    );
-
-    const attendanceByDate = new Map(
-      (teacherAttendanceMap[selectedTeacherForCalendar.staffId] ?? [])
-        .filter((r) => r.date.startsWith(selectedMonth))
-        .map((r) => [r.date, r.status])
-    );
-
-    const remarksByDate = new Map(
-      (teacherAttendanceMap[selectedTeacherForCalendar.staffId] ?? [])
-        .filter((r) => r.date.startsWith(selectedMonth))
-        .map((r) => [r.date, r.remarks ?? ''])
-    );
-
-    const cells: CalendarDayCell[] = [];
-
-    for (let i = 0; i < startOffset; i++) {
-      cells.push({ date: null, iso: null, status: null });
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const iso = `${selectedMonth}-${String(day).padStart(2, '0')}`;
-      let status: string | null = attendanceByDate.get(iso) ?? null;
-      if (approvedLeaveDates.has(iso)) status = 'Approved Leave';
-      cells.push({
-        date: new Date(selectedYear, selectedMonthNumber - 1, day),
-        iso,
-        status,
-        remarks: remarksByDate.get(iso) ?? '',
-      });
-    }
-
-    while (cells.length % 7 !== 0) {
-      cells.push({ date: null, iso: null, status: null });
-    }
-
-    return cells;
+  const studentStats = $derived({
+    total:    students.length,
+    present:  Object.values(studentAtt).filter(s => s?.toLowerCase() === 'present').length,
+    absent:   Object.values(studentAtt).filter(s => s?.toLowerCase() === 'absent').length,
+    unmarked: students.filter(s => !studentAtt[s._id]).length,
   });
 
-  // ─── Chart effect ─────────────────────────────────────────────────────────
+  const selectedClass = $derived(classes.find(c => c._id === selectedClassId));
 
-  $effect(() => {
-    if (!canvasEl) return;
-    chartInstance?.destroy();
-    chartInstance = new Chart(canvasEl, {
-      type: 'pie',
-      data: {
-        labels: ['Present', 'Absent'],
-        datasets: [
-          {
-            data: [presentCount, absentCount],
-            backgroundColor: ['#22c55e', '#ef4444'],
-          },
-        ],
-      },
-      options: {
-        responsive: false,
-        plugins: { legend: { position: 'bottom' } },
-      },
-    });
-    return () => chartInstance?.destroy();
-  });
-
-  // ─── Close download dropdown on outside click ─────────────────────────────
-
-  function handleDocClick(e: MouseEvent) {
-    const target = e.target as HTMLElement;
-    if (!target.closest('[data-download-dropdown]')) {
-      downloadOpen = false;
-    }
-  }
-
-  // ─── Fetch school location ────────────────────────────────────────────────
-
-  async function fetchSchoolLocation() {
-    if (!schoolId) return;
-    try {
-      const res = await fetch(`/api/schools/${schoolId}`);
-      if (!res.ok) return;
-      const schoolData = await res.json() as {
-        schoolInfo?: { location?: { latitude?: number; longitude?: number; radiusMeters?: number; locked?: boolean } };
-      };
-      const loc = schoolData?.schoolInfo?.location;
-      if (!loc) return;
-      if (typeof loc.latitude === 'number') geoLatitude = String(loc.latitude);
-      if (typeof loc.longitude === 'number') geoLongitude = String(loc.longitude);
-      if (typeof loc.radiusMeters === 'number') geoRadiusMeters = String(loc.radiusMeters);
-      geoLocked = Boolean(loc.locked);
-    } catch (err) {
-      console.error('Failed to fetch school geofence:', err);
-    }
-  }
-
-  // ─── Fetch daily attendance ───────────────────────────────────────────────
-
-  async function fetchAttendance() {
-    if (!schoolId || !selectedDate) {
-      teachers = [];
-      return;
-    }
-    try {
-      loading = true;
-      const res = await fetch(`/api/attendance/${schoolId}/${selectedDate}?position=Teacher`);
-      if (!res.ok) throw new Error(`Failed to load attendance (${res.status})`);
-      const data = await res.json();
-      teachers = Array.isArray((data as {data?: unknown[]})?.data) ? (data as {data: typeof teachers}).data : (Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Attendance fetch error:', err);
-      teachers = [];
-    } finally {
-      loading = false;
-    }
-  }
-
-  // ─── Fetch monthly stats ──────────────────────────────────────────────────
-
-  async function fetchMonthlyStats() {
-    if (!schoolId || !selectedMonth) {
-      monthlyStats = [];
-      teacherLeavesMap = {};
-      teacherAttendanceMap = {};
-      return;
-    }
-
-    try {
-      const monthStart = `${selectedMonth}-01`;
-      const monthEnd = new Date(selectedYear, selectedMonthNumber, 0).toISOString().slice(0, 10);
-      const yearStart = `${selectedYear}-01-01`;
-      const yearEnd = `${selectedYear}-12-31`;
-
-      const [staffRes, attendanceRes, leavesRes] = await Promise.all([
-        fetch(`/api/staff/${schoolId}`),
-        fetch(`/api/attendance/report/${schoolId}?startDate=${monthStart}&endDate=${monthEnd}&position=Teacher`),
-        fetch(`/api/leaves/school/${schoolId}`),
-      ]);
-
-      if (!staffRes.ok || !attendanceRes.ok || !leavesRes.ok) {
-        throw new Error('Failed to load monthly attendance insights');
-      }
-
-      const unwrap = (d: unknown): unknown[] => Array.isArray((d as {data?: unknown[]})?.data) ? (d as {data: unknown[]}).data : (Array.isArray(d) ? d : []);
-      const staffData = unwrap(await staffRes.json()) as StaffRecord[];
-      const attendanceData = unwrap(await attendanceRes.json()) as AttendanceRecord[];
-      const leaveData = unwrap(await leavesRes.json()) as LeaveRecord[];
-
-      const teachersOnly = staffData.filter(
-        (s) => String(s.position ?? '').toLowerCase() === 'teacher'
-      );
-
-      const leavesByTeacher: Record<string, LeaveRecord[]> = {};
-      const attendanceByTeacher: Record<string, AttendanceRecord[]> = {};
-
-      teachersOnly.forEach((t) => {
-        leavesByTeacher[t._id] = [];
-        attendanceByTeacher[t._id] = [];
-      });
-
-      leaveData
-        .filter((l) => l.status === 'Approved')
-        .forEach((l) => {
-          const tid = typeof l.teacherId === 'string' ? l.teacherId : (l.teacherId?._id ?? '');
-          if (!tid) return;
-          if (!leavesByTeacher[tid]) leavesByTeacher[tid] = [];
-          leavesByTeacher[tid].push(l);
-        });
-
-      attendanceData.forEach((r) => {
-        const tid = typeof r.staffId === 'string' ? r.staffId : (r.staffId?._id ?? '');
-        if (!tid) return;
-        if (!attendanceByTeacher[tid]) attendanceByTeacher[tid] = [];
-        attendanceByTeacher[tid].push(r);
-      });
-
-      const stats: TeacherMonthlyStat[] = teachersOnly.map((teacher) => {
-        const records = attendanceByTeacher[teacher._id] ?? [];
-        const present = records.filter((r) => r.status === 'Present').length;
-        const absent = records.filter((r) => r.status === 'Absent').length;
-        const leaveDays = records.filter((r) => r.status === 'Leave').length;
-        const halfDay = records.filter((r) => r.status === 'Half Day').length;
-        const totalMarkedDays = records.length;
-        const attendancePercent = totalMarkedDays
-          ? Math.round(((present + halfDay * 0.5) / totalMarkedDays) * 100)
-          : 0;
-
-        const approvedAll = leavesByTeacher[teacher._id] ?? [];
-        const approvedMonth = approvedAll.filter((l) => {
-          if (!l.createdAt) return false;
-          const d = l.createdAt.slice(0, 10);
-          return d >= monthStart && d <= monthEnd;
-        });
-        const approvedYear = approvedAll.filter((l) => {
-          if (!l.createdAt) return false;
-          const d = l.createdAt.slice(0, 10);
-          return d >= yearStart && d <= yearEnd;
-        });
-
-        const paidTaken = approvedYear.filter((l) => l.leaveType === 'Paid').length;
-        const unpaidTaken = approvedYear.filter((l) => l.leaveType === 'Unpaid').length;
-        const emergencyTaken = approvedYear.filter((l) => l.leaveType === 'Emergency').length;
-
-        return {
-          staffId: teacher._id,
-          name: teacher.name,
-          position: teacher.department ?? teacher.position,
-          present,
-          absent,
-          leaveDays,
-          halfDay,
-          totalMarkedDays,
-          attendancePercent,
-          monthLeavesTaken: approvedMonth.length,
-          yearLeavesTaken: approvedYear.length,
-          paidTaken,
-          unpaidTaken,
-          emergencyTaken,
-          paidRemaining: Math.max(LEAVE_LIMITS.Paid - paidTaken, 0),
-          unpaidRemaining: Math.max(LEAVE_LIMITS.Unpaid - unpaidTaken, 0),
-          emergencyRemaining: Math.max(LEAVE_LIMITS.Emergency - emergencyTaken, 0),
-        };
-      });
-
-      teacherLeavesMap = leavesByTeacher;
-      teacherAttendanceMap = attendanceByTeacher;
-      monthlyStats = stats;
-    } catch (err) {
-      console.error('Monthly stats fetch error:', err);
-      teacherLeavesMap = {};
-      teacherAttendanceMap = {};
-      monthlyStats = [];
-    }
-  }
-
-  // ─── Effects: reactive fetches ────────────────────────────────────────────
-
-  $effect(() => {
-    // Re-runs when schoolId changes
-    if (schoolId) fetchSchoolLocation();
-  });
-
-  $effect(() => {
-    // Re-runs when schoolId or selectedDate changes
-    void schoolId;
-    void selectedDate;
-    fetchAttendance();
-  });
-
-  $effect(() => {
-    // Re-runs when schoolId, selectedMonth, selectedYear, selectedMonthNumber, or monthlyRefreshKey changes
-    void schoolId;
-    void selectedMonth;
-    void selectedYear;
-    void selectedMonthNumber;
-    void monthlyRefreshKey;
-    fetchMonthlyStats();
-  });
+  // ─── Effects ──────────────────────────────────────────────────────────────────
+  $effect(() => { void schoolId; void selectedDate; if (mainTab === 'daily' && dailyTab === 'staff') fetchStaff(); });
+  $effect(() => { void schoolId; void selectedMonth; void monthlyRefreshKey; if (mainTab === 'monthly') fetchMonthly(); });
+  $effect(() => { void schoolId; if ((mainTab === 'daily' && dailyTab === 'students') && classes.length === 0) fetchClasses(); });
+  $effect(() => { void selectedClassId; void selectedDate; if (selectedClassId) fetchStudentAttendance(); });
 
   onMount(() => {
     document.addEventListener('mousedown', handleDocClick);
     return () => document.removeEventListener('mousedown', handleDocClick);
   });
 
-  // ─── Mark attendance ──────────────────────────────────────────────────────
+  // ─── Fetchers ─────────────────────────────────────────────────────────────────
+  function unwrap(d: unknown): unknown[] {
+    if (Array.isArray((d as {data?: unknown[]})?.data)) return (d as {data: unknown[]}).data;
+    if (Array.isArray(d)) return d;
+    return [];
+  }
 
-  async function markAttendance(teacherId: string, status: 'Present' | 'Absent') {
-    if (!schoolId || !selectedDate) {
-      alert('Please select date');
-      return;
-    }
+  async function fetchStaff() {
+    if (!schoolId || !selectedDate) { teachers = []; return; }
+    staffLoading = true; staffError = '';
     try {
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staffId: teacherId, schoolId, date: selectedDate, status }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message ?? 'Failed to mark attendance');
-      teachers = teachers.map((t) =>
-        t.staffId === teacherId
-          ? { ...t, attendanceId: data.data?._id ?? t.attendanceId, status }
-          : t
-      );
-      monthlyRefreshKey += 1;
-    } catch (err) {
-      console.error('Mark attendance error:', err);
-      alert('Failed to save attendance');
-    }
+      const data = await api.get<unknown>(`/api/attendance/${schoolId}/${selectedDate}?position=Teacher`);
+      teachers = unwrap(data) as TeacherAttendance[];
+    } catch (e) { staffError = 'Failed to load attendance.'; teachers = []; }
+    staffLoading = false;
   }
 
-  // ─── Calendar helpers ─────────────────────────────────────────────────────
-
-  function getCalendarTone(status: string | null): string {
-    if (status === 'Approved Leave' || status === 'Leave')
-      return 'bg-red-100 border-red-300 text-red-700';
-    if (status === 'Present') return 'bg-green-100 border-green-300 text-green-700';
-    if (status) return 'bg-yellow-100 border-yellow-300 text-yellow-700';
-    return 'bg-white border-slate-200 text-slate-400';
-  }
-
-  function changeCalendarMonth(direction: -1 | 1) {
-    const next = new Date(selectedYear, selectedMonthNumber - 1 + direction, 1);
-    selectedYear = next.getFullYear();
-    selectedMonthNumber = next.getMonth() + 1;
-    calendarEditingDate = null;
-    calendarEditReason = '';
-    calendarMessage = '';
-  }
-
-  function startCalendarEdit(cell: CalendarDayCell) {
-    if (!cell.iso) return;
-    calendarEditingDate = cell.iso;
-    calendarEditStatus = (cell.status as AttendanceRecord['status']) ?? 'Present';
-    calendarEditReason = cell.remarks ?? '';
-    calendarMessage = '';
-  }
-
-  async function saveCalendarEdit() {
-    if (!selectedTeacherForCalendar || !calendarEditingDate) return;
-    const trimmedReason = calendarEditReason.trim();
-    if (!trimmedReason) {
-      calendarMessage = 'Reason is required before saving changes.';
-      return;
-    }
+  async function fetchMonthly() {
+    if (!schoolId || !selectedMonth || monthlyLoading) return;
+    monthlyLoading = true;
     try {
-      calendarSaving = true;
-      calendarMessage = '';
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          staffId: selectedTeacherForCalendar.staffId,
-          schoolId,
-          date: calendarEditingDate,
-          status: calendarEditStatus,
-          remarks: trimmedReason,
-        }),
+      const yearStart = `${selectedYear}-01-01`, yearEnd = `${selectedYear}-12-31`;
+      const [staffRaw, attRaw, leaveRaw] = await Promise.all([
+        api.get<unknown>(`/api/staff/${schoolId}`),
+        api.get<unknown>(`/api/attendance/report/${schoolId}?startDate=${monthStart}&endDate=${monthEnd}&position=Teacher`),
+        api.get<unknown>(`/api/leaves/school/${schoolId}`),
+      ]);
+      const staffData  = unwrap(staffRaw)  as StaffRecord[];
+      const attData    = unwrap(attRaw)    as AttendanceRecord[];
+      const leaveData  = unwrap(leaveRaw)  as LeaveRecord[];
+      const teachersOnly = staffData.filter(s => String(s.position ?? '').toLowerCase() === 'teacher');
+      const leavesByTeacher: Record<string, LeaveRecord[]> = {};
+      const attByTeacher:   Record<string, AttendanceRecord[]> = {};
+      teachersOnly.forEach(t => { leavesByTeacher[t._id] = []; attByTeacher[t._id] = []; });
+      leaveData.filter(l => l.status === 'Approved').forEach(l => {
+        const tid = typeof l.teacherId === 'string' ? l.teacherId : (l.teacherId?._id ?? '');
+        if (!tid) return;
+        (leavesByTeacher[tid] ??= []).push(l);
       });
-      const payload = await res.json();
-      if (!res.ok || !payload?.success)
-        throw new Error(payload?.message ?? 'Failed to update attendance');
-
-      if (calendarEditingDate === selectedDate) {
-        teachers = teachers.map((t) =>
-          String(t.staffId) === selectedTeacherForCalendar!.staffId
-            ? { ...t, status: calendarEditStatus, remarks: trimmedReason }
-            : t
-        );
-      }
-
-      monthlyRefreshKey += 1;
-      calendarMessage = 'Attendance updated successfully.';
-    } catch (err) {
-      console.error('Calendar attendance update error:', err);
-      calendarMessage =
-        err instanceof Error ? err.message : 'Failed to update attendance';
-    } finally {
-      calendarSaving = false;
-    }
+      attData.forEach(r => {
+        const tid = typeof r.staffId === 'string' ? r.staffId : ((r.staffId as {_id?:string})?._id ?? '');
+        if (!tid) return;
+        (attByTeacher[tid] ??= []).push(r);
+      });
+      monthlyStats = teachersOnly.map(teacher => {
+        const records = attByTeacher[teacher._id] ?? [];
+        const present = records.filter(r => r.status === 'Present').length;
+        const absent  = records.filter(r => r.status === 'Absent').length;
+        const leaveDays = records.filter(r => r.status === 'Leave').length;
+        const halfDay   = records.filter(r => r.status === 'Half Day').length;
+        const totalMarkedDays   = records.length;
+        const attendancePercent = totalMarkedDays ? Math.round(((present + halfDay * 0.5) / totalMarkedDays) * 100) : 0;
+        const approvedAll   = leavesByTeacher[teacher._id] ?? [];
+        const approvedYear  = approvedAll.filter(l => { const d = l.createdAt?.slice(0,10) ?? ''; return d >= `${selectedYear}-01-01` && d <= `${selectedYear}-12-31`; });
+        const approvedMonth = approvedAll.filter(l => { const d = l.createdAt?.slice(0,10) ?? ''; return d >= monthStart && d <= monthEnd; });
+        const paidTaken = approvedYear.filter(l => l.leaveType === 'Paid').length;
+        const unpaidTaken = approvedYear.filter(l => l.leaveType === 'Unpaid').length;
+        const emergencyTaken = approvedYear.filter(l => l.leaveType === 'Emergency').length;
+        return {
+          staffId: teacher._id, name: teacher.name, position: teacher.department ?? teacher.position,
+          present, absent, leaveDays, halfDay, totalMarkedDays, attendancePercent,
+          monthLeavesTaken: approvedMonth.length, yearLeavesTaken: approvedYear.length,
+          paidTaken, unpaidTaken, emergencyTaken,
+          paidRemaining: Math.max(LEAVE_LIMITS.Paid - paidTaken, 0),
+          unpaidRemaining: Math.max(LEAVE_LIMITS.Unpaid - unpaidTaken, 0),
+          emergencyRemaining: Math.max(LEAVE_LIMITS.Emergency - emergencyTaken, 0),
+        };
+      });
+      teacherLeavesMap = leavesByTeacher;
+      teacherAttendanceMap = attByTeacher;
+      monthlyLoaded = true;
+    } catch { /* ignore */ }
+    monthlyLoading = false;
   }
 
-  // ─── Leave balance tone ───────────────────────────────────────────────────
-
-  function lowBalanceClass(remaining: number): string {
-    if (remaining <= 1) return 'bg-red-100 text-red-700';
-    if (remaining <= 3) return 'bg-amber-100 text-amber-700';
-    return 'bg-emerald-100 text-emerald-700';
-  }
-
-  // ─── Geofence actions ─────────────────────────────────────────────────────
-
-  async function saveGeofence() {
-    if (!schoolId) { alert('School session not found'); return; }
-    const latitude = Number(geoLatitude);
-    const longitude = Number(geoLongitude);
-    const radiusMeters = Number(geoRadiusMeters);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      alert('Please enter valid latitude and longitude');
-      return;
-    }
-    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) {
-      alert('Please enter a valid radius in meters');
-      return;
-    }
-    if (geoLocked) {
-      geofenceMessage = 'Geofence is locked. Unlock it before making changes.';
-      return;
-    }
+  async function fetchClasses() {
+    if (!schoolId) return;
+    classesLoading = true;
     try {
-      savingGeofence = true;
-      geofenceMessage = '';
-      const res = await fetch(`/api/schools/${schoolId}/location`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ latitude, longitude, radiusMeters }),
-      });
-      const payload = await res.json();
-      if (!res.ok || !payload?.success)
-        throw new Error(payload?.message ?? 'Failed to save geofence');
-      geofenceMessage = 'School geofence saved successfully.';
-      try { localStorage.setItem('school', JSON.stringify(payload.data)); } catch { /* ignore */ }
-    } catch (err) {
-      console.error('Save geofence error:', err);
-      geofenceMessage = err instanceof Error ? err.message : 'Failed to save geofence';
-    } finally {
-      savingGeofence = false;
-    }
+      const data = await api.get<unknown>(`/api/classes?schoolId=${schoolId}`);
+      classes = (Array.isArray((data as any)?.data) ? (data as any).data : Array.isArray(data) ? data : []) as ClassItem[];
+      if (classes.length && !selectedClassId) selectedClassId = classes[0]._id;
+    } catch { classes = []; }
+    classesLoading = false;
   }
 
-  async function toggleGeofenceLock() {
-    if (!schoolId) { alert('School session not found'); return; }
-    const nextLocked = !geoLocked;
+  async function fetchStudentAttendance() {
+    if (!schoolId || !selectedClassId || !selectedDate) return;
+    studentAttLoading = true;
     try {
-      savingGeofence = true;
-      geofenceMessage = '';
-      const res = await fetch(`/api/schools/${schoolId}/location-lock`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locked: nextLocked }),
-      });
-      const payload = await res.json();
-      if (!res.ok || !payload?.success)
-        throw new Error(payload?.message ?? 'Failed to update geofence lock');
-      geoLocked = nextLocked;
-      geofenceMessage = nextLocked
-        ? 'Geofence locked in place.'
-        : 'Geofence unlocked. You can edit values now.';
-      try { localStorage.setItem('school', JSON.stringify(payload.data)); } catch { /* ignore */ }
-    } catch (err) {
-      console.error('Toggle geofence lock error:', err);
-      geofenceMessage =
-        err instanceof Error ? err.message : 'Failed to update geofence lock';
-    } finally {
-      savingGeofence = false;
-    }
+      // Load students for the class
+      const sData = await api.get<unknown>(`/api/students/${schoolId}?classId=${selectedClassId}&limit=200`);
+      students = ((sData as any)?.data?.students ?? []) as StudentRow[];
+
+      // Load their attendance for this date
+      const aData = await api.get<unknown>(`/api/attendance/students/${schoolId}/${selectedClassId}/${selectedDate}`);
+      const rows = unwrap(aData) as StudentAttRow[];
+      const map: Record<string, string | null> = {};
+      students.forEach(s => { map[s._id] = null; });
+      rows.forEach(r => { if (r.studentId) map[r.studentId] = r.status; });
+      studentAtt = map;
+    } catch { students = []; studentAtt = {}; }
+    studentAttLoading = false;
+  }
+
+  // ─── Actions ──────────────────────────────────────────────────────────────────
+  async function markStaff(staffId: string, status: 'Present' | 'Absent' | 'Leave' | 'Half Day') {
+    if (!schoolId || !selectedDate) return;
+    try {
+      const data = await api.post<{success: boolean; data: {_id: string}}>('/api/attendance', { staffId, schoolId, date: selectedDate, status });
+      teachers = teachers.map(t => t.staffId === staffId ? { ...t, attendanceId: (data as any)?.data?._id ?? t.attendanceId, status } : t);
+      monthlyRefreshKey++;
+    } catch { /* ignore */ }
+  }
+
+  async function markAllPresent() {
+    const unmarked = teachers.filter(t => !t.status);
+    await Promise.all(unmarked.map(t => markStaff(String(t.staffId), 'Present')));
+  }
+
+  async function markStudent(studentId: string, status: 'Present' | 'Absent' | 'Leave' | 'Half Day') {
+    if (!schoolId || !selectedDate || !selectedClassId) return;
+    studentMarking = { ...studentMarking, [studentId]: true };
+    try {
+      await api.post('/api/attendance/students', { studentId, schoolId, classId: selectedClassId, date: selectedDate, status });
+      studentAtt = { ...studentAtt, [studentId]: status };
+    } catch { /* ignore */ }
+    studentMarking = { ...studentMarking, [studentId]: false };
+  }
+
+  async function markAllStudentsPresent() {
+    const unmarked = students.filter(s => !studentAtt[s._id]);
+    await Promise.all(unmarked.map(s => markStudent(s._id, 'Present')));
+  }
+
+  function handleDocClick(e: MouseEvent) {
+    if (!(e.target as HTMLElement).closest('[data-dl-dropdown]')) downloadOpen = false;
+  }
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   }
 </script>
 
-<svelte:head><title>Teacher Attendance — ERP Portal</title></svelte:head>
+<svelte:head><title>Attendance — ERP Portal</title></svelte:head>
 
-<!-- ─── Root ─────────────────────────────────────────────────────────────── -->
-<div class="space-y-6">
+<div class="space-y-0">
 
-  <!-- ─── Geofence Settings ────────────────────────────────────────────── -->
-  <div class="bg-white rounded-xl border p-4">
-    <h3 class="text-lg font-semibold mb-3">School Geofence Settings</h3>
-    <p class="text-sm text-gray-600 mb-3">
-      Teachers marking self attendance outside this geofence will be flagged.
-    </p>
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-      <div>
-        <label for="geo-latitude" class="block text-xs font-medium mb-1">Latitude</label>
-        <input
-          id="geo-latitude"
-          type="number"
-          step="0.000001"
-          value={geoLatitude}
-          oninput={(e) => (geoLatitude = (e.currentTarget as HTMLInputElement).value)}
-          disabled={geoLocked || savingGeofence}
-          class="w-full border rounded px-3 py-2"
-          placeholder="e.g. 23.0225"
-        />
-      </div>
-      <div>
-        <label for="geo-longitude" class="block text-xs font-medium mb-1">Longitude</label>
-        <input
-          id="geo-longitude"
-          type="number"
-          step="0.000001"
-          value={geoLongitude}
-          oninput={(e) => (geoLongitude = (e.currentTarget as HTMLInputElement).value)}
-          disabled={geoLocked || savingGeofence}
-          class="w-full border rounded px-3 py-2"
-          placeholder="e.g. 72.5714"
-        />
-      </div>
-      <div>
-        <label for="geo-radius" class="block text-xs font-medium mb-1">Radius (meters)</label>
-        <input
-          id="geo-radius"
-          type="number"
-          min={10}
-          value={geoRadiusMeters}
-          oninput={(e) => (geoRadiusMeters = (e.currentTarget as HTMLInputElement).value)}
-          disabled={geoLocked || savingGeofence}
-          class="w-full border rounded px-3 py-2"
-          placeholder="200"
-        />
-      </div>
-      <div class="flex items-end">
-        <button
-          type="button"
-          onclick={saveGeofence}
-          disabled={savingGeofence || geoLocked}
-          class="w-full bg-slate-900 text-white rounded px-3 py-2"
-        >
-          {savingGeofence ? 'Saving...' : 'Save Geofence'}
-        </button>
-      </div>
-      <div class="flex items-end">
-        <button
-          type="button"
-          onclick={toggleGeofenceLock}
-          disabled={savingGeofence}
-          class={`w-full rounded px-3 py-2 text-white ${geoLocked ? 'bg-amber-600' : 'bg-emerald-600'}`}
-        >
-          {savingGeofence ? 'Saving...' : geoLocked ? 'Unlock Geofence' : 'Lock Geofence'}
-        </button>
-      </div>
+  <!-- ══ Header ════════════════════════════════════════════════════════════════ -->
+  <div class="flex items-start justify-between gap-4 pb-5">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-foreground">Attendance</h1>
+      <p class="text-sm text-muted-foreground">Track staff & student attendance, configure geofence, export reports.</p>
     </div>
-    <p class={`mt-2 text-sm ${geoLocked ? 'text-amber-700' : 'text-blue-700'}`}>
-      {geoLocked ? 'Geofence is locked in place.' : 'Geofence is editable.'}
-    </p>
-    {#if geofenceMessage}
-      <p class="mt-1 text-sm text-blue-700">{geofenceMessage}</p>
-    {/if}
+    <span class="shrink-0 rounded-xl border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+      {fmtDate(selectedDate)}
+    </span>
   </div>
 
-  <!-- ─── Controls Row ─────────────────────────────────────────────────── -->
-  <div class="flex gap-4 items-center flex-wrap">
-    <div>
-      <label for="att-date" class="mr-2 font-medium">Date:</label>
-      <input
-        id="att-date"
-        type="date"
-        class="border px-3 py-2 rounded"
-        value={selectedDate}
-        onchange={(e) => (selectedDate = (e.currentTarget as HTMLInputElement).value)}
-      />
-    </div>
-
-    <div>
-      <label for="att-year" class="mr-2 font-medium">Year:</label>
-      <select
-        id="att-year"
-        class="border px-3 py-2 rounded"
-        value={selectedYear}
-        onchange={(e) => (selectedYear = Number((e.currentTarget as HTMLSelectElement).value))}
+  <!-- ══ Main tab bar ═══════════════════════════════════════════════════════════ -->
+  <div class="flex border-b border-border">
+    {#each ([['daily','Daily','CalendarDays'],['monthly','Monthly','BarChart3'],['reports','Reports','Download'],['settings','Settings','Settings2']] as const) as [tab, label]}
+      <button
+        type="button"
+        onclick={() => { mainTab = tab; if (tab === 'monthly' && !monthlyLoaded) fetchMonthly(); if (tab === 'daily' && dailyTab === 'students' && classes.length === 0) fetchClasses(); }}
+        class="flex items-center gap-1.5 whitespace-nowrap border-b-2 px-5 py-3 text-sm font-medium transition-colors {mainTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}"
       >
-        {#each yearOptions as year (year)}
-          <option value={year}>{year}</option>
-        {/each}
-      </select>
-    </div>
+        {#if tab === 'daily'}<CalendarDays class="h-4 w-4" />
+        {:else if tab === 'monthly'}<BarChart3 class="h-4 w-4" />
+        {:else if tab === 'reports'}<Download class="h-4 w-4" />
+        {:else}<Settings2 class="h-4 w-4" />
+        {/if}
+        {label}
+      </button>
+    {/each}
+  </div>
 
-    <div>
-      <label for="att-month" class="mr-2 font-medium">Month:</label>
-      <select
-        id="att-month"
-        class="border px-3 py-2 rounded"
-        value={selectedMonthNumber}
-        onchange={(e) => (selectedMonthNumber = Number((e.currentTarget as HTMLSelectElement).value))}
-      >
-        {#each MONTH_NAMES as month, i (month)}
-          <option value={i + 1}>{month}</option>
-        {/each}
-      </select>
-    </div>
+  <!-- ══════════════════════════════════════════════════ DAILY TAB ══════════════ -->
+  {#if mainTab === 'daily'}
+    <div class="pt-5 space-y-5">
 
-    <!-- DownloadDropdown inlined as snippet -->
-    {#snippet downloadDropdown()}
-      <div class="relative" data-download-dropdown>
+      <!-- Date picker row -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-sm">
+          <CalendarDays class="h-4 w-4 text-muted-foreground" />
+          <input
+            type="date"
+            value={selectedDate}
+            onchange={(e) => (selectedDate = (e.currentTarget as HTMLInputElement).value)}
+            class="bg-transparent text-sm font-medium text-foreground outline-none"
+          />
+        </div>
         <button
           type="button"
-          onclick={() => (downloadOpen = !downloadOpen)}
-          class="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          onclick={() => (selectedDate = now.toISOString().split('T')[0])}
+          class="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground shadow-sm transition-colors"
         >
-          Download
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          Today
         </button>
-        {#if downloadOpen}
-          <div class="absolute left-0 mt-1 bg-white border rounded-lg shadow-lg z-20 min-w-[170px] py-1">
+      </div>
+
+      <!-- Staff / Students sub-toggle -->
+      <div class="flex gap-1 rounded-xl border border-border bg-muted/40 p-1 w-fit">
+        <button
+          type="button"
+          onclick={() => { dailyTab = 'staff'; }}
+          class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all {dailyTab === 'staff' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+        >
+          <GraduationCap class="h-4 w-4" /> Staff
+        </button>
+        <button
+          type="button"
+          onclick={() => { dailyTab = 'students'; if (classes.length === 0) fetchClasses(); }}
+          class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all {dailyTab === 'students' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+        >
+          <Users class="h-4 w-4" /> Students
+        </button>
+      </div>
+
+      <!-- ─────────────────────── STAFF TAB ─────────────────────────────────── -->
+      {#if dailyTab === 'staff'}
+
+        <!-- Stats row -->
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+          {#snippet statCard(label: string, value: number | string, tone: string, sub?: string)}
+            <div class="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+              <p class="mt-1 text-2xl font-bold {tone}">{value}</p>
+              {#if sub}<p class="mt-0.5 text-[10px] text-muted-foreground">{sub}</p>{/if}
+            </div>
+          {/snippet}
+          {@render statCard('Total Staff', staffStats.total, 'text-foreground')}
+          {@render statCard('Present', staffStats.present, 'text-green-600')}
+          {@render statCard('Absent', staffStats.absent, 'text-red-600')}
+          {@render statCard('Leave / Half', staffStats.leave, 'text-amber-600')}
+          {@render statCard('Attd. %', `${staffPercent}%`, staffPercent >= 80 ? 'text-green-600' : staffPercent >= 60 ? 'text-amber-600' : 'text-red-600', `${staffStats.unmarked} unmarked`)}
+        </div>
+
+        <!-- Action bar: search + filter + mark all -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Search -->
+          <div class="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-sm flex-1 min-w-[180px]">
+            <Search class="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search staff…"
+              bind:value={staffSearch}
+              class="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+            />
+          </div>
+
+          <!-- Status filter chips -->
+          <div class="flex items-center gap-1.5">
+            {#each (['all','present','absent','leave','unmarked'] as const) as f}
+              <button
+                type="button"
+                onclick={() => (statusFilter = f)}
+                class="rounded-full border px-3 py-1 text-xs font-semibold transition-all capitalize {statusFilter === f
+                  ? f === 'all' ? 'border-primary bg-primary text-primary-foreground'
+                  : f === 'present' ? 'border-green-500 bg-green-500 text-white'
+                  : f === 'absent' ? 'border-red-500 bg-red-500 text-white'
+                  : f === 'leave' ? 'border-amber-500 bg-amber-500 text-white'
+                  : 'border-slate-500 bg-slate-500 text-white'
+                  : 'border-border bg-card text-muted-foreground hover:text-foreground'}"
+              >{f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</button>
+            {/each}
+          </div>
+
+          <!-- Mark all present -->
+          {#if staffStats.unmarked > 0}
             <button
-              onclick={() => { alert('Export feature coming soon'); downloadOpen = false; }}
-              class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              type="button"
+              onclick={markAllPresent}
+              class="ml-auto flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 shadow-sm transition-colors"
             >
-              <span class="text-red-500">📄</span> Daily PDF
+              <CheckCircle2 class="h-4 w-4" />
+              Mark {staffStats.unmarked} Present
             </button>
+          {:else}
             <button
-              onclick={() => { alert('Export feature coming soon'); downloadOpen = false; }}
-              class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              type="button"
+              onclick={fetchStaff}
+              class="ml-auto flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground shadow-sm"
             >
-              <span class="text-green-600">📊</span> Daily Excel
+              <RefreshCw class="h-3.5 w-3.5" /> Refresh
             </button>
-            <hr class="my-1" />
-            <button
-              onclick={() => { alert('Export feature coming soon'); downloadOpen = false; }}
-              class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-            >
-              <span class="text-red-500">📄</span> Monthly PDF
-            </button>
-            <button
-              onclick={() => { alert('Export feature coming soon'); downloadOpen = false; }}
-              class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-            >
-              <span class="text-green-600">📊</span> Monthly Excel
-            </button>
+          {/if}
+        </div>
+
+        <!-- Staff list -->
+        {#if staffLoading}
+          <div class="space-y-3">
+            {#each [1,2,3,4,5] as _}
+              <div class="h-24 animate-pulse rounded-2xl bg-muted"></div>
+            {/each}
+          </div>
+        {:else if staffError}
+          <div class="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
+            <AlertCircle class="h-5 w-5 shrink-0 text-red-500" />
+            <p class="text-sm text-red-700">{staffError}</p>
+            <button onclick={fetchStaff} class="ml-auto text-xs font-semibold text-red-600 hover:underline">Retry</button>
+          </div>
+        {:else if filteredStaff.length === 0}
+          <div class="rounded-2xl border border-dashed border-border bg-muted/30 py-16 text-center">
+            <GraduationCap class="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+            <p class="text-sm font-semibold text-foreground">
+              {staffSearch || statusFilter !== 'all' ? 'No staff match filters' : 'No attendance data for this date'}
+            </p>
+            <p class="mt-1 text-xs text-muted-foreground">
+              {staffSearch || statusFilter !== 'all' ? 'Try clearing the search or filter.' : 'Ensure staff are added to the school.'}
+            </p>
+          </div>
+        {:else}
+          <div class="space-y-3">
+            {#each filteredStaff as teacher (teacher.staffId)}
+              <TeacherCard
+                {teacher}
+                onMark={(id, s) => markStaff(id, s)}
+                onOpenCalendar={(t) => (slideoverTeacher = t)}
+              />
+            {/each}
           </div>
         {/if}
-      </div>
-    {/snippet}
-    {@render downloadDropdown()}
-  </div>
 
-  <!-- ─── Pie Chart ─────────────────────────────────────────────────────── -->
-  <div class="bg-white p-6 rounded-xl shadow flex justify-center">
-    <canvas bind:this={canvasEl} width="350" height="300"></canvas>
-  </div>
+      <!-- ─────────────────────── STUDENTS TAB ──────────────────────────────── -->
+      {:else if dailyTab === 'students'}
 
-  <!-- ─── Summary metric cards ─────────────────────────────────────────── -->
-  <div class="grid grid-cols-4 gap-4">
-    <div class="bg-white p-4 rounded shadow text-center">
-      <p>Total Teachers</p>
-      <h3 class="text-xl font-bold">{total}</h3>
-    </div>
-    <div class="bg-white p-4 rounded shadow text-center">
-      <p>Present</p>
-      <h3 class="text-green-600 text-xl">{presentCount}</h3>
-    </div>
-    <div class="bg-white p-4 rounded shadow text-center">
-      <p>Absent</p>
-      <h3 class="text-red-500 text-xl">{absentCount}</h3>
-    </div>
-    <div class="bg-white p-4 rounded shadow text-center">
-      <p>Attendance %</p>
-      <h3 class="text-xl">{percent}%</h3>
-    </div>
-  </div>
-
-  <!-- ─── Teacher Attendance & Leave Analytics ──────────────────────────── -->
-  <div class="bg-white rounded-xl border p-4">
-    <div class="mb-4 flex items-center justify-between gap-3">
-      <div>
-        <h3 class="text-lg font-semibold">Teacher Attendance & Leave Analytics</h3>
-        <p class="text-sm text-gray-500">
-          Daily attendance actions and monthly analytics are merged into one view.
-        </p>
-      </div>
-    </div>
-
-    {#if loading}
-      <div class="border rounded-xl p-4 text-center text-gray-500">Loading attendance...</div>
-    {:else if mergedTeacherCards.length === 0}
-      <div class="border rounded-xl p-4 text-center text-gray-500">
-        No teacher attendance data available.
-      </div>
-    {:else}
-      <div class="space-y-3">
-        {#each mergedTeacherCards as teacher (teacher.staffId)}
-          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div class="min-w-[180px]">
-                <p class="text-lg font-semibold">{teacher.name}</p>
-                <p class="text-sm text-slate-500">{teacher.position}</p>
-                <p class="mt-1 text-xs text-slate-400">
-                  Today: {teacher.status ?? 'Not Marked'}
-                </p>
-              </div>
-
-              <div class="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  class="rounded bg-slate-900 px-3 py-1.5 text-white"
-                  onclick={() =>
-                    (selectedTeacherForCalendar = {
-                      staffId: String(teacher.staffId),
-                      name: teacher.name,
-                      position: teacher.position,
-                    })}
-                >
-                  Open Calendar
-                </button>
-              </div>
-            </div>
-
-            <!-- MetricCard grid inlined as snippet -->
-            {#snippet metricCard(label: string, value: string | number, strong = false, tone = '')}
-              <div class={`rounded-lg border p-3 ${tone || 'border-slate-200 bg-slate-50'}`}>
-                <p class="text-xs text-slate-500">{label}</p>
-                <p class={`mt-1 text-base ${strong ? 'font-bold' : 'font-semibold'}`}>{value}</p>
-              </div>
-            {/snippet}
-
-            <div class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-9">
-              {@render metricCard('Present', teacher.monthly?.present ?? 0)}
-              {@render metricCard('Absent', teacher.monthly?.absent ?? 0)}
-              {@render metricCard('Leave', teacher.monthly?.leaveDays ?? 0)}
-              {@render metricCard('Half Day', teacher.monthly?.halfDay ?? 0)}
-              {@render metricCard('Attendance %', `${teacher.monthly?.attendancePercent ?? 0}%`, true)}
-              {@render metricCard('Month Leaves', teacher.monthly?.monthLeavesTaken ?? 0)}
-              {@render metricCard('Year Leaves', teacher.monthly?.yearLeavesTaken ?? 0)}
-              {@render metricCard(
-                'Paid Remaining',
-                teacher.monthly?.paidRemaining ?? 0,
-                false,
-                lowBalanceClass(teacher.monthly?.paidRemaining ?? 0)
-              )}
-              {@render metricCard(
-                'Unpaid/Emergency',
-                `${teacher.monthly?.unpaidRemaining ?? 0}/${teacher.monthly?.emergencyRemaining ?? 0}`,
-                false,
-                lowBalanceClass(
-                  Math.min(
-                    teacher.monthly?.unpaidRemaining ?? 0,
-                    teacher.monthly?.emergencyRemaining ?? 0
-                  )
-                )
-              )}
-            </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </div>
-
-  <!-- ─── Teacher Calendar Modal ────────────────────────────────────────── -->
-  {#if selectedTeacherForCalendar}
-    <div class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-3xl rounded-lg shadow-xl">
-
-        <!-- Modal header -->
-        <div class="border-b px-4 py-3 flex items-center justify-between">
-          <h4 class="text-lg font-semibold">
-            {selectedTeacherForCalendar.name} — {MONTH_NAMES[selectedMonthNumber - 1]} {selectedYear}
-          </h4>
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="rounded border px-2 py-1 text-sm"
-              onclick={() => changeCalendarMonth(-1)}
-            >
-              Prev
-            </button>
-            <select
-              class="rounded border px-2 py-1 text-sm"
-              value={selectedMonthNumber}
-              onchange={(e) => {
-                selectedMonthNumber = Number((e.currentTarget as HTMLSelectElement).value);
-                calendarEditingDate = null;
-                calendarEditReason = '';
-                calendarMessage = '';
-              }}
-            >
-              {#each MONTH_NAMES as month, i (month)}
-                <option value={i + 1}>{month}</option>
-              {/each}
-            </select>
-            <select
-              class="rounded border px-2 py-1 text-sm"
-              value={selectedYear}
-              onchange={(e) => {
-                selectedYear = Number((e.currentTarget as HTMLSelectElement).value);
-                calendarEditingDate = null;
-                calendarEditReason = '';
-                calendarMessage = '';
-              }}
-            >
-              {#each yearOptions as year (year)}
-                <option value={year}>{year}</option>
-              {/each}
-            </select>
-            <button
-              type="button"
-              class="rounded border px-2 py-1 text-sm"
-              onclick={() => changeCalendarMonth(1)}
-            >
-              Next
-            </button>
-            <button
-              type="button"
-              class="text-sm px-2 py-1 rounded border"
-              onclick={() => {
-                selectedTeacherForCalendar = null;
-                calendarEditingDate = null;
-                calendarEditReason = '';
-                calendarMessage = '';
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-
-        <!-- Modal body -->
-        <div class="p-4 space-y-4">
-
-          <!-- Summary stats -->
-          <div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-            <div class="rounded border p-2">
-              <p class="text-gray-500">Role</p>
-              <p class="font-semibold">{selectedTeacherForCalendar.position}</p>
-            </div>
-            <div class="rounded border p-2">
-              <p class="text-gray-500">Present Days</p>
-              <p class="font-semibold">
-                {selectedTeacherMonthAttendance.filter((r) => r.status === 'Present').length}
-              </p>
-            </div>
-            <div class="rounded border p-2">
-              <p class="text-gray-500">Leave Days</p>
-              <p class="font-semibold">{selectedTeacherLeaves.length}</p>
-            </div>
-            <div class="rounded border p-2">
-              <p class="text-gray-500">Other Status</p>
-              <p class="font-semibold">
-                {selectedTeacherMonthAttendance.filter(
-                  (r) => r.status !== 'Present' && r.status !== 'Leave'
-                ).length}
-              </p>
-            </div>
-          </div>
-
-          <!-- Calendar grid -->
-          <div>
-            <div class="mb-3 flex flex-wrap gap-2 text-xs">
-              <span class="rounded border border-green-300 bg-green-100 px-2 py-1 text-green-700">Present</span>
-              <span class="rounded border border-red-300 bg-red-100 px-2 py-1 text-red-700">Leave</span>
-              <span class="rounded border border-yellow-300 bg-yellow-100 px-2 py-1 text-yellow-700">Absent / Half Day / Other</span>
-            </div>
-
-            <div class="grid grid-cols-7 gap-2">
-              {#each ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as day (day)}
-                <div class="rounded border bg-slate-50 px-2 py-2 text-center text-xs font-semibold text-slate-600">
-                  {day}
-                </div>
-              {/each}
-
-              {#each calendarDays as cell, i (cell.iso ?? `blank-${i}`)}
-                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                <div
-                  class={`min-h-[78px] rounded border p-2 ${getCalendarTone(cell.status)} ${cell.iso ? 'cursor-pointer' : ''}`}
-                  onclick={() => startCalendarEdit(cell)}
-                  role={cell.iso ? 'button' : undefined}
-                  tabindex={cell.iso ? 0 : undefined}
-                  onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startCalendarEdit(cell); }}
-                >
-                  {#if cell.date}
-                    <p class="text-sm font-semibold">{cell.date.getDate()}</p>
-                    <p class="mt-2 text-[11px] leading-4">{cell.status ?? 'No Mark'}</p>
-                    {#if cell.remarks}
-                      <p class="mt-1 line-clamp-2 text-[10px] leading-4 opacity-80">{cell.remarks}</p>
-                    {/if}
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          </div>
-
-          <!-- Edit panel -->
-          {#if calendarEditingDate}
-            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p class="font-medium">Edit Attendance for {calendarEditingDate}</p>
-                <button
-                  type="button"
-                  class="rounded border px-2 py-1 text-sm"
-                  onclick={() => {
-                    calendarEditingDate = null;
-                    calendarEditReason = '';
-                    calendarMessage = '';
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <div class="grid gap-3 md:grid-cols-[180px_1fr_auto]">
-                <select
-                  class="rounded border px-3 py-2 text-sm"
-                  value={calendarEditStatus}
-                  onchange={(e) =>
-                    (calendarEditStatus = (e.currentTarget as HTMLSelectElement)
-                      .value as AttendanceRecord['status'])}
-                >
-                  <option value="Present">Present</option>
-                  <option value="Absent">Absent</option>
-                  <option value="Leave">Leave</option>
-                  <option value="Half Day">Half Day</option>
-                </select>
-
-                <input
-                  type="text"
-                  class="rounded border px-3 py-2 text-sm"
-                  value={calendarEditReason}
-                  oninput={(e) =>
-                    (calendarEditReason = (e.currentTarget as HTMLInputElement).value)}
-                  placeholder="Reason is required for calendar edits"
-                />
-
-                <button
-                  type="button"
-                  onclick={saveCalendarEdit}
-                  disabled={calendarSaving}
-                  class="rounded bg-slate-900 px-4 py-2 text-sm text-white"
-                >
-                  {calendarSaving ? 'Saving...' : 'Save Change'}
-                </button>
-              </div>
-
-              <p class="mt-2 text-xs text-slate-500">
-                All calendar edits require a reason and are saved directly to attendance records.
-              </p>
-              {#if calendarMessage}
-                <p class="mt-2 text-sm text-blue-700">{calendarMessage}</p>
-              {/if}
+        <!-- Class selector + date -->
+        <div class="flex flex-wrap items-center gap-3">
+          {#if classesLoading}
+            <div class="h-10 w-48 animate-pulse rounded-xl bg-muted"></div>
+          {:else if classes.length === 0}
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">No classes found.</div>
+          {:else}
+            <div class="flex items-center gap-2">
+              <label for="cls-sel" class="text-sm font-medium text-foreground">Class</label>
+              <select
+                id="cls-sel"
+                bind:value={selectedClassId}
+                class="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm outline-none focus:ring-1 focus:ring-primary"
+              >
+                {#each classes as cls (cls._id)}
+                  <option value={cls._id}>{cls.name}{cls.section ? ` — ${cls.section}` : ''}</option>
+                {/each}
+              </select>
             </div>
           {/if}
+        </div>
 
-          <!-- Leave records table -->
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
-              <thead>
-                <tr class="bg-gray-50">
-                  <th class="border px-2 py-2 text-left">Date</th>
-                  <th class="border px-2 py-2 text-left">Type</th>
-                  <th class="border px-2 py-2 text-left">Status</th>
-                  <th class="border px-2 py-2 text-left">Title</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#if selectedTeacherLeaves.filter((l) => l.createdAt?.startsWith(selectedMonth)).length === 0}
-                  <tr>
-                    <td class="border px-2 py-3 text-center text-gray-500" colspan={4}>
-                      No approved leave records found for this month.
-                    </td>
-                  </tr>
-                {:else}
-                  {#each selectedTeacherLeaves.filter((l) => l.createdAt?.startsWith(selectedMonth)) as leave (leave._id)}
-                    <tr>
-                      <td class="border px-2 py-2">{leave.createdAt?.slice(0, 10) ?? '-'}</td>
-                      <td class="border px-2 py-2">{leave.leaveType}</td>
-                      <td class="border px-2 py-2">{leave.status}</td>
-                      <td class="border px-2 py-2">{leave.title ?? '-'}</td>
-                    </tr>
-                  {/each}
-                {/if}
-              </tbody>
-            </table>
+        <!-- Student stats row -->
+        {#if selectedClassId && !studentAttLoading}
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {#snippet sStat(label: string, value: number, tone: string)}
+              <div class="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+                <p class="mt-1 text-2xl font-bold {tone}">{value}</p>
+              </div>
+            {/snippet}
+            {@render sStat('Total Students', studentStats.total, 'text-foreground')}
+            {@render sStat('Present', studentStats.present, 'text-green-600')}
+            {@render sStat('Absent', studentStats.absent, 'text-red-600')}
+            {@render sStat('Unmarked', studentStats.unmarked, studentStats.unmarked > 0 ? 'text-amber-600' : 'text-muted-foreground')}
           </div>
+        {/if}
 
+        <!-- Student action bar -->
+        {#if selectedClassId}
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-sm flex-1 min-w-[160px]">
+              <Search class="h-4 w-4 shrink-0 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search students…"
+                bind:value={studentSearch}
+                class="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+              />
+            </div>
+            {#if studentStats.unmarked > 0}
+              <button
+                type="button"
+                onclick={markAllStudentsPresent}
+                class="flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 shadow-sm"
+              >
+                <CheckCircle2 class="h-4 w-4" />
+                Mark {studentStats.unmarked} Present
+              </button>
+            {/if}
+          </div>
+        {/if}
+
+        <!-- Student list -->
+        {#if studentAttLoading}
+          <div class="space-y-2">
+            {#each [1,2,3,4,5] as _}
+              <div class="h-16 animate-pulse rounded-2xl bg-muted"></div>
+            {/each}
+          </div>
+        {:else if !selectedClassId}
+          <div class="rounded-2xl border border-dashed border-border bg-muted/30 py-16 text-center">
+            <Users class="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+            <p class="text-sm font-semibold text-foreground">Select a class to view students</p>
+          </div>
+        {:else if filteredStudents.length === 0}
+          <div class="rounded-2xl border border-dashed border-border bg-muted/30 py-12 text-center">
+            <Users class="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+            <p class="text-sm text-foreground">{studentSearch ? 'No students match search' : 'No students in this class'}</p>
+          </div>
+        {:else}
+          <div class="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <!-- Table header -->
+            <div class="grid grid-cols-[2rem_1fr_auto] items-center gap-4 border-b border-border bg-muted/40 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>#</span>
+              <span>Student</span>
+              <span>Mark Attendance</span>
+            </div>
+            <!-- Rows -->
+            <div class="divide-y divide-border">
+              {#each filteredStudents as student, i (student._id)}
+                {@const status = studentAtt[student._id]}
+                {@const marking = studentMarking[student._id]}
+                <div class="grid grid-cols-[2rem_1fr_auto] items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/30">
+                  <span class="text-xs text-muted-foreground">{i + 1}</span>
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {student.name[0]?.toUpperCase()}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium text-foreground">{student.name}</p>
+                      {#if student.rollNumber}<p class="text-xs text-muted-foreground">Roll: {student.rollNumber}</p>{/if}
+                    </div>
+                    {#if status}
+                      <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium capitalize {STATUS_COLORS[status.toLowerCase()] ?? 'bg-muted text-muted-foreground border-border'}">
+                        {status}
+                      </span>
+                    {/if}
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    {#each (['Present','Absent','Leave','Half Day'] as const) as s}
+                      <button
+                        type="button"
+                        disabled={marking}
+                        onclick={() => markStudent(student._id, s)}
+                        title={s}
+                        class="rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 {status === s
+                          ? s === 'Present' ? 'border-green-500 bg-green-500 text-white'
+                          : s === 'Absent'  ? 'border-red-500 bg-red-500 text-white'
+                          : s === 'Leave'   ? 'border-amber-500 bg-amber-500 text-white'
+                          : 'border-blue-500 bg-blue-500 text-white'
+                          : s === 'Present' ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
+                          : s === 'Absent'  ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                          : s === 'Leave'   ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                          : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'}"
+                      >
+                        {s === 'Half Day' ? 'H/D' : s[0]}
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {/if}
+    </div>
+
+  <!-- ══════════════════════════════════════════════════ MONTHLY TAB ══════════ -->
+  {:else if mainTab === 'monthly'}
+    <div class="pt-5 space-y-5">
+
+      <!-- Month / Year picker -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <label for="m-year" class="text-sm font-medium text-foreground">Year</label>
+          <select id="m-year" bind:value={selectedYear} onchange={() => { monthlyLoaded = false; fetchMonthly(); }}
+            class="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm outline-none focus:ring-1 focus:ring-primary">
+            {#each yearOptions as y (y)}<option value={y}>{y}</option>{/each}
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="m-month" class="text-sm font-medium text-foreground">Month</label>
+          <select id="m-month" bind:value={selectedMonthNum} onchange={() => { monthlyLoaded = false; fetchMonthly(); }}
+            class="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm outline-none focus:ring-1 focus:ring-primary">
+            {#each MONTH_NAMES as name, i (name)}<option value={i+1}>{name}</option>{/each}
+          </select>
+        </div>
+        <button onclick={() => { monthlyLoaded = false; fetchMonthly(); }}
+          class="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground shadow-sm">
+          <RefreshCw class="h-3.5 w-3.5" /> Refresh
+        </button>
+      </div>
+
+      {#if monthlyLoading}
+        <div class="space-y-3">{#each [1,2,3] as _}<div class="h-28 animate-pulse rounded-2xl bg-muted"></div>{/each}</div>
+      {:else if monthlyStats.length === 0}
+        <div class="rounded-2xl border border-dashed border-border bg-muted/30 py-14 text-center">
+          <BarChart3 class="mx-auto mb-3 h-9 w-9 text-muted-foreground/50" />
+          <p class="text-sm font-semibold text-foreground">No monthly data</p>
+          <p class="mt-1 text-xs text-muted-foreground">Select a month and click Refresh.</p>
+        </div>
+      {:else}
+        <!-- Summary strip -->
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {#snippet mCard(label: string, val: string|number, tone: string)}
+            <div class="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+              <p class="mt-1 text-2xl font-bold {tone}">{val}</p>
+            </div>
+          {/snippet}
+          {@render mCard('Staff Tracked', monthlyStats.length, 'text-foreground')}
+          {@render mCard('Avg. Attd. %', `${monthlyAvgPercent}%`, monthlyAvgPercent >= 80 ? 'text-green-600' : monthlyAvgPercent >= 60 ? 'text-amber-600' : 'text-red-600')}
+          {@render mCard('Month', MONTH_NAMES[selectedMonthNum-1], 'text-foreground')}
+          {@render mCard('Year', selectedYear, 'text-foreground')}
+        </div>
+
+        <!-- Calendar heatmap -->
+        <SchoolCalendar
+          {teacherAttendanceMap}
+          year={selectedYear}
+          month={selectedMonthNum}
+          onMonthChange={(y, m) => { selectedYear = y; selectedMonthNum = m; monthlyLoaded = false; fetchMonthly(); }}
+          onSelectDay={(iso) => { selectedDate = iso; mainTab = 'daily'; }}
+        />
+
+        <!-- Per-teacher rows -->
+        <div class="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div class="border-b border-border bg-muted/40 px-5 py-3">
+            <p class="text-sm font-semibold text-foreground">Staff Breakdown — {MONTH_NAMES[selectedMonthNum-1]} {selectedYear}</p>
+          </div>
+          <div class="divide-y divide-border">
+            {#each monthlyStats as stat (stat.staffId)}
+              <div class="flex flex-wrap items-center gap-4 px-5 py-3">
+                <div class="flex items-center gap-3 min-w-[180px]">
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                    {stat.name[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-foreground">{stat.name}</p>
+                    <p class="text-xs text-muted-foreground">{stat.position}</p>
+                  </div>
+                </div>
+                <!-- Stat chips -->
+                <div class="flex flex-wrap gap-1.5">
+                  {#snippet chip(label: string, val: number|string, cls: string)}
+                    <span class="rounded-lg border px-2 py-1 text-xs font-semibold {cls}">{label}: {val}</span>
+                  {/snippet}
+                  {@render chip('P', stat.present, 'border-green-200 bg-green-50 text-green-700')}
+                  {@render chip('A', stat.absent, 'border-red-200 bg-red-50 text-red-700')}
+                  {@render chip('L', stat.leaveDays, 'border-amber-200 bg-amber-50 text-amber-700')}
+                  {@render chip('H', stat.halfDay, 'border-blue-200 bg-blue-50 text-blue-700')}
+                  {@render chip('%', `${stat.attendancePercent}%`, stat.attendancePercent >= 80 ? 'border-green-200 bg-green-50 text-green-700' : stat.attendancePercent >= 60 ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-red-200 bg-red-50 text-red-700')}
+                </div>
+                <!-- Leave balance -->
+                <div class="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span class="font-medium text-foreground">Leave balance:</span>
+                  <span class="rounded-full px-2 py-0.5 {stat.paidRemaining <= 2 ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'}">Paid {stat.paidRemaining}</span>
+                  <span class="rounded-full px-2 py-0.5 bg-muted text-muted-foreground">Unpaid {stat.unpaidRemaining}</span>
+                </div>
+                <!-- Calendar button -->
+                <button
+                  type="button"
+                  onclick={() => (slideoverTeacher = { staffId: stat.staffId, name: stat.name, position: stat.position })}
+                  class="flex items-center gap-1.5 rounded-xl border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  <CalendarDays class="h-3.5 w-3.5" /> Calendar
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
+
+  <!-- ══════════════════════════════════════════════════ REPORTS TAB ══════════ -->
+  {:else if mainTab === 'reports'}
+    <div class="pt-5 space-y-5">
+
+      <!-- Date range picker -->
+      <div class="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4">
+        <p class="text-sm font-semibold text-foreground">Date Range</p>
+        <div class="flex flex-wrap items-end gap-4">
+          <div>
+            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">From</label>
+            <input type="date" bind:value={reportStart}
+              class="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">To</label>
+            <input type="date" bind:value={reportEnd}
+              class="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          <p class="text-xs text-muted-foreground">
+            {Math.max(0, Math.round((new Date(reportEnd).getTime() - new Date(reportStart).getTime()) / 86400000))} days selected
+          </p>
         </div>
       </div>
+
+      <!-- Download options -->
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {#snippet dlCard(title: string, desc: string, icon: string, kind: string)}
+          <div class="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-3">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">{icon}</span>
+              <div>
+                <p class="text-sm font-semibold text-foreground">{title}</p>
+                <p class="text-xs text-muted-foreground">{desc}</p>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button type="button"
+                onclick={() => alert('PDF export coming soon')}
+                class="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+                <Download class="h-3.5 w-3.5" /> PDF
+              </button>
+              <button type="button"
+                onclick={() => alert('Excel export coming soon')}
+                class="flex items-center gap-1.5 rounded-xl border border-border bg-muted/50 px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors">
+                <Download class="h-3.5 w-3.5" /> Excel
+              </button>
+            </div>
+          </div>
+        {/snippet}
+        {@render dlCard('Staff Report', 'Teacher attendance for selected date range', '👨‍🏫', 'staff')}
+        {@render dlCard('Student Report', 'Class-wise student attendance', '🎓', 'student')}
+        {@render dlCard('Monthly Summary', 'Month-by-month staff summary', '📅', 'monthly')}
+        {@render dlCard('Leave Report', 'Leave balances and utilisation', '🗓️', 'leave')}
+      </div>
+
+      <!-- Info note -->
+      <div class="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+        <AlertCircle class="h-4 w-4 mt-0.5 shrink-0 text-blue-500" />
+        <p class="text-xs text-blue-700">Export functionality will generate reports for the selected date range ({reportStart} to {reportEnd}).</p>
+      </div>
+    </div>
+
+  <!-- ══════════════════════════════════════════════════ SETTINGS TAB ═════════ -->
+  {:else if mainTab === 'settings'}
+    <div class="pt-5 space-y-5">
+      <div>
+        <h2 class="text-base font-semibold text-foreground">Geofence Configuration</h2>
+        <p class="mt-0.5 text-sm text-muted-foreground">Set school location and radius for GPS-based self-attendance marking.</p>
+      </div>
+      {#if schoolId}
+        <GeofenceCard {schoolId} />
+      {:else}
+        <div class="rounded-2xl border border-dashed border-border bg-muted/30 py-10 text-center">
+          <MapPin class="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+          <p class="text-sm text-muted-foreground">School ID not found.</p>
+        </div>
+      {/if}
     </div>
   {/if}
 
 </div>
+
+<!-- ─── Teacher calendar slide-over ─────────────────────────────────────────── -->
+{#if slideoverTeacher}
+  <TeacherCalendarPanel
+    teacher={slideoverTeacher}
+    year={selectedYear}
+    month={selectedMonthNum}
+    attendanceRecords={teacherAttendanceMap[slideoverTeacher.staffId] ?? []}
+    leaveRecords={teacherLeavesMap[slideoverTeacher.staffId] ?? []}
+    {schoolId}
+    onClose={() => (slideoverTeacher = null)}
+    onUpdate={() => { monthlyLoaded = false; monthlyRefreshKey++; }}
+  />
+{/if}

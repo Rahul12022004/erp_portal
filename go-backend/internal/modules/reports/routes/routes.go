@@ -17,9 +17,8 @@ func Register(app *fiber.App) {
 	)
 	auth := middleware.Authenticate
 
-	g := app.Group("/api/reports", auth)
-	g.Get("/students/strength",   h.StudentStrength)
-	g.Get("/finance/collection",  h.FeeCollection)
-	g.Get("/attendance/summary",  h.AttendanceSummary)
-	g.Get("/staff",               h.StaffReport)
+	app.Get("/api/reports/students/strength",  auth, h.StudentStrength)
+	app.Get("/api/reports/finance/collection", auth, h.FeeCollection)
+	app.Get("/api/reports/attendance/summary", auth, h.AttendanceSummary)
+	app.Get("/api/reports/staff",              auth, h.StaffReport)
 }

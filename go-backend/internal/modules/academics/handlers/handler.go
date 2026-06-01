@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/erp-portal/go-backend/internal/modules/academics/domain"
 	"github.com/erp-portal/go-backend/internal/modules/academics/repositories"
@@ -45,6 +47,18 @@ func ctx10s() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 10*time.Second)
 }
 
+func bsonInt(d bson.M, key string) int {
+	switch v := d[key].(type) {
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	}
+	return 0
+}
+
 // ─── Classes ─────────────────────────────────────────────────────────────────
 
 // GET /api/classes?schoolId=
@@ -64,10 +78,13 @@ func (h *Handler) GetClass(c *fiber.Ctx) error {
 	defer cancel()
 	id := c.Params("id")
 	cl, err := h.classes.FindByID(ctx, id)
-	if err == nil && cl != nil {
+	if err != nil {
+		return response.InternalError(c, err.Error())
+	}
+	if cl != nil {
 		return response.OK(c, cl)
 	}
-	// Fallback: treat the param as a schoolId and return the list
+	// cl == nil: no document matched this ObjectID — treat param as schoolId
 	list, err := h.classes.FindBySchool(ctx, id)
 	if err != nil {
 		return response.InternalError(c, err.Error())
@@ -77,13 +94,39 @@ func (h *Handler) GetClass(c *fiber.Ctx) error {
 
 // POST /api/classes
 func (h *Handler) CreateClass(c *fiber.Ctx) error {
-	var cl domain.Class
-	if err := c.BodyParser(&cl); err != nil {
-		return response.BadRequest(c, "invalid body")
+	var req struct {
+		SchoolID       string   `json:"schoolId"`
+		Name           string   `json:"name"`
+		Section        string   `json:"section"`
+		Stream         string   `json:"stream"`
+		AcademicYear   string   `json:"academicYear"`
+		Description    string   `json:"description"`
+		ClassCode      string   `json:"classCode"`
+		MeetLink       string   `json:"meetLink"`
+		ClassTeacherID string   `json:"classTeacher"`
+		AssignedTeachers []string `json:"assignedTeachers"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
+	}
+	if req.Name == "" {
+		return response.BadRequest(c, "name required")
+	}
+	cl := &domain.Class{
+		SchoolID:       req.SchoolID,
+		Name:           req.Name,
+		Section:        req.Section,
+		Stream:         req.Stream,
+		AcademicYear:   req.AcademicYear,
+		Description:    req.Description,
+		ClassCode:      req.ClassCode,
+		MeetLink:       req.MeetLink,
+		ClassTeacherID: req.ClassTeacherID,
+		AssignedTeachers: req.AssignedTeachers,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	created, err := h.classes.Create(ctx, &cl)
+	created, err := h.classes.Create(ctx, cl)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -92,9 +135,25 @@ func (h *Handler) CreateClass(c *fiber.Ctx) error {
 
 // PUT /api/classes/:id
 func (h *Handler) UpdateClass(c *fiber.Ctx) error {
-	var updates map[string]interface{}
-	if err := c.BodyParser(&updates); err != nil {
+	var req struct {
+		Name             string   `json:"name"`
+		Section          string   `json:"section"`
+		Stream           string   `json:"stream"`
+		AcademicYear     string   `json:"academicYear"`
+		Description      string   `json:"description"`
+		ClassCode        string   `json:"classCode"`
+		MeetLink         string   `json:"meetLink"`
+		ClassTeacherID   string   `json:"classTeacher"`
+		AssignedTeachers []string `json:"assignedTeachers"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
 		return response.BadRequest(c, "invalid body")
+	}
+	updates := map[string]interface{}{
+		"name": req.Name, "section": req.Section, "stream": req.Stream,
+		"academicYear": req.AcademicYear, "description": req.Description,
+		"classCode": req.ClassCode, "meetLink": req.MeetLink,
+		"classTeacher": req.ClassTeacherID, "assignedTeachers": req.AssignedTeachers,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
@@ -131,13 +190,25 @@ func (h *Handler) GetAttendance(c *fiber.Ctx) error {
 
 // POST /api/attendance
 func (h *Handler) MarkAttendance(c *fiber.Ctx) error {
-	var a domain.Attendance
-	if err := c.BodyParser(&a); err != nil {
-		return response.BadRequest(c, "invalid body")
+	var req struct {
+		SchoolID  string `json:"schoolId"`
+		StudentID string `json:"studentId"`
+		StaffID   string `json:"staffId"`
+		ClassID   string `json:"classId"`
+		Date      string `json:"date"`
+		Status    string `json:"status"`
+		Remarks   string `json:"remarks"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
+	}
+	a := &domain.Attendance{
+		SchoolID: req.SchoolID, StudentID: req.StudentID, StaffID: req.StaffID,
+		Date: req.Date, Status: req.Status, Remarks: req.Remarks,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	saved, err := h.attendance.Upsert(ctx, &a)
+	saved, err := h.attendance.Upsert(ctx, a)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -159,13 +230,31 @@ func (h *Handler) ListExams(c *fiber.Ctx) error {
 
 // POST /api/exams
 func (h *Handler) CreateExam(c *fiber.Ctx) error {
-	var e domain.Exam
-	if err := c.BodyParser(&e); err != nil {
-		return response.BadRequest(c, "invalid body")
+	var req struct {
+		SchoolID   string  `json:"schoolId"`
+		ClassID    string  `json:"classId"`
+		ClassName  string  `json:"className"`
+		Title      string  `json:"title"`
+		ExamType   string  `json:"examType"`
+		Subject    string  `json:"subject"`
+		ExamDate   string  `json:"examDate"`
+		StartTime  string  `json:"startTime"`
+		EndTime    string  `json:"endTime"`
+		TotalMarks float64 `json:"totalMarks"`
+		PassMarks  float64 `json:"passMarks"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
+	}
+	e := &domain.Exam{
+		SchoolID: req.SchoolID, ClassID: req.ClassID, ClassName: req.ClassName,
+		Title: req.Title, ExamType: req.ExamType, Subject: req.Subject,
+		ExamDate: req.ExamDate, StartTime: req.StartTime, EndTime: req.EndTime,
+		TotalMarks: req.TotalMarks, PassMarks: req.PassMarks,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	created, err := h.exams.Create(ctx, &e)
+	created, err := h.exams.Create(ctx, e)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -174,9 +263,25 @@ func (h *Handler) CreateExam(c *fiber.Ctx) error {
 
 // PUT /api/exams/:id
 func (h *Handler) UpdateExam(c *fiber.Ctx) error {
-	var updates map[string]interface{}
-	if err := c.BodyParser(&updates); err != nil {
+	var req struct {
+		Name        string `json:"name"`
+		Subject     string `json:"subject"`
+		ExamDate    string `json:"examDate"`
+		StartTime   string `json:"startTime"`
+		EndTime     string `json:"endTime"`
+		MaxMarks    int    `json:"maxMarks"`
+		PassMarks   int    `json:"passMarks"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
 		return response.BadRequest(c, "invalid body")
+	}
+	updates := map[string]interface{}{
+		"name": req.Name, "subject": req.Subject, "examDate": req.ExamDate,
+		"startTime": req.StartTime, "endTime": req.EndTime,
+		"maxMarks": req.MaxMarks, "passMarks": req.PassMarks,
+		"description": req.Description, "status": req.Status,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
@@ -302,13 +407,28 @@ func (h *Handler) GetMarksForExam(c *fiber.Ctx) error {
 
 // POST /api/marks
 func (h *Handler) SaveMark(c *fiber.Ctx) error {
-	var m domain.Mark
-	if err := c.BodyParser(&m); err != nil {
-		return response.BadRequest(c, "invalid body")
+	var req struct {
+		SchoolID   string  `json:"schoolId"`
+		ExamID     string  `json:"examId"`
+		StudentID  string  `json:"studentId"`
+		ClassID    string  `json:"classId"`
+		Subject    string  `json:"subject"`
+		MarksObt   float64 `json:"marksObt"`
+		TotalMarks float64 `json:"totalMarks"`
+		Grade      string  `json:"grade"`
+		Remarks    string  `json:"remarks"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
+	}
+	m := &domain.Mark{
+		SchoolID: req.SchoolID, ExamID: req.ExamID, StudentID: req.StudentID,
+		ClassID: req.ClassID, Subject: req.Subject, MarksObt: req.MarksObt,
+		TotalMarks: req.TotalMarks, Grade: req.Grade, Remarks: req.Remarks,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	saved, err := h.marks.Upsert(ctx, &m)
+	saved, err := h.marks.Upsert(ctx, m)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -338,9 +458,10 @@ func (h *Handler) GetTeacherDailyAttendance(c *fiber.Ctx) error {
 		}
 	}
 
-	// Fetch all staff for school
+	// Fetch all staff for school (projection: only fields we use)
 	sid, _ := primitive.ObjectIDFromHex(schoolID)
-	staffCur, err := h.staffCol.Find(ctx, bson.M{"schoolId": sid})
+	staffCur, err := h.staffCol.Find(ctx, bson.M{"schoolId": sid},
+		options.Find().SetProjection(bson.M{"name": 1, "position": 1}).SetLimit(500))
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -504,13 +625,24 @@ func (h *Handler) GetSelfAttendance(c *fiber.Ctx) error {
 
 // POST /api/attendance/students
 func (h *Handler) MarkStudentAttendance(c *fiber.Ctx) error {
-	var a domain.Attendance
-	if err := c.BodyParser(&a); err != nil {
-		return response.BadRequest(c, "invalid body")
+	var req struct {
+		SchoolID  string `json:"schoolId"`
+		StudentID string `json:"studentId"`
+		ClassID   string `json:"classId"`
+		Date      string `json:"date"`
+		Status    string `json:"status"`
+		Remarks   string `json:"remarks"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
+	}
+	a := &domain.Attendance{
+		SchoolID: req.SchoolID, StudentID: req.StudentID,
+		Date: req.Date, Status: req.Status, Remarks: req.Remarks,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	saved, err := h.attendance.Upsert(ctx, &a)
+	saved, err := h.attendance.Upsert(ctx, a)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -530,7 +662,7 @@ func (h *Handler) MarkSelfAttendance(c *fiber.Ctx) error {
 			Accuracy  float64 `json:"accuracy"`
 		} `json:"location"`
 	}
-	if err := c.BodyParser(&body); err != nil {
+	if err := json.Unmarshal(c.Body(), &body); err != nil {
 		return response.BadRequest(c, "invalid body")
 	}
 	if body.TeacherID == "" || body.SchoolID == "" || body.Date == "" || body.Status == "" {
@@ -544,11 +676,14 @@ func (h *Handler) MarkSelfAttendance(c *fiber.Ctx) error {
 		Status:   body.Status,
 	}
 
+	ctx, cancel := ctx10s()
+	defer cancel()
+
 	// Geofence check
 	if body.Location != nil && h.schoolsCol != nil {
 		sid, _ := primitive.ObjectIDFromHex(body.SchoolID)
 		var schoolDoc bson.M
-		if err := h.schoolsCol.FindOne(c.Context(), bson.M{"_id": sid}).Decode(&schoolDoc); err == nil {
+		if err := h.schoolsCol.FindOne(ctx, bson.M{"_id": sid}).Decode(&schoolDoc); err == nil {
 			if info, ok := schoolDoc["schoolInfo"].(bson.M); ok {
 				if loc, ok := info["location"].(bson.M); ok {
 					sLat, _ := loc["latitude"].(float64)
@@ -565,8 +700,6 @@ func (h *Handler) MarkSelfAttendance(c *fiber.Ctx) error {
 		}
 	}
 
-	ctx, cancel := ctx10s()
-	defer cancel()
 	saved, err := h.attendance.UpsertSelf(ctx, a)
 	if err != nil {
 		return response.InternalError(c, err.Error())
@@ -588,7 +721,7 @@ func (h *Handler) LockSelfAttendance(c *fiber.Ctx) error {
 		SchoolID  string `json:"schoolId"`
 		Date      string `json:"date"`
 	}
-	if err := c.BodyParser(&body); err != nil {
+	if err := json.Unmarshal(c.Body(), &body); err != nil {
 		return response.BadRequest(c, "invalid body")
 	}
 	ctx, cancel := ctx10s()
@@ -624,13 +757,31 @@ func (h *Handler) ListSubjects(c *fiber.Ctx) error {
 
 // POST /api/subjects
 func (h *Handler) CreateSubject(c *fiber.Ctx) error {
-	var s domain.Subject
-	if err := c.BodyParser(&s); err != nil {
-		return response.BadRequest(c, "invalid body")
+	var req struct {
+		SchoolID    string `json:"schoolId"`
+		ClassID     string `json:"classId"`
+		Name        string `json:"name"`
+		Code        string `json:"code"`
+		Description string `json:"description"`
+		TeacherID   string `json:"teacherId"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
+	}
+	if req.Name == "" {
+		return response.BadRequest(c, "name required")
+	}
+	s := &domain.Subject{
+		SchoolID:    req.SchoolID,
+		ClassID:     req.ClassID,
+		Name:        req.Name,
+		Code:        req.Code,
+		Description: req.Description,
+		TeacherID:   req.TeacherID,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	created, err := h.subjects.Create(ctx, &s)
+	created, err := h.subjects.Create(ctx, s)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -660,18 +811,80 @@ func (h *Handler) ListAssignments(c *fiber.Ctx) error {
 	if list == nil {
 		list = []*domain.Assignment{}
 	}
+
+	// Batch-count submissions per assignment
+	if len(list) > 0 {
+		ids := make([]primitive.ObjectID, 0, len(list))
+		for _, a := range list {
+			if oid, e := primitive.ObjectIDFromHex(a.ID); e == nil {
+				ids = append(ids, oid)
+			}
+		}
+		pipeline := mongo.Pipeline{
+			{{Key: "$match", Value: bson.M{"assignmentId": bson.M{"$in": ids}}}},
+			{{Key: "$group", Value: bson.M{
+				"_id":    "$assignmentId",
+				"total":  bson.M{"$sum": 1},
+				"graded": bson.M{"$sum": bson.M{"$cond": []interface{}{bson.M{"$eq": []interface{}{"$status", "GRADED"}}, 1, 0}}},
+			}}},
+		}
+		if cntCur, cntErr := h.submissions.Col().Aggregate(ctx, pipeline); cntErr == nil {
+			defer cntCur.Close(ctx)
+			totals, gradeds := map[string]int{}, map[string]int{}
+			for cntCur.Next(ctx) {
+				var row bson.M
+				if cntCur.Decode(&row) == nil {
+					if id, ok := row["_id"].(primitive.ObjectID); ok {
+						totals[id.Hex()] = bsonInt(row, "total")
+						gradeds[id.Hex()] = bsonInt(row, "graded")
+					}
+				}
+			}
+			for _, a := range list {
+				a.SubmissionsTotal = totals[a.ID]
+				a.SubmissionsGraded = gradeds[a.ID]
+			}
+		}
+	}
+
 	return response.OK(c, list)
 }
 
 // POST /api/assignments
 func (h *Handler) CreateAssignment(c *fiber.Ctx) error {
-	var a domain.Assignment
-	if err := c.BodyParser(&a); err != nil {
-		return response.BadRequest(c, "invalid body")
+	var req struct {
+		SchoolID     string  `json:"schoolId"`
+		ClassID      string  `json:"classId"`
+		ClassName    string  `json:"className"`
+		TeacherID    string  `json:"teacherId"`
+		Title        string  `json:"title"`
+		Instructions string  `json:"instructions"`
+		Subject      string  `json:"subject"`
+		DueDate      string  `json:"dueDate"`
+		TotalPoints  float64 `json:"totalPoints"`
+		Status       string  `json:"status"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
+	}
+	if req.Title == "" {
+		return response.BadRequest(c, "title required")
+	}
+	a := &domain.Assignment{
+		SchoolID:     req.SchoolID,
+		ClassID:      req.ClassID,
+		ClassName:    req.ClassName,
+		TeacherID:    req.TeacherID,
+		Title:        req.Title,
+		Instructions: req.Instructions,
+		Subject:      req.Subject,
+		DueDate:      req.DueDate,
+		TotalPoints:  req.TotalPoints,
+		Status:       req.Status,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	created, err := h.assignments.Create(ctx, &a)
+	created, err := h.assignments.Create(ctx, a)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -699,21 +912,94 @@ func (h *Handler) ListSubmissions(c *fiber.Ctx) error {
 	if list == nil {
 		list = []*domain.AssignmentSubmission{}
 	}
-	return response.OK(c, list)
+
+	// Populate studentId as an object by looking up each student
+	type studentInfo struct {
+		ID         string `json:"_id"`
+		Name       string `json:"name"`
+		RollNumber string `json:"rollNumber"`
+	}
+	type populatedSub struct {
+		ID           string      `json:"_id"`
+		AssignmentID string      `json:"assignmentId"`
+		StudentID    studentInfo `json:"studentId"`
+		Content      string      `json:"content"`
+		Status       string      `json:"status"`
+		GradePoints  *float64    `json:"gradePoints"`
+		GradeComment string      `json:"gradeComment"`
+		SubmittedAt  interface{} `json:"submittedAt"`
+		CreatedAt    interface{} `json:"createdAt"`
+	}
+
+	// Batch-fetch all student docs in one query to avoid N+1 round-trips
+	studentDocs := map[string]bson.M{}
+	if h.studentsCol != nil {
+		var ids []primitive.ObjectID
+		for _, sub := range list {
+			if sub.StudentID != "" {
+				if oid, e := primitive.ObjectIDFromHex(sub.StudentID); e == nil {
+					ids = append(ids, oid)
+				}
+			}
+		}
+		if len(ids) > 0 {
+			sCur, e := h.studentsCol.Find(ctx, bson.M{"_id": bson.M{"$in": ids}},
+				options.Find().SetProjection(bson.M{"name": 1, "rollNumber": 1}))
+			if e == nil {
+				defer sCur.Close(ctx)
+				for sCur.Next(ctx) {
+					var s bson.M
+					if sCur.Decode(&s) == nil {
+						if oid, ok := s["_id"].(primitive.ObjectID); ok {
+							studentDocs[oid.Hex()] = s
+						}
+					}
+				}
+			}
+		}
+	}
+
+	populated := make([]populatedSub, 0, len(list))
+	for _, sub := range list {
+		ps := populatedSub{
+			ID:           sub.ID,
+			AssignmentID: sub.AssignmentID,
+			StudentID:    studentInfo{ID: sub.StudentID, Name: sub.StudentName},
+			Content:      sub.Content,
+			Status:       sub.Status,
+			GradePoints:  sub.GradePoints,
+			GradeComment: sub.GradeComment,
+			SubmittedAt:  sub.SubmittedAt,
+			CreatedAt:    sub.CreatedAt,
+		}
+		if s, ok := studentDocs[sub.StudentID]; ok {
+			ps.StudentID.Name, _ = s["name"].(string)
+			ps.StudentID.RollNumber, _ = s["rollNumber"].(string)
+		}
+		if ps.StudentID.Name == "" {
+			ps.StudentID.Name = sub.StudentName
+		}
+		populated = append(populated, ps)
+	}
+
+	return response.OK(c, fiber.Map{
+		"submissions": populated,
+		"pending":     []interface{}{},
+	})
 }
 
-// PUT /api/assignments/:id/grade/:submissionId
+// POST /api/assignments/:id/grade/:submissionId
 func (h *Handler) GradeSubmission(c *fiber.Ctx) error {
 	var body struct {
-		Grade    string `json:"grade"`
-		Feedback string `json:"feedback"`
+		GradePoints  float64 `json:"gradePoints"`
+		GradeComment string  `json:"gradeComment"`
 	}
-	if err := c.BodyParser(&body); err != nil {
+	if err := json.Unmarshal(c.Body(), &body); err != nil {
 		return response.BadRequest(c, "invalid body")
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	sub, err := h.submissions.Grade(ctx, c.Params("submissionId"), body.Grade, body.Feedback)
+	sub, err := h.submissions.Grade(ctx, c.Params("submissionId"), body.GradePoints, body.GradeComment)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -738,13 +1024,35 @@ func (h *Handler) ListMaterials(c *fiber.Ctx) error {
 
 // POST /api/materials
 func (h *Handler) CreateMaterial(c *fiber.Ctx) error {
-	var m domain.Material
-	if err := c.BodyParser(&m); err != nil {
-		return response.BadRequest(c, "invalid body")
+	var req struct {
+		SchoolID    string `json:"schoolId"`
+		ClassID     string `json:"classId"`
+		TeacherID   string `json:"teacherId"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Type        string `json:"type"`
+		URL         string `json:"url"`
+		Subject     string `json:"subject"`
+	}
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
+	}
+	if req.Title == "" {
+		return response.BadRequest(c, "title required")
+	}
+	m := &domain.Material{
+		SchoolID:    req.SchoolID,
+		ClassID:     req.ClassID,
+		TeacherID:   req.TeacherID,
+		Title:       req.Title,
+		Description: req.Description,
+		Type:        req.Type,
+		URL:         req.URL,
+		Subject:     req.Subject,
 	}
 	ctx, cancel := ctx10s()
 	defer cancel()
-	created, err := h.materials.Create(ctx, &m)
+	created, err := h.materials.Create(ctx, m)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}

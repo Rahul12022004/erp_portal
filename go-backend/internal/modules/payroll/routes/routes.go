@@ -15,15 +15,13 @@ func Register(app *fiber.App) {
 	h          := handlers.New(repo, salaryRepo)
 	auth       := middleware.Authenticate
 
-	g := app.Group("/api/payroll", auth)
-	g.Get("",              h.List)
-	g.Post("",             h.Create)
-	g.Put("/:id",          h.Update)
-	g.Post("/:id/pay",     h.MarkPaid)
+	app.Get("/api/payroll",         auth, h.List)
+	app.Post("/api/payroll",        auth, h.Create)
+	app.Put("/api/payroll/:id",     auth, h.Update)
+	app.Post("/api/payroll/:id/pay", auth, h.MarkPaid)
 
-	ss := app.Group("/api/salary-structures", auth)
-	ss.Get("/:schoolId",          h.ListSalaryStructures)
-	ss.Post("/:schoolId",         h.CreateSalaryStructure)
-	ss.Put("/:schoolId/:id",      h.UpdateSalaryStructure)
-	ss.Delete("/:schoolId/:id",   h.DeleteSalaryStructure)
+	app.Get("/api/salary-structures/:schoolId",       auth, h.ListSalaryStructures)
+	app.Post("/api/salary-structures/:schoolId",      auth, h.CreateSalaryStructure)
+	app.Put("/api/salary-structures/:schoolId/:id",   auth, h.UpdateSalaryStructure)
+	app.Delete("/api/salary-structures/:schoolId/:id", auth, h.DeleteSalaryStructure)
 }

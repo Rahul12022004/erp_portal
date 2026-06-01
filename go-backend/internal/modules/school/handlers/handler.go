@@ -182,8 +182,8 @@ func (h *SchoolHandler) UpdateLocation(c *fiber.Ctx) error {
 		Longitude    float64 `json:"longitude"`
 		RadiusMeters float64 `json:"radiusMeters"`
 	}
-	if err := c.BodyParser(&body); err != nil {
-		return response.BadRequest(c, "invalid body")
+	if err := json.Unmarshal(c.Body(), &body); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
 	}
 	school, err := h.svc.UpdateLocation(c.Context(), c.Params("id"), body.Latitude, body.Longitude, body.RadiusMeters)
 	if err != nil {
@@ -197,8 +197,8 @@ func (h *SchoolHandler) UpdateLocationLock(c *fiber.Ctx) error {
 	var body struct {
 		Locked bool `json:"locked"`
 	}
-	if err := c.BodyParser(&body); err != nil {
-		return response.BadRequest(c, "invalid body")
+	if err := json.Unmarshal(c.Body(), &body); err != nil {
+		return response.BadRequest(c, "invalid body: "+err.Error())
 	}
 	school, err := h.svc.UpdateLocationLock(c.Context(), c.Params("id"), body.Locked)
 	if err != nil {

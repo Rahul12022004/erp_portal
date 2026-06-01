@@ -143,7 +143,7 @@
   const schoolMenuGroups = [
     { label: 'Overview', items: ['Dashboard'] },
     { label: 'Academics', items: ['Communication', 'Academics', 'Attendance', 'Classes', 'Students', 'Staff', 'Exams', 'Time Table'] },
-    { label: 'Administration', items: ['Finance', 'Payroll', 'Admissions', 'Visitor', 'HR', 'Transport', 'Hostel', 'Library', 'Inventory', 'Social Media', 'Data Import'] },
+    { label: 'Administration', items: ['Finance', 'Admissions', 'Visitor', 'HR', 'Transport', 'Hostel', 'Library', 'Inventory', 'Social Media', 'Data Import'] },
     { label: 'Services', items: ['Sports', 'House'] },
     { label: 'Management', items: ['Notifications', 'Reports', 'Approvals', 'Maintenance', 'Survey', 'Downloads', 'Support', 'Logs', 'Settings'] },
   ];

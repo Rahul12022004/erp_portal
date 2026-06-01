@@ -45,9 +45,11 @@ async function request<T>(
       .catch(() => ({ message: response.statusText })) as { message?: string; error?: string };
     const msg = err.error ?? err.message ?? `HTTP ${response.status}`;
 
-    // Expired or invalid session — redirect to login.
+    // Expired/invalid JWT — hard-navigate to /logout so all cookies are cleared
+    // before redirecting to login. Using /login directly loops back here because
+    // the session cookie stays valid even when the JWT is stale.
     if (response.status === 401 && typeof window !== 'undefined') {
-      window.location.href = '/login';
+      window.location.href = '/logout';
     }
 
     throw new ApiError(response.status, msg);

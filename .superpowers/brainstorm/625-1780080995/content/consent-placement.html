@@ -1,0 +1,86 @@
+<h2>Cookie Consent — Where should it appear?</h2>
+<p class="subtitle">Pick the placement that feels right for your login flow</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="modal" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border-radius:8px;padding:12px;position:relative;min-height:160px;overflow:hidden;">
+        <!-- Login form blurred in background -->
+        <div style="opacity:0.25;filter:blur(2px);">
+          <div style="background:#e2e8f0;height:10px;border-radius:4px;margin-bottom:6px;width:60%;margin-left:20%;"></div>
+          <div style="background:#e2e8f0;height:8px;border-radius:4px;margin-bottom:4px;"></div>
+          <div style="background:#e2e8f0;height:8px;border-radius:4px;margin-bottom:4px;width:80%;"></div>
+          <div style="background:#3b82f6;height:24px;border-radius:4px;margin-top:8px;"></div>
+        </div>
+        <!-- Modal overlay -->
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+          <div style="background:white;border-radius:8px;padding:12px;width:85%;box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+            <div style="font-size:11px;font-weight:700;color:#1e293b;margin-bottom:4px;">🍪 We use cookies</div>
+            <div style="font-size:9px;color:#64748b;margin-bottom:8px;line-height:1.4;">This site uses essential cookies for authentication and session management.</div>
+            <div style="display:flex;gap:6px;">
+              <div style="background:#3b82f6;color:white;font-size:9px;padding:4px 8px;border-radius:4px;font-weight:600;flex:1;text-align:center;">Accept</div>
+              <div style="background:#f1f5f9;color:#64748b;font-size:9px;padding:4px 8px;border-radius:4px;font-weight:600;flex:1;text-align:center;">Decline</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Modal Popup</h3>
+      <p>Blocks the login form until consent is given. Maximally clear — user must consciously accept or decline before proceeding.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="banner" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border-radius:8px;padding:12px;position:relative;min-height:160px;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;">
+        <!-- Login form visible -->
+        <div>
+          <div style="background:#e2e8f0;height:10px;border-radius:4px;margin-bottom:6px;width:60%;margin-left:20%;"></div>
+          <div style="background:#e2e8f0;height:8px;border-radius:4px;margin-bottom:4px;"></div>
+          <div style="background:#e2e8f0;height:8px;border-radius:4px;margin-bottom:4px;width:80%;"></div>
+          <div style="background:#3b82f6;height:24px;border-radius:4px;margin-top:8px;"></div>
+        </div>
+        <!-- Bottom banner -->
+        <div style="background:#1e293b;border-radius:6px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+          <div style="font-size:8px;color:#e2e8f0;line-height:1.4;flex:1;">🍪 We use cookies for login sessions.</div>
+          <div style="display:flex;gap:4px;flex-shrink:0;">
+            <div style="background:#3b82f6;color:white;font-size:8px;padding:3px 6px;border-radius:3px;font-weight:600;">Accept</div>
+            <div style="background:#475569;color:#e2e8f0;font-size:8px;padding:3px 6px;border-radius:3px;font-weight:600;">Decline</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Bottom Banner</h3>
+      <p>GDPR-style sticky bar at the bottom. Non-intrusive — user can see the login form and the consent notice at the same time.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="inline" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border-radius:8px;padding:12px;min-height:160px;">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="font-size:9px;font-weight:700;color:#1e40af;margin-bottom:3px;">🍪 Cookie Notice</div>
+          <div style="font-size:8px;color:#3b82f6;margin-bottom:6px;line-height:1.4;">Logging in sets session cookies. Accept to continue.</div>
+          <div style="display:flex;gap:4px;">
+            <div style="background:#3b82f6;color:white;font-size:8px;padding:3px 8px;border-radius:3px;font-weight:600;">Accept & Continue</div>
+            <div style="background:white;color:#64748b;font-size:8px;padding:3px 8px;border-radius:3px;font-weight:600;border:1px solid #e2e8f0;">Decline</div>
+          </div>
+        </div>
+        <div style="background:#e2e8f0;height:8px;border-radius:4px;margin-bottom:4px;"></div>
+        <div style="background:#e2e8f0;height:8px;border-radius:4px;margin-bottom:4px;width:80%;"></div>
+        <div style="background:#94a3b8;height:24px;border-radius:4px;margin-top:8px;opacity:0.5;"></div>
+        <div style="font-size:7px;color:#94a3b8;text-align:center;margin-top:4px;">Sign In button disabled until accepted</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Inline Notice</h3>
+      <p>Consent box appears above the form. Sign In button stays disabled until accepted. Clean, no overlay needed.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Click a card to select, then reply in the terminal.</p>

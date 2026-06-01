@@ -164,7 +164,7 @@ func (r *AttendanceRepo) FindByDateAndClass(ctx context.Context, schoolID, class
 	if classID != "" {
 		filter["classId"] = cid
 	}
-	cur, err := r.col.Find(ctx, filter)
+	cur, err := r.col.Find(ctx, filter, options.Find().SetLimit(500))
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (r *AttendanceRepo) FindByDateAndClass(ctx context.Context, schoolID, class
 // FindBySchoolAndDate — all attendance records for a school on a specific date
 func (r *AttendanceRepo) FindBySchoolAndDate(ctx context.Context, schoolID, date string) ([]*domain.Attendance, error) {
 	sid, _ := primitive.ObjectIDFromHex(schoolID)
-	cur, err := r.col.Find(ctx, bson.M{"schoolId": sid, "date": date})
+	cur, err := r.col.Find(ctx, bson.M{"schoolId": sid, "date": date}, options.Find().SetLimit(500))
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (r *AttendanceRepo) FindByDateRange(ctx context.Context, schoolID, startDat
 		}
 		filter["date"] = dateFilter
 	}
-	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"date": 1}))
+	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"date": 1}).SetLimit(2000))
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +429,7 @@ func (r *ExamRepo) FindByTeacher(ctx context.Context, schoolID, teacherID string
 		tid, _ := primitive.ObjectIDFromHex(teacherID)
 		filter["teacherId"] = tid
 	}
-	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"examDate": -1}))
+	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"examDate": -1}).SetLimit(500))
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +509,7 @@ func NewMarkRepo(col *mongo.Collection) *MarkRepo { return &MarkRepo{col: col} }
 
 func (r *MarkRepo) FindByExam(ctx context.Context, examID string) ([]*domain.Mark, error) {
 	oid, _ := primitive.ObjectIDFromHex(examID)
-	cur, err := r.col.Find(ctx, bson.M{"examId": oid})
+	cur, err := r.col.Find(ctx, bson.M{"examId": oid}, options.Find().SetLimit(500))
 	if err != nil {
 		return nil, err
 	}
@@ -615,7 +615,7 @@ func (r *SubjectRepo) FindBySchoolAndClass(ctx context.Context, schoolID, classI
 		cid, _ := primitive.ObjectIDFromHex(classID)
 		filter["classId"] = cid
 	}
-	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"name": 1}))
+	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"name": 1}).SetLimit(500))
 	if err != nil {
 		return nil, err
 	}
@@ -680,7 +680,7 @@ func (r *AssignmentRepo) Find(ctx context.Context, schoolID, classID, teacherID 
 		tid, _ := primitive.ObjectIDFromHex(teacherID)
 		filter["teacherId"] = tid
 	}
-	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"createdAt": -1}))
+	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"createdAt": -1}).SetLimit(500))
 	if err != nil {
 		return nil, err
 	}
@@ -698,19 +698,26 @@ func (r *AssignmentRepo) Find(ctx context.Context, schoolID, classID, teacherID 
 func (r *AssignmentRepo) Create(ctx context.Context, a *domain.Assignment) (*domain.Assignment, error) {
 	sid, _ := primitive.ObjectIDFromHex(a.SchoolID)
 	tid, _ := primitive.ObjectIDFromHex(a.TeacherID)
+	status := a.Status
+	if status == "" {
+		status = "PUBLISHED"
+	}
 	doc := bson.M{
-		"_id":         primitive.NewObjectID(),
-		"schoolId":    sid,
-		"teacherId":   tid,
-		"className":   a.ClassName,
-		"title":       a.Title,
-		"description": a.Description,
-		"subject":     a.Subject,
-		"dueDate":     a.DueDate,
-		"fileData":    a.FileData,
-		"fileName":    a.FileName,
-		"createdAt":   time.Now(),
-		"updatedAt":   time.Now(),
+		"_id":          primitive.NewObjectID(),
+		"schoolId":     sid,
+		"teacherId":    tid,
+		"className":    a.ClassName,
+		"title":        a.Title,
+		"description":  a.Description,
+		"instructions": a.Instructions,
+		"subject":      a.Subject,
+		"dueDate":      a.DueDate,
+		"totalPoints":  a.TotalPoints,
+		"status":       status,
+		"fileData":     a.FileData,
+		"fileName":     a.FileName,
+		"createdAt":    time.Now(),
+		"updatedAt":    time.Now(),
 	}
 	if a.ClassID != "" {
 		cid, _ := primitive.ObjectIDFromHex(a.ClassID)
@@ -730,13 +737,19 @@ func (r *AssignmentRepo) Delete(ctx context.Context, id string) error {
 
 func assignmentFromBSON(d bson.M) *domain.Assignment {
 	a := &domain.Assignment{
-		ClassName: strVal(d, "className"),
-		Title:     strVal(d, "title"),
-		Description: strVal(d, "description"),
-		Subject:   strVal(d, "subject"),
-		DueDate:   strVal(d, "dueDate"),
-		FileName:  strVal(d, "fileName"),
-		FileData:  strVal(d, "fileData"),
+		ClassName:    strVal(d, "className"),
+		Title:        strVal(d, "title"),
+		Description:  strVal(d, "description"),
+		Instructions: strVal(d, "instructions"),
+		Subject:      strVal(d, "subject"),
+		DueDate:      strVal(d, "dueDate"),
+		TotalPoints:  floatVal(d, "totalPoints"),
+		Status:       strVal(d, "status"),
+		FileName:     strVal(d, "fileName"),
+		FileData:     strVal(d, "fileData"),
+	}
+	if a.Status == "" {
+		a.Status = "PUBLISHED"
 	}
 	if oid, ok := d["_id"].(primitive.ObjectID); ok { a.ID = oid.Hex() }
 	if oid, ok := d["schoolId"].(primitive.ObjectID); ok { a.SchoolID = oid.Hex() }
@@ -753,10 +766,12 @@ type SubmissionRepo struct{ col *mongo.Collection }
 
 func NewSubmissionRepo(col *mongo.Collection) *SubmissionRepo { return &SubmissionRepo{col: col} }
 
+func (r *SubmissionRepo) Col() *mongo.Collection { return r.col }
+
 func (r *SubmissionRepo) FindByAssignment(ctx context.Context, assignmentID string) ([]*domain.AssignmentSubmission, error) {
 	oid, _ := primitive.ObjectIDFromHex(assignmentID)
 	cur, err := r.col.Find(ctx, bson.M{"assignmentId": oid},
-		options.Find().SetSort(bson.M{"createdAt": -1}))
+		options.Find().SetSort(bson.M{"createdAt": -1}).SetLimit(500))
 	if err != nil {
 		return nil, err
 	}
@@ -771,10 +786,10 @@ func (r *SubmissionRepo) FindByAssignment(ctx context.Context, assignmentID stri
 	return list, cur.Err()
 }
 
-func (r *SubmissionRepo) Grade(ctx context.Context, id, grade, feedback string) (*domain.AssignmentSubmission, error) {
+func (r *SubmissionRepo) Grade(ctx context.Context, id string, gradePoints float64, gradeComment string) (*domain.AssignmentSubmission, error) {
 	oid, _ := primitive.ObjectIDFromHex(id)
 	res := r.col.FindOneAndUpdate(ctx, bson.M{"_id": oid},
-		bson.M{"$set": bson.M{"grade": grade, "feedback": feedback, "status": "graded", "updatedAt": time.Now()}},
+		bson.M{"$set": bson.M{"gradePoints": gradePoints, "gradeComment": gradeComment, "status": "GRADED", "updatedAt": time.Now()}},
 		options.FindOneAndUpdate().SetReturnDocument(options.After))
 	var d bson.M
 	if err := res.Decode(&d); err != nil {
@@ -785,17 +800,21 @@ func (r *SubmissionRepo) Grade(ctx context.Context, id, grade, feedback string) 
 
 func submissionFromBSON(d bson.M) *domain.AssignmentSubmission {
 	s := &domain.AssignmentSubmission{
-		StudentName: strVal(d, "studentName"),
-		FileName:    strVal(d, "fileName"),
-		FileData:    strVal(d, "fileData"),
-		Status:      strVal(d, "status"),
-		Grade:       strVal(d, "grade"),
-		Feedback:    strVal(d, "feedback"),
+		StudentName:  strVal(d, "studentName"),
+		Content:      strVal(d, "content"),
+		FileName:     strVal(d, "fileName"),
+		FileData:     strVal(d, "fileData"),
+		Status:       strVal(d, "status"),
+		GradeComment: strVal(d, "gradeComment"),
+	}
+	if v, ok := d["gradePoints"].(float64); ok {
+		s.GradePoints = &v
 	}
 	if oid, ok := d["_id"].(primitive.ObjectID); ok { s.ID = oid.Hex() }
 	if oid, ok := d["assignmentId"].(primitive.ObjectID); ok { s.AssignmentID = oid.Hex() }
 	if oid, ok := d["studentId"].(primitive.ObjectID); ok { s.StudentID = oid.Hex() }
 	if ts, ok := d["createdAt"].(primitive.DateTime); ok { s.CreatedAt = ts.Time() }
+	if ts, ok := d["submittedAt"].(primitive.DateTime); ok { t := ts.Time(); s.SubmittedAt = &t }
 	return s
 }
 
@@ -812,7 +831,7 @@ func (r *MaterialRepo) Find(ctx context.Context, schoolID, classID string) ([]*d
 		cid, _ := primitive.ObjectIDFromHex(classID)
 		filter["classId"] = cid
 	}
-	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"createdAt": -1}))
+	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"createdAt": -1}).SetLimit(500))
 	if err != nil {
 		return nil, err
 	}
@@ -830,6 +849,10 @@ func (r *MaterialRepo) Find(ctx context.Context, schoolID, classID string) ([]*d
 func (r *MaterialRepo) Create(ctx context.Context, m *domain.Material) (*domain.Material, error) {
 	sid, _ := primitive.ObjectIDFromHex(m.SchoolID)
 	tid, _ := primitive.ObjectIDFromHex(m.TeacherID)
+	matType := m.Type
+	if matType == "" {
+		matType = m.FileType
+	}
 	doc := bson.M{
 		"_id":         primitive.NewObjectID(),
 		"schoolId":    sid,
@@ -838,9 +861,10 @@ func (r *MaterialRepo) Create(ctx context.Context, m *domain.Material) (*domain.
 		"title":       m.Title,
 		"description": m.Description,
 		"subject":     m.Subject,
+		"type":        matType,
+		"url":         m.URL,
 		"fileData":    m.FileData,
 		"fileName":    m.FileName,
-		"fileType":    m.FileType,
 		"createdAt":   time.Now(),
 		"updatedAt":   time.Now(),
 	}
@@ -861,14 +885,20 @@ func (r *MaterialRepo) Delete(ctx context.Context, id string) error {
 }
 
 func materialFromBSON(d bson.M) *domain.Material {
+	matType := strVal(d, "type")
+	if matType == "" {
+		matType = strVal(d, "fileType")
+	}
 	m := &domain.Material{
 		ClassName:   strVal(d, "className"),
 		Title:       strVal(d, "title"),
 		Description: strVal(d, "description"),
 		Subject:     strVal(d, "subject"),
+		Type:        matType,
+		FileType:    matType,
+		URL:         strVal(d, "url"),
 		FileName:    strVal(d, "fileName"),
 		FileData:    strVal(d, "fileData"),
-		FileType:    strVal(d, "fileType"),
 	}
 	if oid, ok := d["_id"].(primitive.ObjectID); ok { m.ID = oid.Hex() }
 	if oid, ok := d["schoolId"].(primitive.ObjectID); ok { m.SchoolID = oid.Hex() }

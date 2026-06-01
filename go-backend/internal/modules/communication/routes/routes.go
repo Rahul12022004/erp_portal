@@ -15,13 +15,12 @@ func Register(app *fiber.App) {
 	h     := handlers.New(aRepo, cRepo)
 	auth  := middleware.Authenticate
 
-	ann := app.Group("/api/announcements", auth)
-	ann.Get("",           h.ListAnnouncements)
-	ann.Post("/ai-draft", h.AIDraftAnnouncement)
-	ann.Post("",          h.CreateAnnouncement)
-	ann.Delete("/:id",    h.DeleteAnnouncement)
+	// literal /ai-draft before base POST
+	app.Get("/api/announcements",           auth, h.ListAnnouncements)
+	app.Post("/api/announcements/ai-draft", auth, h.AIDraftAnnouncement)
+	app.Post("/api/announcements",          auth, h.CreateAnnouncement)
+	app.Delete("/api/announcements/:id",    auth, h.DeleteAnnouncement)
 
-	cam := app.Group("/api/campaigns", auth)
-	cam.Get("",  h.ListCampaigns)
-	cam.Post("", h.CreateCampaign)
+	app.Get("/api/campaigns",  auth, h.ListCampaigns)
+	app.Post("/api/campaigns", auth, h.CreateCampaign)
 }

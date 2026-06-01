@@ -1,0 +1,63 @@
+<h2>Bottom Banner — Final Design</h2>
+<p class="subtitle">Approve the look and text before we build it</p>
+
+<div class="mockup">
+  <div class="mockup-header">Login page with cookie banner</div>
+  <div class="mockup-body" style="background:#f1f5f9;padding:0;overflow:hidden;border-radius:0 0 8px 8px;">
+
+    <!-- Simulated login card -->
+    <div style="padding:24px;display:flex;justify-content:center;">
+      <div style="background:white;border-radius:20px;padding:24px;width:280px;box-shadow:8px 8px 16px rgba(0,0,0,0.1),-8px -8px 16px rgba(255,255,255,0.9);">
+        <div style="text-align:center;margin-bottom:16px;">
+          <div style="width:56px;height:56px;border-radius:50%;background:#e0f2fe;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:24px;">🏫</div>
+          <div style="font-size:14px;font-weight:600;color:#1e293b;">Your School</div>
+          <div style="font-size:11px;color:#94a3b8;">Administrator</div>
+        </div>
+        <div style="background:#e2e8f0;height:32px;border-radius:6px;margin-bottom:8px;"></div>
+        <div style="background:#e2e8f0;height:32px;border-radius:6px;margin-bottom:12px;"></div>
+        <!-- Sign In button — greyed out when declined -->
+        <div id="btn-preview" style="background:#94a3b8;color:white;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;transition:all 0.3s;">
+          Sign In
+        </div>
+        <div id="btn-msg" style="font-size:9px;color:#ef4444;text-align:center;margin-top:4px;display:none;">Accept cookies to continue</div>
+      </div>
+    </div>
+
+    <!-- Cookie Banner -->
+    <div id="cookie-banner" style="background:#1e293b;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:18px;">🍪</span>
+      <div style="flex:1;min-width:160px;">
+        <div style="font-size:11px;font-weight:600;color:white;margin-bottom:2px;">We use cookies</div>
+        <div style="font-size:10px;color:#94a3b8;line-height:1.4;">This portal uses essential cookies to manage your login session and keep you signed in securely.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button onclick="
+          document.getElementById('btn-preview').style.background='#2563eb';
+          document.getElementById('btn-msg').style.display='none';
+          document.getElementById('cookie-banner').style.display='none';
+        " style="background:#3b82f6;color:white;border:none;padding:7px 16px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">
+          Accept
+        </button>
+        <button onclick="
+          document.getElementById('btn-preview').style.background='#94a3b8';
+          document.getElementById('btn-msg').style.display='block';
+        " style="background:#334155;color:#cbd5e1;border:none;padding:7px 16px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">
+          Decline
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px;">
+  <div class="label">Behaviour summary</div>
+  <ul style="font-size:13px;color:#475569;margin-top:8px;line-height:2;">
+    <li>Banner appears at bottom of login page on first visit</li>
+    <li><strong>Accept</strong> → banner hides, Sign In enabled, choice saved in localStorage</li>
+    <li><strong>Decline</strong> → Sign In stays disabled, red hint shown</li>
+    <li>On next visit, if accepted before → banner skipped automatically</li>
+  </ul>
+</div>
+
+<p class="subtitle">Try the Accept / Decline buttons above. Reply in terminal to approve or request changes.</p>

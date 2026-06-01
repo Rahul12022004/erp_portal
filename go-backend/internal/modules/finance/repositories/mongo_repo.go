@@ -332,6 +332,270 @@ func paymentFromBSON(d bson.M) *domain.StudentFeePayment {
 	return p
 }
 
+// ─── Finance (Salary) Repo ────────────────────────────────────────────────────
+
+type FinanceRepo struct{ col *mongo.Collection }
+
+func NewFinanceRepo(col *mongo.Collection) *FinanceRepo { return &FinanceRepo{col: col} }
+
+func (r *FinanceRepo) FindBySchool(ctx context.Context, schoolID, finType string) ([]*domain.Finance, error) {
+	oid, _ := primitive.ObjectIDFromHex(schoolID)
+	filter := bson.M{"schoolId": oid}
+	if finType != "" {
+		filter["type"] = finType
+	}
+	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"createdAt": -1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+	var list []*domain.Finance
+	for cur.Next(ctx) {
+		var d bson.M
+		if err := cur.Decode(&d); err == nil {
+			list = append(list, financeFromBSON(d))
+		}
+	}
+	return list, cur.Err()
+}
+
+func (r *FinanceRepo) FindBySchoolAndStaff(ctx context.Context, schoolID, staffID, finType string) ([]*domain.Finance, error) {
+	oid, _ := primitive.ObjectIDFromHex(schoolID)
+	filter := bson.M{"schoolId": oid, "staffId": staffID}
+	if finType != "" {
+		filter["type"] = finType
+	}
+	cur, err := r.col.Find(ctx, filter, options.Find().SetSort(bson.M{"createdAt": -1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+	var list []*domain.Finance
+	for cur.Next(ctx) {
+		var d bson.M
+		if err := cur.Decode(&d); err == nil {
+			list = append(list, financeFromBSON(d))
+		}
+	}
+	return list, cur.Err()
+}
+
+func (r *FinanceRepo) FindByID(ctx context.Context, id string) (*domain.Finance, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+	var d bson.M
+	if err := r.col.FindOne(ctx, bson.M{"_id": oid}).Decode(&d); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return financeFromBSON(d), nil
+}
+
+func (r *FinanceRepo) FindByStaff(ctx context.Context, schoolID, staffID string) (*domain.Finance, error) {
+	sid, _ := primitive.ObjectIDFromHex(schoolID)
+	stid, _ := primitive.ObjectIDFromHex(staffID)
+	var d bson.M
+	err := r.col.FindOne(ctx, bson.M{"schoolId": sid, "staffId": stid, "type": "staff_salary"},
+		options.FindOne().SetSort(bson.M{"createdAt": -1})).Decode(&d)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return financeFromBSON(d), nil
+}
+
+func (r *FinanceRepo) Create(ctx context.Context, f *domain.Finance) (*domain.Finance, error) {
+	sid, _ := primitive.ObjectIDFromHex(f.SchoolID)
+	doc := bson.M{
+		"_id":          primitive.NewObjectID(),
+		"schoolId":     sid,
+		"type":         f.Type,
+		"amount":       f.Amount,
+		"paidAmount":   f.PaidAmount,
+		"status":       f.Status,
+		"academicYear": f.AcademicYear,
+		"description":  f.Description,
+		"paymentDate":  f.PaymentDate,
+		"paymentHistory": []interface{}{},
+		"createdAt":    time.Now(),
+		"updatedAt":    time.Now(),
+	}
+	if f.StaffID != "" {
+		stid, _ := primitive.ObjectIDFromHex(f.StaffID)
+		doc["staffId"] = stid
+	}
+	if _, err := r.col.InsertOne(ctx, doc); err != nil {
+		return nil, err
+	}
+	return financeFromBSON(doc), nil
+}
+
+func (r *FinanceRepo) Update(ctx context.Context, id string, updates bson.M) (*domain.Finance, error) {
+	oid, _ := primitive.ObjectIDFromHex(id)
+	updates["updatedAt"] = time.Now()
+	res := r.col.FindOneAndUpdate(ctx, bson.M{"_id": oid}, bson.M{"$set": updates},
+		options.FindOneAndUpdate().SetReturnDocument(options.After))
+	var d bson.M
+	if err := res.Decode(&d); err != nil {
+		return nil, err
+	}
+	return financeFromBSON(d), nil
+}
+
+func (r *FinanceRepo) PushPaymentHistory(ctx context.Context, id string, entry domain.PaymentHistoryItem) error {
+	oid, _ := primitive.ObjectIDFromHex(id)
+	_, err := r.col.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$push": bson.M{"paymentHistory": bson.M{
+		"receiptNumber": entry.ReceiptNumber,
+		"transactionId": entry.TransactionID,
+		"paymentDate":   entry.PaymentDate,
+		"amountPaid":    entry.AmountPaid,
+		"paymentType":   entry.PaymentType,
+		"sentToEmail":   entry.SentToEmail,
+		"createdAt":     entry.CreatedAt,
+	}}})
+	return err
+}
+
+func financeFromBSON(d bson.M) *domain.Finance {
+	f := &domain.Finance{
+		Type:         strVal(d, "type"),
+		Amount:       floatVal(d, "amount"),
+		PaidAmount:   floatVal(d, "paidAmount"),
+		Status:       strVal(d, "status"),
+		PaymentDate:  strVal(d, "paymentDate"),
+		AcademicYear: strVal(d, "academicYear"),
+		Description:  strVal(d, "description"),
+		Remarks:      strVal(d, "remarks"),
+	}
+	if oid, ok := d["_id"].(primitive.ObjectID); ok {
+		f.ID = oid.Hex()
+	}
+	if oid, ok := d["schoolId"].(primitive.ObjectID); ok {
+		f.SchoolID = oid.Hex()
+	}
+	if oid, ok := d["staffId"].(primitive.ObjectID); ok {
+		f.StaffID = oid.Hex()
+	}
+	if ph, ok := d["paymentHistory"].(primitive.A); ok {
+		for _, item := range ph {
+			if m, ok := item.(bson.M); ok {
+				f.PaymentHistory = append(f.PaymentHistory, domain.PaymentHistoryItem{
+					ReceiptNumber: strVal(m, "receiptNumber"),
+					TransactionID: strVal(m, "transactionId"),
+					PaymentDate:   strVal(m, "paymentDate"),
+					AmountPaid:    floatVal(m, "amountPaid"),
+					PaymentType:   strVal(m, "paymentType"),
+					SentToEmail:   boolVal(m, "sentToEmail"),
+					CreatedAt:     strVal(m, "createdAt"),
+				})
+			}
+		}
+	}
+	return f
+}
+
+// ─── InvestorLedger Repo ──────────────────────────────────────────────────────
+
+type InvestorRepo struct{ col *mongo.Collection }
+
+func NewInvestorRepo(col *mongo.Collection) *InvestorRepo { return &InvestorRepo{col: col} }
+
+func (r *InvestorRepo) FindBySchool(ctx context.Context, schoolID string) ([]*domain.InvestorLedger, error) {
+	oid, _ := primitive.ObjectIDFromHex(schoolID)
+	cur, err := r.col.Find(ctx, bson.M{"schoolId": oid}, options.Find().SetSort(bson.M{"createdAt": -1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+	var list []*domain.InvestorLedger
+	for cur.Next(ctx) {
+		var d bson.M
+		if err := cur.Decode(&d); err == nil {
+			list = append(list, investorFromBSON(d))
+		}
+	}
+	return list, cur.Err()
+}
+
+func (r *InvestorRepo) Create(ctx context.Context, inv *domain.InvestorLedger) (*domain.InvestorLedger, error) {
+	sid, _ := primitive.ObjectIDFromHex(inv.SchoolID)
+	txs := make([]interface{}, 0)
+	for _, tx := range inv.Transactions {
+		txs = append(txs, bson.M{
+			"_id": primitive.NewObjectID(),
+			"type": tx.Type, "amount": tx.Amount, "date": tx.Date, "note": tx.Note,
+		})
+	}
+	doc := bson.M{
+		"_id":          primitive.NewObjectID(),
+		"schoolId":     sid,
+		"investorName": inv.InvestorName,
+		"investorType": inv.InvestorType,
+		"contact":      inv.Contact,
+		"description":  inv.Description,
+		"status":       inv.Status,
+		"transactions": txs,
+		"createdAt":    time.Now(),
+	}
+	if _, err := r.col.InsertOne(ctx, doc); err != nil {
+		return nil, err
+	}
+	return investorFromBSON(doc), nil
+}
+
+func (r *InvestorRepo) AddTransaction(ctx context.Context, id string, tx domain.InvestorTx) error {
+	oid, _ := primitive.ObjectIDFromHex(id)
+	_, err := r.col.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$push": bson.M{"transactions": bson.M{
+		"_id": primitive.NewObjectID(), "type": tx.Type, "amount": tx.Amount, "date": tx.Date, "note": tx.Note,
+	}}})
+	return err
+}
+
+func (r *InvestorRepo) Delete(ctx context.Context, id string) error {
+	oid, _ := primitive.ObjectIDFromHex(id)
+	_, err := r.col.DeleteOne(ctx, bson.M{"_id": oid})
+	return err
+}
+
+func investorFromBSON(d bson.M) *domain.InvestorLedger {
+	inv := &domain.InvestorLedger{
+		InvestorName: strVal(d, "investorName"),
+		InvestorType: strVal(d, "investorType"),
+		Contact:      strVal(d, "contact"),
+		Description:  strVal(d, "description"),
+		Status:       strVal(d, "status"),
+	}
+	if oid, ok := d["_id"].(primitive.ObjectID); ok {
+		inv.ID = oid.Hex()
+	}
+	if oid, ok := d["schoolId"].(primitive.ObjectID); ok {
+		inv.SchoolID = oid.Hex()
+	}
+	if txs, ok := d["transactions"].(primitive.A); ok {
+		for _, item := range txs {
+			if m, ok := item.(bson.M); ok {
+				tx := domain.InvestorTx{
+					Type:   strVal(m, "type"),
+					Amount: floatVal(m, "amount"),
+					Date:   strVal(m, "date"),
+					Note:   strVal(m, "note"),
+				}
+				if oid, ok := m["_id"].(primitive.ObjectID); ok {
+					tx.ID = oid.Hex()
+				}
+				inv.Transactions = append(inv.Transactions, tx)
+			}
+		}
+	}
+	return inv
+}
+
 // ─── bson helpers ─────────────────────────────────────────────────────────────
 
 func strVal(d bson.M, k string) string {
@@ -351,4 +615,11 @@ func floatVal(d bson.M, k string) float64 {
 		return float64(v)
 	}
 	return 0
+}
+
+func boolVal(d bson.M, k string) bool {
+	if v, ok := d[k].(bool); ok {
+		return v
+	}
+	return false
 }

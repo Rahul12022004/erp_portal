@@ -103,7 +103,23 @@
       "Bash(netstat -ano)",
       "Bash(powershell.exe \"Get-Process -Id 9352 | Select-Object Id,Name,Path\")",
       "Bash(tasklist /fi \"PID eq 9352\")",
-      "Bash(security\\\\+page\")"
+      "Bash(security\\\\+page\")",
+      "Bash(Select-String -Path \"src/routes/\\(app\\)/school/+page.svelte\" -Pattern \"authedFetch|fetch\\\\\\('/api|fetch\\\\\\(\\\\`/api\")",
+      "Bash(Select-String -Path \"src/routes/\\(app\\)/school/+page.svelte\" -Pattern \"authedFetch\")",
+      "PowerShell(Select-String -Path \"C:\\\\Users\\\\JAY\\\\OneDrive\\\\Desktop\\\\erp\\\\erp_portal\\\\frontend-svelte\\\\src\\\\routes\\\\\\(app\\)\\\\school\\\\+page.svelte\" -Pattern \"normalizeLeave\\\\b\" | Where-Object { $_.Line -notmatch \"normalizeLeaves\" })",
+      "PowerShell(git *)",
+      "Bash(C:\\\\Users\\\\JAY\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\skills\\\\brainstorming\\\\scripts\\\\start-server.sh *)",
+      "PowerShell(bash \"C:/Users/JAY/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/JAY/OneDrive/Desktop/erp/erp_portal\")",
+      "Bash(bash *)",
+      "Bash(go version *)",
+      "Bash(Get-Content go.mod)",
+      "PowerShell(cd \"C:\\\\Users\\\\JAY\\\\OneDrive\\\\Desktop\\\\erp\\\\erp_portal\\\\go-backend\"; $t = Measure-Command { go build -o bin/server.exe ./cmd/server 2>&1 }; \"Build time: $\\($t.TotalSeconds\\)s\")",
+      "PowerShell(go install *)",
+      "PowerShell(air *)",
+      "Bash(npx vite *)",
+      "Bash(tasklist /FI \"PID eq 6636\" /FO CSV)",
+      "Bash(tasklist /FI \"PID eq 3836\" /FO CSV)",
+      "Bash(Get-ChildItem *)"
     ]
   }
 }

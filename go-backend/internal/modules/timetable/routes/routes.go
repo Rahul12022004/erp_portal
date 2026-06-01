@@ -14,10 +14,9 @@ func Register(app *fiber.App) {
 	h    := handlers.New(repo)
 	auth := middleware.Authenticate
 
-	g := app.Group("/api/timetable", auth)
-	g.Get("/slots",       h.ListSlots)
-	g.Post("/slots",      h.CreateSlot)
-	g.Get("/periods",     h.ListPeriods)
-	g.Post("/periods",    h.UpsertPeriod)
-	g.Delete("/periods/:id", h.DeletePeriod)
+	app.Get("/api/timetable/slots",          auth, h.ListSlots)
+	app.Post("/api/timetable/slots",         auth, h.CreateSlot)
+	app.Get("/api/timetable/periods",        auth, h.ListPeriods)
+	app.Post("/api/timetable/periods",       auth, h.UpsertPeriod)
+	app.Delete("/api/timetable/periods/:id", auth, h.DeletePeriod)
 }

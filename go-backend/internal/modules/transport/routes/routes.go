@@ -14,10 +14,9 @@ func Register(app *fiber.App) {
 	h    := handlers.New(repo)
 	auth := middleware.Authenticate
 
-	g := app.Group("/api/transport", auth)
-	g.Get("",      h.List)
-	g.Get("/:id",  h.Get)
-	g.Post("",     h.Create)
-	g.Put("/:id",  h.Update)
-	g.Delete("/:id", h.Delete)
+	app.Get("/api/transport",        auth, h.List)
+	app.Get("/api/transport/:id",    auth, h.Get)
+	app.Post("/api/transport",       auth, h.Create)
+	app.Put("/api/transport/:id",    auth, h.Update)
+	app.Delete("/api/transport/:id", auth, h.Delete)
 }

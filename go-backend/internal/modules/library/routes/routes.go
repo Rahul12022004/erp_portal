@@ -15,15 +15,13 @@ func Register(app *fiber.App) {
 	h     := handlers.New(bRepo, aRepo)
 	auth  := middleware.Authenticate
 
-	books := app.Group("/api/library/books", auth)
-	books.Get("",      h.ListBooks)
-	books.Get("/:id",  h.GetBook)
-	books.Post("",     h.CreateBook)
-	books.Put("/:id",  h.UpdateBook)
-	books.Delete("/:id", h.DeleteBook)
+	app.Get("/api/library/books",       auth, h.ListBooks)
+	app.Get("/api/library/books/:id",   auth, h.GetBook)
+	app.Post("/api/library/books",      auth, h.CreateBook)
+	app.Put("/api/library/books/:id",   auth, h.UpdateBook)
+	app.Delete("/api/library/books/:id", auth, h.DeleteBook)
 
-	issues := app.Group("/api/library/assignments", auth)
-	issues.Get("",                h.ListAssignments)
-	issues.Post("",               h.IssueBook)
-	issues.Patch("/:id/return",   h.ReturnBook)
+	app.Get("/api/library/assignments",              auth, h.ListAssignments)
+	app.Post("/api/library/assignments",             auth, h.IssueBook)
+	app.Patch("/api/library/assignments/:id/return", auth, h.ReturnBook)
 }

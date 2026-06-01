@@ -3,39 +3,37 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/erp-portal/go-backend/internal/core/db"
 	"github.com/erp-portal/go-backend/internal/core/middleware"
 	"github.com/erp-portal/go-backend/internal/modules/school/handlers"
 	"github.com/erp-portal/go-backend/internal/modules/school/repositories"
 	"github.com/erp-portal/go-backend/internal/modules/school/services"
-	"github.com/erp-portal/go-backend/internal/core/db"
 )
 
-// Register mounts all school routes onto the Fiber app.
+// Register mounts all school routes directly on app to avoid Fiber v2 group routing bugs.
 func Register(app *fiber.App) {
 	repo := repositories.NewMongoSchoolRepo(db.Col("schools"))
 	svc  := services.New(repo)
 	h    := handlers.New(svc, db.Col("auditlogs"))
 
-	// Public — self-service school registration
+	auth  := middleware.Authenticate
+	admin := middleware.SuperAdmin()
+
+	// Public
 	app.Post("/api/schools/register", h.Register)
+	// Auth required: GetByID returns sensitive school metadata (plan, modules, geofence)
+	app.Get("/api/schools/:id", auth, h.GetByID)
 
-	// Public — used by the Svelte sidebar to fetch school data
-	schools := app.Group("/api/schools")
-	schools.Get("/:id",  h.GetByID)
+	// School-admin — geofence
+	app.Put("/api/schools/:id/location",        auth, h.UpdateLocation)
+	app.Patch("/api/schools/:id/location-lock", auth, h.UpdateLocationLock)
 
-	// School-admin authenticated — geofence management
-	auth := app.Group("/api/schools", middleware.Authenticate)
-	auth.Put("/:id/location",        h.UpdateLocation)
-	auth.Patch("/:id/location-lock", h.UpdateLocationLock)
-
-	// Protected — super-admin only
-	adm := app.Group("/api/schools", middleware.Authenticate, middleware.SuperAdmin())
-	adm.Get("",              h.List)
-	adm.Post("",             h.Create)
-	// Specific verb routes BEFORE the generic /:id to avoid shadowing
-	adm.Put("/toggle/:id",   h.Toggle)
-	adm.Put("/upgrade/:id",  h.Upgrade)
-	adm.Put("/renew/:id",    h.Renew)
-	adm.Put("/:id",          h.Update)
-	adm.Delete("/:id",       h.Delete)
+	// Super-admin — literal paths before parameterised :id to prevent shadowing
+	app.Get("/api/schools",                auth, admin, h.List)
+	app.Post("/api/schools",               auth, admin, h.Create)
+	app.Put("/api/schools/toggle/:id",     auth, admin, h.Toggle)
+	app.Put("/api/schools/upgrade/:id",    auth, admin, h.Upgrade)
+	app.Put("/api/schools/renew/:id",      auth, admin, h.Renew)
+	app.Put("/api/schools/:id",            auth, admin, h.Update)
+	app.Delete("/api/schools/:id",         auth, admin, h.Delete)
 }

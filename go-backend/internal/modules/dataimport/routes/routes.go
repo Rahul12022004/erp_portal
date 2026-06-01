@@ -12,11 +12,10 @@ func Register(app *fiber.App) {
 	h    := handlers.New(db.Col("import_history"))
 	auth := middleware.Authenticate
 
-	di := app.Group("/api/data-import", auth)
-	di.Post("/preview",          h.Preview)
-	di.Post("/validate",         h.Validate)
-	di.Post("/import",           h.Import)
-	di.Get("/history/:schoolId", h.History)
-	di.Post("/rollback/:batchId", h.Rollback)
-	di.Post("/reimport/:batchId", h.Reimport)
+	app.Post("/api/data-import/preview",          auth, h.Preview)
+	app.Post("/api/data-import/validate",         auth, h.Validate)
+	app.Post("/api/data-import/import",           auth, h.Import)
+	app.Get("/api/data-import/history/:schoolId", auth, h.History)
+	app.Post("/api/data-import/rollback/:batchId", auth, h.Rollback)
+	app.Post("/api/data-import/reimport/:batchId", auth, h.Reimport)
 }

@@ -275,6 +275,7 @@
       loading = true; error = '';
       activeSchoolId = schoolId;
       dismissedIds = loadDismissed(schoolId);
+      const minDelay = new Promise<void>((r) => setTimeout(r, 300));
 
       // Go: GET /api/analytics/dashboard?schoolId= → { success, data: { students, staff, feeCollection } }
       const analyticsP = api
@@ -290,7 +291,9 @@
       const examsP = api.get(ENDPOINTS.exams.bySchool(schoolId)).catch(() => null);
 
       const [analyticsJson, classesJson, annJson, feeTrendJson, examsJson] =
-        await Promise.all([analyticsP, classesP, annP, feeTrendP, examsP]);
+        await Promise.all([analyticsP, classesP, annP, feeTrendP, examsP, minDelay]).then(
+          ([a, b, c, d, e]) => [a, b, c, d, e],
+        );
 
       let totalStudents = 0, totalTeachers = 0;
       if (analyticsJson) {

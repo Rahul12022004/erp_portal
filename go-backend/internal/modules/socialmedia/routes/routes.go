@@ -14,9 +14,8 @@ func Register(app *fiber.App) {
 	h    := handlers.New(repo)
 	auth := middleware.Authenticate
 
-	sm := app.Group("/api/social-media", auth)
-	sm.Get("/:schoolId", h.List)
-	sm.Post("",          h.Create)
-	sm.Put("/:id",       h.Update)
-	sm.Delete("/:id",    h.Delete)
+	app.Get("/api/social-media/:schoolId", auth, h.List)
+	app.Post("/api/social-media",          auth, h.Create)
+	app.Put("/api/social-media/:id",       auth, h.Update)
+	app.Delete("/api/social-media/:id",    auth, h.Delete)
 }

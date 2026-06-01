@@ -14,16 +14,13 @@ func Register(app *fiber.App) {
 	h    := handlers.NewWithLogs(repo, db.Col("auditlogs"), db.Col("globalsettings"))
 	auth := middleware.Authenticate
 
-	g := app.Group("/api/settings", auth)
-	g.Get("",  h.Get)
-	g.Put("",  h.Upsert)
-	g.Get("/global-modules", h.GetGlobalModules)
-	g.Put("/global-modules", middleware.SuperAdmin(), h.PutGlobalModules)
+	// Settings — literal /global-modules before base path
+	app.Get("/api/settings/global-modules",  auth, h.GetGlobalModules)
+	app.Put("/api/settings/global-modules",  auth, middleware.SuperAdmin(), h.PutGlobalModules)
+	app.Get("/api/settings",                 auth, h.Get)
+	app.Put("/api/settings",                 auth, h.Upsert)
 
-	// General platform config — public GET, super-admin PUT, registered outside any group
 	app.Get("/api/admin/config", h.GetGeneral)
 	app.Put("/api/admin/config", auth, middleware.SuperAdmin(), h.PutGeneral)
-
-	// Audit logs — return from logs collection
-	app.Get("/api/logs", auth, h.ListLogs)
+	app.Get("/api/logs",         auth, h.ListLogs)
 }

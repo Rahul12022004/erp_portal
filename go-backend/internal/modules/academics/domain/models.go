@@ -80,33 +80,40 @@ type Attendance struct {
 }
 
 type Assignment struct {
-	ID          string    `json:"_id"`
-	SchoolID    string    `json:"schoolId"`
-	ClassID     string    `json:"classId"`
-	ClassName   string    `json:"className"`
-	TeacherID   string    `json:"teacherId"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Subject     string    `json:"subject"`
-	DueDate     string    `json:"dueDate"`
-	FileData    string    `json:"fileData"`
-	FileName    string    `json:"fileName"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID                string    `json:"_id"`
+	SchoolID          string    `json:"schoolId"`
+	ClassID           string    `json:"classId"`
+	ClassName         string    `json:"className"`
+	TeacherID         string    `json:"teacherId"`
+	Title             string    `json:"title"`
+	Description       string    `json:"description"`
+	Instructions      string    `json:"instructions"`
+	Subject           string    `json:"subject"`
+	DueDate           string    `json:"dueDate"`
+	TotalPoints       float64   `json:"totalPoints"`
+	Status            string    `json:"status"`
+	SubmissionsTotal  int       `json:"submissionsTotal"`
+	SubmissionsGraded int       `json:"submissionsGraded"`
+	FileData          string    `json:"fileData"`
+	FileName          string    `json:"fileName"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
 type AssignmentSubmission struct {
-	ID           string    `json:"_id"`
-	AssignmentID string    `json:"assignmentId"`
-	StudentID    string    `json:"studentId"`
-	StudentName  string    `json:"studentName"`
-	FileData     string    `json:"fileData"`
-	FileName     string    `json:"fileName"`
-	Status       string    `json:"status"`
-	Grade        string    `json:"grade"`
-	Feedback     string    `json:"feedback"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID           string     `json:"_id"`
+	AssignmentID string     `json:"assignmentId"`
+	StudentID    string     `json:"studentId"`
+	StudentName  string     `json:"studentName"`
+	Content      string     `json:"content"`
+	FileData     string     `json:"fileData"`
+	FileName     string     `json:"fileName"`
+	Status       string     `json:"status"`
+	GradePoints  *float64   `json:"gradePoints"`
+	GradeComment string     `json:"gradeComment"`
+	SubmittedAt  *time.Time `json:"submittedAt"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
 type Material struct {
@@ -118,6 +125,8 @@ type Material struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	Subject     string    `json:"subject"`
+	Type        string    `json:"type"`
+	URL         string    `json:"url"`
 	FileData    string    `json:"fileData"`
 	FileName    string    `json:"fileName"`
 	FileType    string    `json:"fileType"`

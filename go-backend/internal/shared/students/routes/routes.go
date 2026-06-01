@@ -17,10 +17,9 @@ func Register(app *fiber.App) {
 
 	auth := middleware.Authenticate
 
-	g := app.Group("/api/students", auth)
-	g.Get("/:schoolId",   h.List)
-	g.Get("/detail/:id",  h.GetByID)
-	g.Post("",            h.Create)
-	g.Put("/:id",         h.Update)
-	g.Delete("/:id",      h.Delete)
+	app.Get("/api/students/detail/:id", auth, h.GetByID) // literal before param
+	app.Get("/api/students/:schoolId",  auth, h.List)
+	app.Post("/api/students",           auth, h.Create)
+	app.Put("/api/students/:id",        auth, h.Update)
+	app.Delete("/api/students/:id",     auth, h.Delete)
 }

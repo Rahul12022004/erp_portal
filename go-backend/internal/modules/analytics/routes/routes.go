@@ -17,12 +17,10 @@ func Register(app *fiber.App) {
 	)
 	auth := middleware.Authenticate
 
-	g := app.Group("/api/analytics", auth)
-	g.Get("/dashboard",            h.Dashboard)
-	g.Get("/enrollment/trend",     h.EnrollmentTrend)
-	g.Get("/fee/trend",            h.FeeCollectionTrend)
-	g.Get("/attendance/rate",      h.AttendanceRate)
+	app.Get("/api/analytics/dashboard",           auth, h.Dashboard)
+	app.Get("/api/analytics/enrollment/trend",    auth, h.EnrollmentTrend)
+	app.Get("/api/analytics/fee/trend",           auth, h.FeeCollectionTrend)
+	app.Get("/api/analytics/attendance/rate",     auth, h.AttendanceRate)
 
-	dash := app.Group("/api/dashboard", auth)
-	dash.Get("/teacher/:schoolId/:teacherId", h.TeacherDashboard)
+	app.Get("/api/dashboard/teacher/:schoolId/:teacherId", auth, h.TeacherDashboard)
 }

@@ -14,8 +14,7 @@ func Register(app *fiber.App) {
 	h    := handlers.New(repo)
 	auth := middleware.Authenticate
 
-	g := app.Group("/api/visitors", auth)
-	g.Get("",              h.List)
-	g.Post("",             h.CheckIn)
-	g.Patch("/:id/checkout", h.CheckOut)
+	app.Get("/api/visitors",              auth, h.List)
+	app.Post("/api/visitors",             auth, h.CheckIn)
+	app.Patch("/api/visitors/:id/checkout", auth, h.CheckOut)
 }
