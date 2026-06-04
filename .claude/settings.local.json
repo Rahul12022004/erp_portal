@@ -119,7 +119,17 @@
       "Bash(npx vite *)",
       "Bash(tasklist /FI \"PID eq 6636\" /FO CSV)",
       "Bash(tasklist /FI \"PID eq 3836\" /FO CSV)",
-      "Bash(Get-ChildItem *)"
+      "Bash(Get-ChildItem *)",
+      "Read(//c/Users/JAY/OneDrive/Desktop/erp/**)",
+      "Bash(go work *)",
+      "Bash(GONOSUMCHECK=\"github.com/Rahul2004-1977/*\" go build github.com/Rahul2004-1977/library-service/...)",
+      "Bash(GOPROXY=off GONOSUMDB=\"*\" go build github.com/Rahul2004-1977/library-service/...)",
+      "Bash(GOWORK=\"\" go mod tidy)",
+      "Bash(chmod +x *)",
+      "Bash(gh auth *)",
+      "PowerShell(gh auth *)",
+      "Bash(go vet *)",
+      "PowerShell(gh *)"
     ]
   }
 }
